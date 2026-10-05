@@ -5,7 +5,7 @@
 // dropped connection, a discarded tab or a browser restart does not lose text.
 // A record is deleted only after the server confirmed that exact content.
 //
-// Record: { noteId, doc, tags[], date, baseRevision, unknownOps[], isNew, seq, updatedAt }
+// Record: { noteId, doc, tags[], date, kind, baseRevision, unknownOps[], isNew, seq, updatedAt }
 
 const DB_NAME = 'personal-hq';
 const STORE = 'pending';

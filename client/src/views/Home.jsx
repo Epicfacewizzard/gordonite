@@ -36,9 +36,12 @@ export function HomeView() {
   };
 
   const row = (t) => (
-    <li key={t.id} class="tag-item">
+    <li key={t.id} class="tag-item" style={{ paddingLeft: `${Math.min(t.path.split('/').length - 1, 4) * 14}px` }}>
       <a class="tag-row" href={`#/t/${encodeURIComponent(t.path).replaceAll('%2F', '/')}`} data-testid="tag-link">
-        <span class="tag-name">{t.path}</span>
+        <span class="tag-name">
+          {t.path.includes('/') && <span class="tag-parent">{t.path.slice(0, t.path.lastIndexOf('/') + 1)}</span>}
+          {t.path.slice(t.path.lastIndexOf('/') + 1)}
+        </span>
         <span class="tag-meta">
           {t.noteCount} {t.noteCount === 1 ? 'note' : 'notes'}
           {t.lastDate ? ` · last ${formatDateShort(t.lastDate)}` : ''}
@@ -69,6 +72,13 @@ export function HomeView() {
 
   return (
     <div class="home">
+      <a class="btn primary block" href="#/new" data-testid="home-new-note">
+        New note
+      </a>
+      <a class="tag-row tasks-link" href="#/notes" data-testid="notes-link">
+        <span class="tag-name">Notes</span>
+        <span class="tag-meta">All your notes: search, filter by tag, open one by itself</span>
+      </a>
       <a class="tag-row tasks-link" href="#/tasks" data-testid="tasks-link">
         <span class="tag-name">Tasks</span>
         <span class="tag-meta">Everything still to do, across all streams</span>

@@ -53,6 +53,7 @@ export class Store {
       doc,
       docFormat: DOC_FORMAT,
       revision: row.revision,
+      kind: row.kind,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       deletedAt: row.deleted_at,
@@ -96,7 +97,7 @@ export class Store {
     return this.db
       .prepare(
         `SELECT n.* FROM note_tags nt JOIN notes n ON n.id = nt.note_id
-         WHERE nt.tag_id = ? AND nt.note_date = ? AND nt.live = 1 AND n.id != ?`,
+         WHERE nt.tag_id = ? AND nt.note_date = ? AND nt.live = 1 AND nt.slot = 1 AND n.id != ?`,
       )
       .get(tagId, date, exceptNoteId);
   }
@@ -177,8 +178,9 @@ export class Store {
     return this.#notes([row])[0];
   }
 
-  // Exact-tag stream, newest date first. Only dates that have a note are listed;
-  // the client adds today's editable entry itself.
+  // Exact-tag stream, newest date first. Only dates that have a note are listed; the client adds
+  // today's editable entry itself. Pages are whole days (`limit` days), so a day with several notes is
+  // never split across pages; within a day the daily note comes first, then free notes newest first.
   stream(rawPath, { before = null, limit = 14 } = {}) {
     const path = normalizeTag(rawPath);
     if (!path) throw new HttpError(400, 'bad_tag', 'Invalid tag');
@@ -186,15 +188,80 @@ export class Store {
     limit = Math.min(Math.max(Number(limit) || 14, 1), 60);
     const tag = this.db.prepare('SELECT id, path FROM tags WHERE path = ?').get(path);
     if (!tag) return { tag: { id: null, path }, notes: [], hasMore: false };
+    const dates = this.db
+      .prepare(
+        `SELECT DISTINCT nt.note_date AS d FROM note_tags nt JOIN notes n ON n.id = nt.note_id
+         WHERE nt.tag_id = ? AND nt.live = 1 AND n.deleted_at IS NULL AND (? IS NULL OR nt.note_date < ?)
+         ORDER BY d DESC LIMIT ?`,
+      )
+      .all(tag.id, before, before, limit + 1)
+      .map((r) => r.d);
+    const hasMore = dates.length > limit;
+    const shown = dates.slice(0, limit);
+    if (shown.length === 0) return { tag: { id: tag.id, path: tag.path }, notes: [], hasMore: false };
     const rows = this.db
       .prepare(
         `SELECT n.* FROM note_tags nt JOIN notes n ON n.id = nt.note_id
-         WHERE nt.tag_id = ? AND nt.live = 1 AND n.deleted_at IS NULL AND (? IS NULL OR nt.note_date < ?)
-         ORDER BY nt.note_date DESC LIMIT ?`,
+         WHERE nt.tag_id = ? AND nt.live = 1 AND n.deleted_at IS NULL AND nt.note_date >= ? AND (? IS NULL OR nt.note_date < ?)
+         ORDER BY nt.note_date DESC, CASE n.kind WHEN 'daily' THEN 0 ELSE 1 END, n.created_at DESC`,
       )
-      .all(tag.id, before, before, limit + 1);
-    const hasMore = rows.length > limit;
-    return { tag: { id: tag.id, path: tag.path }, notes: this.#notes(rows.slice(0, limit)), hasMore };
+      .all(tag.id, shown[shown.length - 1], before, before);
+    return { tag: { id: tag.id, path: tag.path }, notes: this.#notes(rows), hasMore };
+  }
+
+  // All live notes, most recently changed first, for the Notes page. Filters: tag (exact, or with its
+  // sub-tags when `sub` is true), untagged, and a text search over the note's words.
+  listNotes({ tag = null, sub = false, untagged = false, q = '', limit = 30, offset = 0 } = {}) {
+    limit = Math.min(Math.max(Number(limit) || 30, 1), 100);
+    offset = Math.max(Number(offset) || 0, 0);
+    const where = ['n.deleted_at IS NULL'];
+    const args = [];
+    if (untagged) {
+      where.push('NOT EXISTS (SELECT 1 FROM note_tags x WHERE x.note_id = n.id)');
+    } else if (tag) {
+      const path = normalizeTag(tag);
+      if (!path) throw new HttpError(400, 'bad_tag', 'Invalid tag');
+      where.push(
+        `EXISTS (SELECT 1 FROM note_tags x JOIN tags t ON t.id = x.tag_id WHERE x.note_id = n.id AND (t.path = ?${
+          sub ? " OR t.path LIKE ? ESCAPE '\\'" : ''
+        }))`,
+      );
+      args.push(path);
+      if (sub) args.push(`${path.replace(/[\\%_]/g, (c) => `\\${c}`)}/%`); // _ is a LIKE wildcard and legal in tags
+    }
+    const needle = String(q ?? '').trim().toLowerCase();
+    const sql = `SELECT n.* FROM notes n WHERE ${where.join(' AND ')} ORDER BY n.updated_at DESC, n.id`;
+    let rows;
+    let hasMore;
+    if (needle) {
+      // The words live inside the JSON documents, so search in code; fine at personal scale.
+      const all = this.db.prepare(sql).all(...args).filter((r) => plainText(JSON.parse(r.doc)).toLowerCase().includes(needle));
+      hasMore = all.length > offset + limit;
+      rows = all.slice(offset, offset + limit);
+    } else {
+      rows = this.db.prepare(`${sql} LIMIT ? OFFSET ?`).all(...args, limit + 1, offset);
+      hasMore = rows.length > limit;
+      rows = rows.slice(0, limit);
+    }
+    const tagsOf = this.#tagsByNote(rows.map((r) => r.id));
+    const notes = rows.map((r) => {
+      const lines = plainText(JSON.parse(r.doc))
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      return {
+        id: r.id,
+        date: r.note_date,
+        kind: r.kind,
+        revision: r.revision,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        title: (lines[0] ?? '').slice(0, 120),
+        preview: lines.slice(1).join(' · ').slice(0, 200),
+        tags: tagsOf.get(r.id),
+      };
+    });
+    return { notes, hasMore };
   }
 
   // ---------- saving ----------
@@ -267,12 +334,14 @@ export class Store {
 
   #createNote(id, body, docStr, opId) {
     if (!isValidDateString(body.date)) throw new HttpError(400, 'bad_date', 'A valid note date (YYYY-MM-DD) is required');
+    // 'daily' (default) is a stream's entry for a day; 'note' is a free note (no slot, may be untagged).
+    const kind = body.kind === 'note' ? 'note' : 'daily';
     const paths = [...new Set((Array.isArray(body.tags) ? body.tags : []).map(normalizeTag))];
-    if (paths.length === 0 || paths.includes(null)) throw new HttpError(400, 'bad_tag', 'At least one valid tag is required');
+    if (paths.includes(null) || (kind === 'daily' && paths.length === 0)) throw new HttpError(400, 'bad_tag', 'At least one valid tag is required');
 
     const tags = paths.map((p) => this.#ensureTag(p));
     const holders = new Map();
-    for (const t of tags) {
+    for (const t of kind === 'daily' ? tags : []) {
       const h = this.#slotHolder(t.id, body.date, id);
       if (h) holders.set(h.id, h);
     }
@@ -284,12 +353,12 @@ export class Store {
     const now = nowIso();
     this.db
       .prepare(
-        `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, last_snapshot_at)
-         VALUES (?,?,?,?,1,?,?,?,?)`,
+        `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, last_snapshot_at, kind)
+         VALUES (?,?,?,?,1,?,?,?,?,?)`,
       )
-      .run(id, body.date, docStr, DOC_FORMAT, opId, now, now, now);
-    const link = this.db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live) VALUES (?,?,?,1)');
-    for (const t of tags) link.run(id, t.id, body.date);
+      .run(id, body.date, docStr, DOC_FORMAT, opId, now, now, now, kind);
+    const link = this.db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live, slot) VALUES (?,?,?,1,?)');
+    for (const t of tags) link.run(id, t.id, body.date, kind === 'daily' ? 1 : 0);
     return { status: 'ok', revision: 1, updatedAt: now, created: true };
   }
 
@@ -304,11 +373,12 @@ export class Store {
       const tag = this.#ensureTag(path);
       const has = this.db.prepare('SELECT 1 FROM note_tags WHERE note_id = ? AND tag_id = ?').get(noteId, tag.id);
       if (!has) {
-        const holder = this.#slotHolder(tag.id, note.note_date, noteId);
+        const daily = note.kind === 'daily';
+        const holder = daily ? this.#slotHolder(tag.id, note.note_date, noteId) : null;
         if (holder) {
           throw new HttpError(409, 'slot_taken', `"${path}" already has a note for ${note.note_date}`, { tag: path, date: note.note_date });
         }
-        this.db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live) VALUES (?,?,?,1)').run(noteId, tag.id, note.note_date);
+        this.db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live, slot) VALUES (?,?,?,1,?)').run(noteId, tag.id, note.note_date, daily ? 1 : 0);
       }
       return this.#tagsByNote([noteId]).get(noteId);
     });
@@ -319,7 +389,7 @@ export class Store {
       const note = this.db.prepare('SELECT * FROM notes WHERE id = ? AND deleted_at IS NULL').get(noteId);
       if (!note) throw new HttpError(404, 'not_found', 'Note not found');
       const count = this.db.prepare('SELECT COUNT(*) AS c FROM note_tags WHERE note_id = ?').get(noteId).c;
-      if (count <= 1) throw new HttpError(409, 'last_tag', 'A note needs at least one tag');
+      if (count <= 1 && note.kind === 'daily') throw new HttpError(409, 'last_tag', 'A note needs at least one tag');
       this.db.prepare('DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?').run(noteId, tagId);
       return this.#tagsByNote([noteId]).get(noteId);
     });
@@ -350,9 +420,9 @@ export class Store {
       if (!note) throw new HttpError(404, 'not_found', 'Note not found');
       if (!note.deleted_at) return { note: this.#notes([note])[0], droppedTags: [] };
       const links = this.db
-        .prepare('SELECT nt.tag_id, t.path FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ?')
+        .prepare('SELECT nt.tag_id, nt.slot, t.path FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ?')
         .all(id);
-      const taken = links.filter((l) => this.#slotHolder(l.tag_id, note.note_date, id));
+      const taken = links.filter((l) => l.slot === 1 && this.#slotHolder(l.tag_id, note.note_date, id));
       if (taken.length > 0) {
         const paths = taken.map((l) => l.path);
         if (!dropConflictingTags || taken.length === links.length) {

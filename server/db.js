@@ -56,6 +56,15 @@ const MIGRATIONS = [
   `,
   // v2: favourite tags are pinned to the top of the home screen.
   `ALTER TABLE tags ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0;`,
+  // v3: free notes. notes.kind is 'daily' (the per-day entry of a stream: one per tag per day, as before) or
+  // 'note' (written on its own: any number per tag per day, and it may have no tag). note_tags.slot is 1 for
+  // daily notes, which hold the tag+date slot, and 0 for free notes, which hold none.
+  `
+  ALTER TABLE notes ADD COLUMN kind TEXT NOT NULL DEFAULT 'daily';
+  ALTER TABLE note_tags ADD COLUMN slot INTEGER NOT NULL DEFAULT 1;
+  DROP INDEX note_tags_slot;
+  CREATE UNIQUE INDEX note_tags_slot ON note_tags (tag_id, note_date) WHERE live = 1 AND slot = 1;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

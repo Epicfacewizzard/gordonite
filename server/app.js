@@ -99,6 +99,20 @@ export function createApp({ config, db, log = console }) {
   route('GET', '/api/tasks', async ({ res }) => sendJson(res, 200, { tasks: store.listTasks() }));
 
   // ----- notes -----
+  route('GET', '/api/notes', async ({ res, query }) => {
+    sendJson(
+      res,
+      200,
+      store.listNotes({
+        tag: query.get('tag'),
+        sub: query.get('sub') === '1',
+        untagged: query.get('untagged') === '1',
+        q: query.get('q') ?? '',
+        limit: query.get('limit'),
+        offset: query.get('offset'),
+      }),
+    );
+  });
   route('GET', '/api/notes/:id', async ({ res, params }) => {
     const note = store.getNote(checkId(params.id));
     if (!note) throw new HttpError(404, 'not_found', 'Note not found');

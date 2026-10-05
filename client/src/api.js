@@ -58,6 +58,10 @@ export const api = {
   createTag: (path) => request('POST', '/api/tags', { path }),
   setFavorite: (tagId, favorite) => request('PUT', `/api/tags/${enc(tagId)}/favorite`, { favorite }),
   tasks: () => request('GET', '/api/tasks'),
+  notes: (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));
+    return request('GET', `/api/notes?${qs}`);
+  },
   stream: (tag, before) => request('GET', `/api/stream?tag=${enc(tag)}${before ? `&before=${before}` : ''}`),
   saveNote: (id, body) => request('PUT', `/api/notes/${enc(id)}`, body, { timeout: 20_000 }),
   getNote: (id) => request('GET', `/api/notes/${enc(id)}`),

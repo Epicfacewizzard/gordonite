@@ -4,8 +4,8 @@
 
 ```
 tags(id, path UNIQUE, created_at)
-notes(id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at)
-note_tags(note_id, tag_id, note_date, live)        UNIQUE(tag_id, note_date) WHERE live = 1
+notes(id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at, kind)
+note_tags(note_id, tag_id, note_date, live, slot)  UNIQUE(tag_id, note_date) WHERE live = 1 AND slot = 1
 note_versions(id, note_id, revision, doc, doc_format, kind, created_at)
 meta(key, value)
 ```
@@ -16,10 +16,17 @@ meta(key, value)
 * **Dates vs timestamps**: `note_date` is a plain calendar date (`YYYY-MM-DD`, in `HOME_TZ` when the note was
   created); `created_at`/`updated_at`/`deleted_at` are UTC instants. Changing the time zone setting never
   moves existing notes.
-* **One note per tag per date** is enforced by the database: a unique index on `(tag_id, note_date)` for
-  live rows. A multi-tag note has one `note_tags` row per tag, so any tag's stream shows the same page.
-  Trashed notes set `live = 0` (freeing the slot); restoring needs the slot to still be free.
-* **Streams match exact tags** (`WHERE tag_id = ?`). No prefix matching.
+* **Two kinds of note** (`notes.kind`). A **daily** note is a stream's entry for a day: **one per tag per date**,
+  enforced by the database with a unique index on `(tag_id, note_date)` for live rows whose `slot = 1`. It is what
+  makes "two devices both started today's note" a detectable conflict instead of a duplicate. A **free** note
+  (`kind = 'note'`, `slot = 0`) is written on its own: any number per tag per day, and it may have no tag. Both
+  kinds show in a tag's stream (daily first, then free notes newest first) and in the Notes list.
+  A multi-tag note has one `note_tags` row per tag, so any tag's stream shows the same page.
+  Trashed notes set `live = 0` (freeing any slot); restoring a daily note needs its slots to still be free.
+  Free notes are created by the same `PUT /api/notes/:id` with `kind: 'note'` (tags may be empty).
+* **Streams match exact tags** (`WHERE tag_id = ?`). No prefix matching. Stream pages are whole days, so a
+  day with several notes is never split. `GET /api/notes?tag=&sub=1&untagged=1&q=&limit=&offset=` lists notes
+  (most recently changed first) and can include a tag's sub-tags (`path/%`, with `_` escaped) or search the text.
 * **Document format**: `doc` is Tiptap/ProseMirror JSON; `doc_format` is its version (currently 1). `shared/doc.js`
   lists the allowed nodes/marks and has the `migrateDoc` hook for future formats; the server rejects documents
   outside the whitelist. Exports carry the format number too.
@@ -43,7 +50,7 @@ bump: older documents simply do not have them, and empty ones are never stored):
 ## API (JSON; all state changes require `Content-Type: application/json`)
 
 ```
-GET  /api/config  /api/tags  /api/tasks  /api/stream?tag=&before=&limit=  /api/trash  /api/health
+GET  /api/config  /api/tags  /api/tasks  /api/notes?...  /api/stream?tag=&before=&limit=  /api/trash  /api/health
 POST /api/tags      PUT /api/tags/:id/favorite
 GET/PUT/DELETE /api/notes/:id               PUT = create or save; DELETE = move to trash
 POST /api/notes/:id/restore[?dropConflictingTags=1]

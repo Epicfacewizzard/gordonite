@@ -41,6 +41,7 @@ export function exportAll(db, cfg) {
     .all()
     .map((n) => ({
       id: n.id,
+      kind: n.kind,
       date: n.note_date,
       docFormat: n.doc_format,
       doc: JSON.parse(n.doc),
@@ -70,7 +71,10 @@ export function exportMarkdownZip(store, db) {
     const note = store.getNote(id);
     const text = noteToMarkdownFile(note);
     // A note with several tags appears under each tag; the id in its front matter ties them together.
-    for (const tag of note.tags) files.push({ name: `${tag.path}/${note.date}.md`, data: text });
+    // A free note can share a day with other notes (and may have no tag), so its file name carries its id.
+    const stem = note.kind === 'note' ? `${note.date}-${note.id.slice(0, 8)}` : note.date;
+    const folders = note.tags.length ? note.tags.map((t) => t.path) : ['untagged'];
+    for (const folder of folders) files.push({ name: `${folder}/${stem}.md`, data: text });
   }
   files.push({
     name: 'README.txt',
@@ -108,10 +112,12 @@ function validateExport(data) {
       const err = validateDoc(d);
       if (err) throw bad(`note ${n.id}: ${err}`);
     }
-    if (!Array.isArray(n.tags) || n.tags.length === 0) throw bad(`note ${n.id}: needs at least one tag`);
+    if (n.kind !== undefined && n.kind !== 'daily' && n.kind !== 'note') throw bad(`note ${n.id}: unknown kind "${n.kind}"`);
+    const free = n.kind === 'note'; // free notes may be untagged and may share a day with other notes
+    if (!Array.isArray(n.tags) || (n.tags.length === 0 && !free)) throw bad(`note ${n.id}: needs at least one tag`);
     for (const tid of n.tags) {
       if (!tagIds.has(tid)) throw bad(`note ${n.id}: unknown tag id ${tid}`);
-      if (!n.deletedAt) {
+      if (!n.deletedAt && !free) {
         const key = `${tid}|${n.date}`;
         if (slots.has(key)) throw bad(`two live notes share tag "${tagIds.get(tid).path}" on ${n.date}`);
         slots.add(key);
@@ -139,10 +145,10 @@ export function importAll(db, cfg, data, mode) {
   };
 
   const insertNote = db.prepare(
-    `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at)
-     VALUES (?,?,?,?,?,NULL,?,?,?,?)`,
+    `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at, kind)
+     VALUES (?,?,?,?,?,NULL,?,?,?,?,?)`,
   );
-  const insertLink = db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live) VALUES (?,?,?,?)');
+  const insertLink = db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live, slot) VALUES (?,?,?,?,?)');
   const insertVersion = db.prepare(
     'INSERT OR IGNORE INTO note_versions (id, note_id, revision, doc, doc_format, kind, created_at) VALUES (?,?,?,?,?,?,?)',
   );
@@ -154,8 +160,9 @@ export function importAll(db, cfg, data, mode) {
   };
   const addNote = (n, tagIdFor, links) => {
     const doc = docOf(n);
-    insertNote.run(n.id, n.date, doc, DOC_FORMAT, n.revision ?? 1, n.createdAt, n.updatedAt, n.deletedAt ?? null, n.updatedAt);
-    for (const tid of links) insertLink.run(n.id, tagIdFor(tid), n.date, n.deletedAt ? 0 : 1);
+    const kind = n.kind === 'note' ? 'note' : 'daily';
+    insertNote.run(n.id, n.date, doc, DOC_FORMAT, n.revision ?? 1, n.createdAt, n.updatedAt, n.deletedAt ?? null, n.updatedAt, kind);
+    for (const tid of links) insertLink.run(n.id, tagIdFor(tid), n.date, n.deletedAt ? 0 : 1, kind === 'daily' ? 1 : 0);
     addVersions(n);
   };
 
@@ -203,12 +210,12 @@ export function importAll(db, cfg, data, mode) {
         continue;
       }
       let links = n.tags;
-      if (!n.deletedAt) {
+      if (!n.deletedAt && n.kind !== 'note') {
         const free = [];
         let holder = null;
         for (const tid of n.tags) {
           const h = db
-            .prepare('SELECT n.id FROM note_tags nt JOIN notes n ON n.id = nt.note_id WHERE nt.tag_id = ? AND nt.note_date = ? AND nt.live = 1')
+            .prepare('SELECT n.id FROM note_tags nt JOIN notes n ON n.id = nt.note_id WHERE nt.tag_id = ? AND nt.note_date = ? AND nt.live = 1 AND nt.slot = 1')
             .get(tagIdFor.get(tid), n.date);
           if (h) {
             holder = h.id;

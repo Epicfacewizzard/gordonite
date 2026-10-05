@@ -50,12 +50,14 @@ function combineDocs(serverDoc, mineDoc) {
 }
 
 export class Session extends Emitter {
-  constructor(sync, { id, tags, date, revision = 0, doc = null }) {
+  constructor(sync, { id, tags, date, revision = 0, doc = null, kind = 'daily', createdAt = null }) {
     super();
     this.sync = sync;
     this.id = id;
     this.tags = tags; // tag paths; used when the note is first created on the server
     this.date = date;
+    this.kind = kind; // 'daily' (a stream's entry for a day) or 'note' (a free note: any number per day, may have no tag)
+    this.createdAt = createdAt ?? new Date().toISOString(); // only used to order notes of one day
     this.revision = revision; // server revision our edits are based on (0 = not on server yet)
     this.serverDoc = doc; // last content known to be on the server
     this.pending = null; // { doc, seq }: newest captured content not yet confirmed
@@ -143,6 +145,7 @@ export class Session extends Emitter {
       doc: this.pending.doc,
       tags: this.tags,
       date: this.date,
+      kind: this.kind,
       baseRevision: this.revision,
       unknownOps: [...this.unknownOps],
       seq: this.pending.seq,
@@ -203,6 +206,7 @@ export class Session extends Emitter {
         docFormat: DOC_FORMAT,
         tags: this.tags,
         date: this.date,
+        kind: this.kind,
         opId,
         afterOps: this.unknownOps,
         keepPrevious: this.keepPrevious || undefined,
@@ -314,6 +318,13 @@ export class Session extends Emitter {
     return this;
   }
 
+  /** Change the tags of a note that is not on the server yet (they are sent when it is first saved). */
+  setLocalTags(paths) {
+    this.tags = paths;
+    if (this.pending) this.persist(); // keep the phone copy's tags in step with the text
+    this.emit();
+  }
+
   /**
    * Tick or untick a task without an editor (the combined Tasks view). It is saved like any
    * other edit: held on the phone first, then sent against this session's revision, so a note
@@ -386,11 +397,11 @@ class SyncManager extends Emitter {
         this.storageError = err;
       }
       for (const r of records) {
-        const s = this.#make({ id: r.noteId, tags: r.tags, date: r.date, revision: r.baseRevision });
+        const s = this.#make({ id: r.noteId, tags: r.tags, date: r.date, revision: r.baseRevision, kind: r.kind ?? 'daily' });
         s.pending = { doc: r.doc, seq: r.seq };
         s.dirtySeq = s.capturedSeq = r.seq;
         s.unknownOps = r.unknownOps ?? [];
-        if (r.baseRevision === 0) for (const t of r.tags) this.drafts.set(`${t}|${r.date}`, s);
+        if (r.baseRevision === 0 && s.kind === 'daily') for (const t of r.tags) this.drafts.set(`${t}|${r.date}`, s);
         s.flush();
       }
       this.#installLifecycleHooks();
@@ -428,7 +439,7 @@ class SyncManager extends Emitter {
   adopt(note) {
     let s = this.sessions.get(note.id);
     if (!s) {
-      s = this.#make({ id: note.id, tags: note.tags.map((t) => t.path), date: note.date, revision: note.revision, doc: note.doc });
+      s = this.#make({ id: note.id, tags: note.tags.map((t) => t.path), date: note.date, revision: note.revision, doc: note.doc, kind: note.kind, createdAt: note.createdAt });
     } else if (!s.hasUnsaved && !s.conflict && !s.provider) {
       // Only refresh a note nobody is editing. With an editor open, its text is based on the
       // revision it was loaded at; moving that base forward without showing the new text would
@@ -450,6 +461,11 @@ class SyncManager extends Emitter {
       this.drafts.set(key, s);
     }
     return s;
+  }
+
+  /** A new free note (not tied to a day's slot), optionally already tagged. Creates nothing on the server until text is typed. */
+  newNote(date, tags = []) {
+    return this.#make({ id: uuid(), tags, date, revision: 0, kind: 'note' });
   }
 
   /** Unsent notes (not yet on the server) that belong to this tag. */

@@ -6,6 +6,8 @@ import { StreamView } from './views/Stream.jsx';
 import { HomeView } from './views/Home.jsx';
 import { TasksView } from './views/Tasks.jsx';
 import { NoteView } from './views/NotePage.jsx';
+import { NotesView } from './views/Notes.jsx';
+import { NewNoteView } from './views/NewNote.jsx';
 import { TrashView } from './views/Trash.jsx';
 import { DataView } from './views/Data.jsx';
 import { STATUS_TEXT } from './views/parts.jsx';
@@ -62,7 +64,7 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : 'Personal HQ';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : 'Personal HQ';
   return (
     <header class="topbar">
       {!onHome && (
@@ -117,6 +119,10 @@ export function App() {
   } else if (route.startsWith('/t/')) {
     const tag = route.slice(3);
     view = <StreamView key={tag} tag={tag} config={config} />;
+  } else if (route === '/notes') {
+    view = <NotesView />;
+  } else if (route === '/new' || route.startsWith('/new?')) {
+    view = <NewNoteView route={route} config={config} />;
   } else if (route.startsWith('/n/')) {
     const id = route.slice(3);
     view = <NoteView key={id} id={id} config={config} />;

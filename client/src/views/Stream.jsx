@@ -8,6 +8,7 @@ import { renderDoc } from '../editor/render.js';
 import { ConflictPanel } from './parts.jsx';
 import { NoteMenu } from './NoteMenu.jsx';
 import { EditorBar } from './EditorBar.jsx';
+import { TagEditor } from './TagEditor.jsx';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
 
@@ -55,12 +56,14 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
             </a>
           )}
           {weekday && <span class="note-date-sub">{weekday}</span>}
+          {session.kind === 'note' && <span class="note-kind">note</span>}
         </h2>
         <button type="button" class="icon-btn" aria-label="Note options" data-testid="note-menu" onClick={() => setMenu(true)}>
           ⋯
         </button>
       </header>
-      {otherTags.length > 0 && (
+      {standalone && <TagEditor session={session} />}
+      {!standalone && otherTags.length > 0 && (
         <ul class="chips small" aria-label="Also tagged">
           {otherTags.map((t) => (
             <li key={t} class="chip">
@@ -173,14 +176,20 @@ export function StreamView({ tag, config }) {
       const inWindow = !load.hasMore || (oldest && s.date >= oldest);
       if (touched && inWindow && (s.pending || s.drafted)) byId.set(s.id, s);
     }
-    const todaySession = [...byId.values()].find((s) => s.date === shownToday) ?? sync.draft(tag, shownToday);
+    const todaySession = [...byId.values()].find((s) => s.date === shownToday && s.kind === 'daily') ?? sync.draft(tag, shownToday);
     byId.set(todaySession.id, todaySession);
-    return [...byId.values()].sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1));
+    // Newest day first; within a day the daily entry, then free notes newest first.
+    const rank = (x) => (x.kind === 'daily' ? 0 : 1);
+    return [...byId.values()].sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      return a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0;
+    });
   })();
   // Remember which sessions were created for this stream so they stay listed after saving.
   entries.forEach((s) => (s.drafted = true));
 
-  const todayEntry = entries.find((s) => s.date === shownToday);
+  const todayEntry = entries.find((s) => s.date === shownToday && s.kind === 'daily');
   const effectiveActive = activeId ?? todayEntry?.id;
 
   const activate = (id, req) => {
@@ -232,6 +241,9 @@ export function StreamView({ tag, config }) {
           onEditor={s.id === effectiveActive ? setEditor : undefined}
         />
       ))}
+      <a class="btn block" href={`#/new?tag=${encodeURIComponent(tag).replaceAll('%2F', '/')}`} data-testid="new-note-here">
+        New note in “{tag}”
+      </a>
       {load.hasMore && (
         <button type="button" class="btn block" data-testid="load-older" onClick={loadMore}>
           Load older notes

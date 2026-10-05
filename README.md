@@ -39,8 +39,18 @@ deliberately not built.
   * Typed phrases are read when the list is built; your text is never rewritten. Words are resolved against the
     **note's** date, so `due fri` in Monday's note stays that Friday, and a weekday means the next one after the
     note's date (`due today` for the same day). Only the phrases listed here are understood; anything else is ignored.
-* **Tags** (⋯ → Tags): a note can have several tags; it is one page whichever tag you open it through.
-  Streams match the exact tag: `school` does not include `school/fall26`. A tag can have one note per date.
+* **Notes** (home page): every note in one list, most recently changed first. Search the words, filter by a tag
+  (with or without its sub-tags) or by *No tag*, and tap a note to open it on its own page.
+* **New note** (home, the Notes page, or *New note in "tag"* at the bottom of a stream): starts a free note on its own
+  page. Nothing is created on the server until you type, so opening it and leaving leaves no trace. Free notes are
+  not tied to a day: a tag can hold any number of them, even on the same day, next to its daily entry (marked
+  *note* in a stream), and they can have no tag at all.
+* **Tags** are edited right on the note's page: the chips show its tags, **×** removes one, **+** starts a
+  sub-tag under it, and the box adds any tag (suggestions come from the tags you already have). A tag is a path:
+  `school` is a tag, `school/fall26/math` is a sub-tag of it. You can tag a note before writing anything; the
+  tags are sent with its first save. A note can have several tags and is one page whichever tag you open it through.
+  Streams match the exact tag (`school` does not include `school/fall26`), but the Notes page can include sub-tags.
+  The daily entry of a stream is still one per tag per day, and must keep at least one tag.
 * **Status dot** in the header: green = saved on the server, yellow = held on the phone and on its way
   (saving, pending, offline), red = needs a look (save failed, conflict, or the phone cannot store your text).
   Tap it when it is not green to retry or jump to a conflict; press and hold or hover for the exact words.

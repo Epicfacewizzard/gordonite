@@ -459,3 +459,166 @@ describe('task dates', () => {
     }
   });
 });
+
+describe('free notes: several per tag per day, optionally untagged', () => {
+  let t;
+  before(async () => (t = await startServer()));
+  after(() => t.close());
+
+  const freeNote = (id, text, tags, date = '2026-10-05') =>
+    t.api('PUT', `/api/notes/${id}`, { baseRevision: 0, doc: docOf(para(text)), docFormat: 1, tags, date, opId: uuid(), kind: 'note' });
+
+  test('a tag can hold any number of free notes on one day, next to its daily note; the daily rule is unchanged', async () => {
+    const daily = uuid();
+    assert.equal((await save(t, daily, docOf(para('daily jot')), { tags: ['ideas'] })).status, 200);
+    const [a, b] = [uuid(), uuid()];
+    assert.equal((await freeNote(a, 'app idea', ['ideas'])).status, 200);
+    assert.equal((await freeNote(b, 'book idea', ['ideas'])).status, 200);
+
+    const s = (await t.api('GET', '/api/stream?tag=ideas')).json.notes;
+    assert.deepEqual(s.map((n) => [n.id, n.kind]), [[daily, 'daily'], [b, 'note'], [a, 'note']], 'daily first, then free notes newest first');
+
+    const second = await save(t, uuid(), docOf(para('another daily')), { tags: ['ideas'] });
+    assert.equal(second.status, 409, 'a second DAILY note for the same tag and day is still a conflict');
+    assert.equal(second.json.reason, 'slot');
+
+    const noTag = await t.api('PUT', `/api/notes/${uuid()}`, { baseRevision: 0, doc: docOf(para('x')), docFormat: 1, tags: [], date: '2026-10-05', opId: uuid() });
+    assert.equal(noTag.status, 400, 'a daily note still needs a tag');
+  });
+
+  test('a free note can start untagged, gain tags and sub-tags later, and lose them all again', async () => {
+    const id = uuid();
+    assert.equal((await freeNote(id, 'plain thought', [])).status, 200);
+    assert.deepEqual((await t.api('GET', `/api/notes/${id}`)).json.note.tags, []);
+
+    let r = await t.api('POST', `/api/notes/${id}/tags`, { path: 'school' });
+    assert.deepEqual(r.json.tags.map((x) => x.path), ['school']);
+    r = await t.api('POST', `/api/notes/${id}/tags`, { path: 'school/fall26/math' });
+    assert.deepEqual(r.json.tags.map((x) => x.path), ['school', 'school/fall26/math']);
+
+    // Tagging a free note never clashes with a daily note of that tag and day.
+    await save(t, uuid(), docOf(para('school jot')), { tags: ['school/fall26/math'], date: '2026-10-05' });
+    r = await t.api('POST', `/api/notes/${id}/tags`, { path: 'ideas' });
+    assert.equal(r.status, 200);
+
+    for (const tag of r.json.tags) await t.api('DELETE', `/api/notes/${id}/tags/${tag.id}`);
+    assert.deepEqual((await t.api('GET', `/api/notes/${id}`)).json.note.tags, [], 'a free note may end up with no tags');
+
+    // ...but a daily note may not lose its last tag.
+    const dailyId = uuid();
+    await save(t, dailyId, docOf(para('d')), { tags: ['solo'], date: '2026-10-01' });
+    const solo = (await t.api('GET', `/api/notes/${dailyId}`)).json.note.tags[0];
+    assert.equal((await t.api('DELETE', `/api/notes/${dailyId}/tags/${solo.id}`)).status, 409);
+  });
+
+  test('stream pages are whole days: a day with several notes is never split', async () => {
+    const day = '2026-09-01';
+    for (const n of ['one', 'two', 'three']) await freeNote(uuid(), n, ['pages'], day);
+    await freeNote(uuid(), 'earlier', ['pages'], '2026-08-31');
+    const first = (await t.api('GET', '/api/stream?tag=pages&limit=1')).json;
+    assert.equal(first.notes.length, 3, 'all three notes of the day come together');
+    assert.equal(first.hasMore, true);
+    const next = (await t.api('GET', `/api/stream?tag=pages&limit=1&before=${day}`)).json;
+    assert.deepEqual(next.notes.map((n) => n.date), ['2026-08-31']);
+    assert.equal(next.hasMore, false);
+  });
+
+  test('trashed free notes restore without any slot trouble', async () => {
+    const id = uuid();
+    await freeNote(id, 'to trash', ['ideas']);
+    await t.api('DELETE', `/api/notes/${id}`);
+    await freeNote(uuid(), 'newcomer', ['ideas']); // takes nothing, so restoring cannot clash
+    const r = await t.api('POST', `/api/notes/${id}/restore`);
+    assert.equal(r.status, 200);
+    assert.equal(r.json.note.kind, 'note');
+  });
+});
+
+describe('notes list: search and tag filters', () => {
+  let t;
+  before(async () => (t = await startServer()));
+  after(() => t.close());
+
+  const put = (text, tags, date = '2026-10-05', kind = 'note') => {
+    const id = uuid();
+    return t
+      .api('PUT', `/api/notes/${id}`, { baseRevision: 0, doc: docOf(para(text), para('second line here')), docFormat: 1, tags, date, opId: uuid(), kind })
+      .then(() => id);
+  };
+
+  test('lists newest-changed first with title, preview and tags; filters by tag, sub-tags and untagged; searches text', async () => {
+    const a = await put('Maths notes', ['school/fall26/math']);
+    const b = await put('Essay plan', ['school/fall26']);
+    const c = await put('Groceries', []);
+    const d = await put('Weird tag', ['a_b']);
+    const e = await put('Not under a_b', ['axb/child']);
+    await put('Daily thing', ['daily-jots'], '2026-10-05', 'daily');
+    // make "Maths notes" the most recently changed
+    await t.api('PUT', `/api/notes/${a}`, { baseRevision: 1, doc: docOf(para('Maths notes v2'), para('second line here')), docFormat: 1, opId: uuid() });
+
+    const all = (await t.api('GET', '/api/notes')).json;
+    assert.equal(all.notes[0].id, a, 'most recently changed first');
+    assert.equal(all.notes[0].title, 'Maths notes v2');
+    assert.equal(all.notes[0].preview, 'second line here');
+    assert.deepEqual(all.notes[0].tags.map((x) => x.path), ['school/fall26/math']);
+    assert.equal(all.notes.length, 6);
+
+    const ids = async (qs) => (await t.api('GET', `/api/notes?${qs}`)).json.notes.map((n) => n.id).sort();
+    assert.deepEqual(await ids('tag=school/fall26'), [b], 'exact tag only');
+    assert.deepEqual(await ids('tag=school/fall26&sub=1'), [a, b].sort(), 'with sub-tags');
+    assert.deepEqual(await ids('untagged=1'), [c]);
+    assert.deepEqual(await ids('tag=a_b&sub=1'), [d], '_ in a tag is not a wildcard');
+    assert.equal((await ids('tag=a_b&sub=1')).includes(e), false);
+    assert.deepEqual(await ids('q=GROCER'), [c], 'search ignores case');
+    assert.deepEqual(await ids('q=second%20line&tag=school/fall26'), [b]);
+
+    const page = (await t.api('GET', '/api/notes?limit=4&offset=0')).json;
+    assert.equal(page.notes.length, 4);
+    assert.equal(page.hasMore, true);
+    const rest = (await t.api('GET', '/api/notes?limit=4&offset=4')).json;
+    assert.equal(rest.notes.length, 2);
+    assert.equal(rest.hasMore, false);
+    assert.equal((await t.api('GET', '/api/notes?tag=../x')).status, 400);
+  });
+
+  test('trashed notes are not listed', async () => {
+    const id = await put('soon gone', ['trashtag']);
+    assert.equal((await t.api('GET', '/api/notes?tag=trashtag')).json.notes.length, 1);
+    await t.api('DELETE', `/api/notes/${id}`);
+    assert.equal((await t.api('GET', '/api/notes?tag=trashtag')).json.notes.length, 0);
+  });
+});
+
+describe('free notes survive export and import', () => {
+  test('JSON round trip keeps kind, untagged notes and same-day notes; Markdown files do not collide', async () => {
+    const t = await startServer();
+    try {
+      const mk = (text, tags, kind) =>
+        t.api('PUT', `/api/notes/${uuid()}`, { baseRevision: 0, doc: docOf(para(text)), docFormat: 1, tags, date: '2026-10-05', opId: uuid(), kind });
+      await mk('daily', ['ideas'], 'daily');
+      await mk('free one', ['ideas'], 'note');
+      await mk('free two', ['ideas'], 'note');
+      await mk('loose', [], 'note');
+
+      const exported = (await t.api('GET', '/api/export/json')).json;
+      assert.deepEqual(exported.notes.map((n) => n.kind).sort(), ['daily', 'note', 'note', 'note']);
+      const imp = await t.api('POST', '/api/import?mode=replace', exported);
+      assert.equal(imp.status, 200);
+      const after = (await t.api('GET', '/api/notes')).json.notes;
+      assert.equal(after.length, 4);
+      assert.equal(after.filter((n) => n.kind === 'note').length, 3);
+      assert.equal(after.find((n) => n.title === 'loose').tags.length, 0);
+      assert.equal((await t.api('GET', '/api/stream?tag=ideas')).json.notes.length, 3);
+
+      // merging the same export again changes nothing (and breaks no slot rule)
+      const again = await t.api('POST', '/api/import?mode=merge', exported);
+      assert.equal(again.status, 200);
+      assert.equal((await t.api('GET', '/api/notes')).json.notes.length, 4);
+
+      const zip = (await fetch(`${t.url}/api/export/markdown`)).status;
+      assert.equal(zip, 200);
+    } finally {
+      await t.close();
+    }
+  });
+});
