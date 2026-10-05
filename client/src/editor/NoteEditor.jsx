@@ -2,6 +2,7 @@ import { memo } from 'preact/compat';
 import { useEffect, useRef } from 'preact/hooks';
 import { Editor } from '@tiptap/core';
 import { createExtensions } from './extensions.js';
+import { cleanTaskAttrs } from '../../../shared/tasks.js';
 
 // Toggle a task by its stable id. Goes through the editor so it is a normal,
 // undoable transaction (the same one the checkbox itself dispatches).
@@ -16,6 +17,24 @@ export function toggleTaskById(editor, taskId) {
     .chain()
     .command(({ tr }) => {
       tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, checked: !found.node.attrs.checked });
+      return true;
+    })
+    .run();
+}
+
+// Change a task's picked dates / hidden flag by its stable id. Like toggling, this is one ordinary,
+// undoable transaction. A null date (or hidden: false) clears it.
+export function updateTaskById(editor, taskId, patch) {
+  let found = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === 'taskItem' && node.attrs.id === taskId) found = { node, pos };
+    return !found;
+  });
+  if (!found) return false;
+  return editor
+    .chain()
+    .command(({ tr }) => {
+      tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...patch });
       return true;
     })
     .run();
@@ -93,7 +112,8 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
     });
     const markEmpty = () => host.current?.classList.toggle('is-empty', editor.isEmpty);
     markEmpty();
-    session.attach(() => editor.getJSON());
+    // cleanTaskAttrs drops empty optional task attributes, so tasks without dates are stored exactly as before.
+    session.attach(() => cleanTaskAttrs(editor.getJSON()));
     onEditor?.(editor);
     return () => {
       session.detach();

@@ -10,7 +10,7 @@ import { api, ApiError, NetworkError } from './api.js';
 import { pendingStore } from './pending.js';
 import { uuid } from '../../shared/ids.js';
 import { DOC_FORMAT, emptyDoc, isEmptyDoc } from '../../shared/doc.js';
-import { setTaskChecked } from '../../shared/tasks.js';
+import { updateTask } from '../../shared/tasks.js';
 
 const CAPTURE_DEBOUNCE_MS = 300;
 const CAPTURE_MAX_WAIT_MS = 1000;
@@ -320,7 +320,12 @@ export class Session extends Emitter {
    * changed elsewhere gives a visible conflict instead of an overwrite. False if the task is gone.
    */
   setTaskChecked(taskId, checked) {
-    const doc = setTaskChecked(this.currentDoc(), taskId, checked);
+    return this.editTask(taskId, { checked });
+  }
+
+  /** Same, for any task change: { checked, due, start, hidden } (null date or hidden: false clears it). */
+  editTask(taskId, patch) {
+    const doc = updateTask(this.currentDoc(), taskId, patch);
     if (!doc) return false;
     this.dirtySeq++;
     this.capturedSeq = this.dirtySeq;

@@ -6,7 +6,7 @@ Everything is saved to SQLite on your server, and anything not yet confirmed by 
 on the phone.
 
 This is the first usable version: notes, tags, daily streams, inline tasks, versions, trash, backups,
-export/import. Dashboard, calendar, people, links/backlinks, AI, task dates and combined task views are
+export/import, a combined task list with due/start dates. Dashboard, calendar, people, links/backlinks and AI are
 deliberately not built.
 
 | | |
@@ -25,6 +25,16 @@ deliberately not built.
 * **Toolbar** (bottom, above the keyboard): bold, italic, H1, H2, bullets, **task**, undo, redo. Buttons never
   take focus from the text, so the keyboard stays up. Tapping **task** converts the current line or bullet
   in place; tapping a checkbox ticks it where it is. Both are undoable.
+* **Tasks** (home page, top): every task from every note in one list, grouped as Overdue / Today / Upcoming /
+  Anytime (by stream). Tick one right there and it is saved into its own note like any other edit. Tap a task for
+  its dates.
+  * **Due, starts, hidden.** Type it in the task (`call dentist due fri`, `essay starts oct 12`, `due in 3 days`,
+    `due 2026-11-01`) or pick it: the calendar button in the toolbar (caret in a task), or tap a task on the Tasks
+    page. A picked date wins over a typed one. A task before its start date is under *Starts later* and a *hidden*
+    task under *Hidden* (it stays in its note); both are folded away and not counted as to do.
+  * Typed phrases are read when the list is built; your text is never rewritten. Words are resolved against the
+    **note's** date, so `due fri` in Monday's note stays that Friday, and a weekday means the next one after the
+    note's date (`due today` for the same day). Only the phrases listed here are understood; anything else is ignored.
 * **Tags** (⋯ → Tags): a note can have several tags; it is one page whichever tag you open it through.
   Streams match the exact tag: `school` does not include `school/fall26`. A tag can have one note per date.
 * **Status dot** in the header: green = saved on the server, yellow = held on the phone and on its way

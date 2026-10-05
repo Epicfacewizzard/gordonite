@@ -9,6 +9,7 @@ const Icon = ({ d }) => (
 const ICONS = {
   bullet: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
   task: 'M4 5h6v6H4zM4 14h6v6H4zM14 8h6M14 17h6M5.5 8l1.3 1.4L9 6.5',
+  calendar: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4',
   undo: 'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3',
   redo: 'M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3',
 };
@@ -39,8 +40,8 @@ function Btn({ label, active, disabled, onClick, children, testid }) {
   );
 }
 
-/** Formatting bar: bold, italic, headings, bullets, tasks, undo/redo. Opens no menus. */
-export function Toolbar({ editor }) {
+/** Formatting bar: bold, italic, headings, bullets, tasks, task dates, undo/redo. The dates button opens a sheet; the rest open nothing. */
+export function Toolbar({ editor, onTaskDates }) {
   const [, rerender] = useReducer((n) => n + 1, 0);
 
   useEffect(() => {
@@ -77,6 +78,9 @@ export function Toolbar({ editor }) {
       </Btn>
       <Btn label="Task" testid="tb-task" disabled={!ready} active={active('taskList')} onClick={run((c) => c.toggleTaskList())}>
         <Icon d={ICONS.task} />
+      </Btn>
+      <Btn label="Task dates" testid="tb-taskdates" disabled={!ready || !active('taskItem')} onClick={() => onTaskDates?.()}>
+        <Icon d={ICONS.calendar} />
       </Btn>
       <span class="tb-gap" />
       <Btn label="Undo" testid="tb-undo" disabled={!can((c) => c.undo())} onClick={run((c) => c.undo())}>

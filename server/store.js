@@ -150,8 +150,20 @@ export class Store {
     const tasks = [];
     for (const row of rows) {
       const note = this.#toNote(row, tagsOf.get(row.id));
-      for (const t of extractTasks(note.doc)) {
-        tasks.push({ noteId: note.id, taskId: t.id, text: t.text, checked: t.checked, date: note.date, tags: note.tags.map((x) => x.path) });
+      for (const t of extractTasks(note.doc, note.date)) {
+        tasks.push({
+          noteId: note.id,
+          taskId: t.id,
+          text: t.text,
+          checked: t.checked,
+          due: t.due,
+          start: t.start,
+          hidden: t.hidden,
+          dueFrom: t.dueFrom,
+          startFrom: t.startFrom,
+          date: note.date,
+          tags: note.tags.map((x) => x.path),
+        });
       }
     }
     return tasks;

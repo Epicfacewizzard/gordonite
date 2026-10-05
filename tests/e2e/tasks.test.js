@@ -1,7 +1,8 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { uuid } from '../../shared/ids.js';
-import { launch, withPhone, open, editor, waitSaved, tap, structure, caret } from './harness.js';
+import { dateInTz, addDays } from '../../shared/dates.js';
+import { launch, TZ, withPhone, open, editor, waitSaved, tap, structure, caret } from './harness.js';
 
 let browser;
 before(async () => (browser = await launch()));
@@ -259,7 +260,7 @@ describe('combined Tasks view', () => {
 
       await page.locator('[data-testid="task-row"]', { hasText: 'email the professor' }).locator('input').tap();
       await waitSaved(page);
-      assert.match(await page.getByTestId('task-count').innerText(), /2 open tasks · show 1 done/);
+      assert.match(await page.getByTestId('task-count').innerText(), /2 open tasks/);
       const note = app.notes().find((n) => n.doc.includes('email the professor'));
       const ticked = JSON.parse(note.doc).content[0].content.map((t) => t.attrs.checked);
       assert.deepEqual(ticked, [false, true], 'only the tapped task changed, inside its own note');
@@ -268,6 +269,118 @@ describe('combined Tasks view', () => {
       await page.reload();
       await page.waitForSelector('[data-testid="task-row"]');
       assert.match(await page.getByTestId('task-count').innerText(), /2 open tasks/, 'the tick survives a reload');
+      assert.deepEqual(page.errors, []);
+    }));
+});
+
+describe('task dates: due, start, hidden', () => {
+  const today = () => dateInTz(new Date(), TZ);
+
+  test('Tasks page sorts into Overdue / Today / Upcoming / Anytime, folds away later and hidden, and the sheet changes a task', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const t = today();
+      const mk = (text, attrs = {}) => {
+        const id = uuid();
+        return { type: 'taskItem', attrs: { checked: false, id, ...attrs }, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] };
+      };
+      const noteId = uuid();
+      const r = await app.api('PUT', `/api/notes/${noteId}`, {
+        baseRevision: 0,
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'taskList',
+              content: [
+                mk('late one', { due: addDays(t, -2) }),
+                mk('due now', { due: t }),
+                mk('coming up', { due: addDays(t, 3) }),
+                mk('no date at all'),
+                mk('not yet', { start: addDays(t, 5) }),
+                mk('put away', { hidden: true }),
+              ],
+            },
+          ],
+        },
+        docFormat: 1,
+        tags: ['school'],
+        date: t,
+        opId: uuid(),
+      });
+      assert.equal(r.status, 200);
+
+      await page.goto(`${app.url}/#/tasks`);
+      await page.waitForSelector('[data-testid="task-row"]');
+      const inSection = (id) => page.getByTestId(`section-${id}`).getByTestId('task-row').allInnerTexts();
+      assert.match((await inSection('overdue')).join('|'), /late one/);
+      assert.match((await inSection('today')).join('|'), /due now/);
+      assert.match((await inSection('upcoming')).join('|'), /coming up/);
+      assert.match((await inSection('anytime')).join('|'), /no date at all/);
+      assert.match(await page.getByTestId('task-count').innerText(), /4 open tasks/, 'later and hidden tasks are not counted as to do');
+      assert.equal(await page.getByTestId('section-later').getByTestId('task-row').count(), 0, 'folded away by default');
+      assert.equal(await page.getByTestId('section-hidden').getByTestId('task-row').count(), 0);
+      await page.getByTestId('toggle-later').tap();
+      assert.match((await inSection('later')).join('|'), /not yet/);
+      await page.getByTestId('toggle-hidden').tap();
+      assert.match((await inSection('hidden')).join('|'), /put away/);
+
+      // Pick a due date for the undated task: it moves to Upcoming and is saved in its note.
+      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-open').tap();
+      await page.getByTestId('input-due').fill(addDays(t, 1));
+      await waitSaved(page);
+      await page.getByTestId('task-sheet-done').tap();
+      assert.match((await inSection('upcoming')).join('|'), /no date at all/);
+      const stored = () => JSON.parse(app.notes()[0].doc).content[0].content;
+      assert.equal(stored()[3].attrs.due, addDays(t, 1), 'saved inside the note');
+
+      // Hide it: it leaves Upcoming and appears under Hidden.
+      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-open').tap();
+      await page.getByTestId('input-hidden').check();
+      await waitSaved(page);
+      await page.getByTestId('task-sheet-done').tap();
+      assert.doesNotMatch((await inSection('upcoming')).join('|'), /no date at all/);
+      assert.match((await inSection('hidden')).join('|'), /no date at all/);
+      assert.equal(stored()[3].attrs.hidden, true);
+
+      // Clearing both puts the stored task back exactly as an ordinary task (no empty attributes).
+      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-open').tap();
+      await page.getByTestId('input-hidden').uncheck();
+      await page.getByTestId('clear-due').tap();
+      await waitSaved(page);
+      assert.deepEqual(Object.keys(stored()[3].attrs).sort(), ['checked', 'id']);
+      assert.deepEqual(page.errors, []);
+    }));
+
+  test('in the editor: the date button sets a due date on the task under the caret, shows it on the task, and a typed phrase counts too', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await open(page);
+      await editor(page).tap();
+      assert.equal(await page.getByTestId('tb-taskdates').getAttribute('aria-disabled'), 'true', 'only enabled inside a task');
+      await type(page, 'plain text');
+      await press(page, 'Enter');
+      await type(page, 'ship it due tomorrow');
+      await tap(page, 'tb-task');
+      await page.waitForTimeout(600); // keep the date change a separate undo step
+      assert.equal(await page.getByTestId('tb-taskdates').getAttribute('aria-disabled'), null);
+
+      await tap(page, 'tb-taskdates');
+      assert.match(await page.getByTestId('field-due').innerText(), /from “due” in the text/, 'typed phrase is understood');
+      const picked = addDays(today(), 4);
+      await page.getByTestId('input-due').fill(picked);
+      await page.getByTestId('task-sheet-done').tap();
+      await waitSaved(page);
+
+      const li = page.locator('.note-text li[data-checked]');
+      assert.match((await li.getAttribute('data-task-meta')) ?? '', /^due /, 'the task shows its date');
+      const task = JSON.parse(app.notes()[0].doc).content.find((n) => n.type === 'taskList').content[0];
+      assert.equal(task.attrs.due, picked, 'the picked date wins over the typed one and is stored on the task');
+      assert.equal(task.attrs.hidden, undefined, 'no empty attributes are stored');
+
+      // One undo reverses the pick.
+      await page.waitForTimeout(600);
+      await tap(page, 'tb-undo');
+      await waitSaved(page);
+      assert.equal(await li.getAttribute('data-task-meta'), null);
       assert.deepEqual(page.errors, []);
     }));
 });

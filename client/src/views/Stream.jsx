@@ -3,11 +3,13 @@ import { api } from '../api.js';
 import { sync } from '../sync.js';
 import { useSession, useToday } from '../hooks.js';
 import { formatDateLabel, formatDateShort } from '../../../shared/dates.js';
-import { NoteEditor } from '../editor/NoteEditor.jsx';
+import { NoteEditor, updateTaskById } from '../editor/NoteEditor.jsx';
 import { Toolbar } from '../editor/Toolbar.jsx';
 import { renderDoc } from '../editor/render.js';
 import { ConflictPanel } from './parts.jsx';
 import { NoteMenu } from './NoteMenu.jsx';
+import { TaskSheet } from './TaskSheet.jsx';
+import { taskText } from '../../../shared/tasks.js';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
 
@@ -106,6 +108,7 @@ export function StreamView({ tag, config }) {
   const [activeId, setActiveId] = useState(null);
   const [focusRequest, setFocusRequest] = useState(null);
   const [editor, setEditor] = useState(null);
+  const [taskSheet, setTaskSheet] = useState(null);
   const [, refresh] = useState(0);
   const generation = useRef(0);
 
@@ -179,6 +182,19 @@ export function StreamView({ tag, config }) {
     setFocusRequest(req ? { ...req, n: Date.now() } : null);
   };
 
+  // The task the caret is in (the innermost one, for nested tasks): open its dates sheet.
+  const openTaskDates = () => {
+    if (!editor || editor.isDestroyed) return;
+    const { $from } = editor.state.selection;
+    for (let d = $from.depth; d > 0; d--) {
+      const node = $from.node(d);
+      if (node.type.name !== 'taskItem') continue;
+      const a = node.attrs;
+      setTaskSheet({ id: a.id, text: taskText(node.toJSON()), noteDate: sync.get(effectiveActive)?.date ?? today, picked: { due: a.due, start: a.start, hidden: a.hidden } });
+      return;
+    }
+  };
+
   const startNewDay = () => {
     setShownToday(today);
     setNewDay(false);
@@ -232,7 +248,20 @@ export function StreamView({ tag, config }) {
         <p class="muted center">Notes you write here are saved by day under “{tag}”.</p>
       )}
       <div class="toolbar-spacer" />
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} onTaskDates={openTaskDates} />
+      {taskSheet && (
+        <TaskSheet
+          text={taskSheet.text}
+          noteDate={taskSheet.noteDate}
+          today={today}
+          picked={taskSheet.picked}
+          onChange={(patch) => updateTaskById(editor, taskSheet.id, patch)}
+          onClose={() => {
+            setTaskSheet(null);
+            editor?.chain().focus(undefined, { scrollIntoView: false }).run();
+          }}
+        />
+      )}
     </div>
   );
 }

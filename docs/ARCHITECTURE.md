@@ -25,11 +25,26 @@ meta(key, value)
   outside the whitelist. Exports carry the format number too.
 * **WAL + `synchronous=FULL`**: a committed save survives a power cut. Foreign keys on; a busy timeout set.
 
+## Tasks
+
+Tasks are `taskItem` nodes inside note documents. They may carry these optional attributes (added without a format
+bump: older documents simply do not have them, and empty ones are never stored):
+
+* `due`, `start`: `YYYY-MM-DD`, picked by hand. `hidden`: `true` keeps the task out of the combined list.
+* A date typed in the task text (`due fri`, see `shared/taskdates.js`) is read when tasks are listed and fills in
+  where no date was picked. It is resolved against the note's own date so it never drifts. The text is never rewritten.
+* `GET /api/tasks` returns every task in live notes with the effective `due`/`start` and where each came from
+  (`dueFrom`/`startFrom`: `set`, `text` or null). Which section a task belongs in (overdue, today, ...) is decided on
+  the client from the device's "today".
+* Ticking or dating a task from the Tasks page goes through the note's normal save session (`Session.editTask`):
+  phone copy first, then the server against the note's revision, so a stale change gives the usual visible conflict.
+  `sync.track()` keeps the status dot from showing saved while that is still on its way into the queue.
+
 ## API (JSON; all state changes require `Content-Type: application/json`)
 
 ```
-GET  /api/config  /api/tags  /api/stream?tag=&before=&limit=  /api/trash  /api/health
-POST /api/tags
+GET  /api/config  /api/tags  /api/tasks  /api/stream?tag=&before=&limit=  /api/trash  /api/health
+POST /api/tags      PUT /api/tags/:id/favorite
 GET/PUT/DELETE /api/notes/:id               PUT = create or save; DELETE = move to trash
 POST /api/notes/:id/restore[?dropConflictingTags=1]
 POST/DELETE /api/notes/:id/tags[/:tagId]

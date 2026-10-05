@@ -684,3 +684,104 @@ details summary {
   text-decoration: line-through;
   color: var(--muted);
 }
+
+/* ---------- task dates ---------- */
+.note-text li[data-task-meta]::after {
+  content: attr(data-task-meta);
+  flex: none;
+  align-self: flex-start;
+  max-width: 45%;
+  margin: 2px 0 0 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+  pointer-events: none;
+  user-select: none;
+}
+.task-body {
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.task-chip {
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+}
+.task-chip.overdue {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.section.overdue {
+  color: var(--danger);
+}
+.section .count {
+  font-weight: 400;
+  opacity: 0.7;
+}
+.link-plain {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.field {
+  margin: 14px 0;
+}
+.field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+input[type='date'] {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 12px 0;
+}
+.check-row input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+.task-sheet-text {
+  margin: 0 0 4px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 380px) {
+  .toolbar {
+    gap: 0;
+  }
+  .tb-btn {
+    min-width: 37px;
+  }
+}

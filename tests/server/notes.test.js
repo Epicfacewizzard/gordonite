@@ -379,3 +379,83 @@ describe('task helpers', () => {
     assert.equal(setTaskChecked(doc, 'missing-id', true), null);
   });
 });
+
+describe('task dates', () => {
+  const NOTE = '2026-10-05'; // a Monday
+
+  test('typed phrases are read against the note date, not today', async () => {
+    const { parseTaskDates: p } = await import('../../shared/taskdates.js');
+    const cases = [
+      ['call dentist due fri', { due: '2026-10-09', start: null }],
+      ['Due Friday please', { due: '2026-10-09', start: null }],
+      ['due today', { due: '2026-10-05', start: null }],
+      ['due tomorrow', { due: '2026-10-06', start: null }],
+      ['due mon', { due: '2026-10-12', start: null }], // a weekday means the NEXT one
+      ['due in 3 days', { due: '2026-10-08', start: null }],
+      ['due in 2 weeks', { due: '2026-10-19', start: null }],
+      ['starts oct 12', { due: null, start: '2026-10-12' }],
+      ['start 12 oct, due oct 20', { due: '2026-10-20', start: '2026-10-12' }],
+      ['due 2026-11-01', { due: '2026-11-01', start: null }],
+      ['due jan 2', { due: '2027-01-02', start: null }], // already past this year -> next year
+      ['pay rent due fri and due sat', { due: '2026-10-09', start: null }], // first phrase wins
+      ['start exercising', { due: null, start: null }],
+      ['due may', { due: null, start: null }], // a month alone is not a date
+      ['due feb 30', { due: null, start: null }],
+      ['undue fri', { due: null, start: null }],
+    ];
+    for (const [text, want] of cases) assert.deepEqual(p(text, NOTE), want, text);
+  });
+
+  test('a picked date wins over a typed one; clearing falls back; stored docs stay tidy', async () => {
+    const { extractTasks, updateTask, cleanTaskAttrs } = await import('../../shared/tasks.js');
+    const id = 'task-aaaa-1111';
+    const doc = docOf({ type: 'taskList', content: [task('call dentist due fri', false, id)] });
+
+    let [t] = extractTasks(doc, NOTE);
+    assert.deepEqual([t.due, t.dueFrom, t.start, t.hidden], ['2026-10-09', 'text', null, false]);
+
+    const picked = updateTask(doc, id, { due: '2026-10-20', start: '2026-10-12', hidden: true });
+    [t] = extractTasks(picked, NOTE);
+    assert.deepEqual([t.due, t.dueFrom, t.start, t.startFrom, t.hidden], ['2026-10-20', 'set', '2026-10-12', 'set', true]);
+
+    const cleared = updateTask(picked, id, { due: null, start: null, hidden: false });
+    [t] = extractTasks(cleared, NOTE);
+    assert.deepEqual([t.due, t.dueFrom, t.start, t.hidden], ['2026-10-09', 'text', null, false], 'typed date is back');
+    assert.deepEqual(cleared.content[0].content[0].attrs, { checked: false, id }, 'no leftover empty attributes');
+    assert.deepEqual(cleanTaskAttrs(docOf({ type: 'taskList', content: [{ ...task('x', false, id), attrs: { checked: false, id, due: null, start: null, hidden: false } }] })).content[0].content[0].attrs, { checked: false, id });
+  });
+
+  test('documents with bad task dates are refused; good ones are stored and listed', async () => {
+    const id = 'task-bbbb-2222';
+    const withAttrs = (attrs) => docOf({ type: 'taskList', content: [{ ...task('x', false, id), attrs: { checked: false, id, ...attrs } }] });
+    assert.match(validateDoc(withAttrs({ due: 'friday' })), /due must be a YYYY-MM-DD/);
+    assert.match(validateDoc(withAttrs({ start: '2026-13-40' })), /start must be/);
+    assert.match(validateDoc(withAttrs({ hidden: 'yes' })), /hidden must be boolean/);
+    assert.equal(validateDoc(withAttrs({ due: '2026-10-09', start: null, hidden: true })), null);
+
+    const t = await startServer();
+    try {
+      const bad = await save(t, uuid(), withAttrs({ due: 'soon' }));
+      assert.equal(bad.status, 400, 'the server refuses it');
+      const noteId = uuid();
+      const doc = docOf({
+        type: 'taskList',
+        content: [
+          { ...task('plain task', false, 'task-cccc-3333') },
+          { ...task('write essay due fri', false, 'task-dddd-4444') },
+          { ...task('picked wins due fri', false, 'task-eeee-5555'), attrs: { checked: false, id: 'task-eeee-5555', due: '2026-10-20', start: '2026-10-12', hidden: true } },
+        ],
+      });
+      assert.equal((await save(t, noteId, doc, { date: NOTE })).status, 200);
+      const tasks = (await t.api('GET', '/api/tasks')).json.tasks;
+      const pick = (text) => tasks.find((x) => x.text === text);
+      assert.deepEqual([pick('plain task').due, pick('plain task').hidden], [null, false]);
+      assert.deepEqual([pick('write essay due fri').due, pick('write essay due fri').dueFrom], ['2026-10-09', 'text']);
+      const p = pick('picked wins due fri');
+      assert.deepEqual([p.due, p.dueFrom, p.start, p.startFrom, p.hidden], ['2026-10-20', 'set', '2026-10-12', 'set', true]);
+      assert.equal(JSON.parse(t.db.prepare('SELECT doc FROM notes WHERE id = ?').get(noteId).doc).content[0].content[2].attrs.due, '2026-10-20', 'stored in the note itself');
+    } finally {
+      await t.close();
+    }
+  });
+});

@@ -109,7 +109,7 @@ export function App() {
     const tag = route.slice(3);
     view = <StreamView key={tag} tag={tag} config={config} />;
   } else if (route === '/tasks') {
-    view = <TasksView />;
+    view = <TasksView config={config} />;
   } else if (route === '/trash') {
     view = <TrashView config={config} />;
   } else if (route === '/data') {

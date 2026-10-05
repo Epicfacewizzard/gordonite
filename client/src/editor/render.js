@@ -1,6 +1,8 @@
 // Lightweight read-only HTML for a note document. Notes in a long stream are drawn
 // with this; only the note being edited gets a real editor instance.
 // The markup mirrors what the editor produces so one stylesheet covers both.
+import { taskMetaLabel } from '../../../shared/tasks.js';
+
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function inline(nodes = []) {
@@ -35,7 +37,8 @@ function block(n) {
       return `<ul data-type="taskList">${blocks(n.content)}</ul>`;
     case 'taskItem': {
       const checked = !!n.attrs?.checked;
-      return `<li data-type="taskItem" data-checked="${checked}" data-task-id="${esc(n.attrs?.id ?? '')}"><label><input type="checkbox" ${checked ? 'checked' : ''} aria-label="${checked ? 'Completed task' : 'Task'}"></label><div>${blocks(n.content)}</div></li>`;
+      const meta = taskMetaLabel(n.attrs);
+      return `<li data-type="taskItem" data-checked="${checked}" data-task-id="${esc(n.attrs?.id ?? '')}"${meta ? ` data-task-meta="${esc(meta)}"` : ''}><label><input type="checkbox" ${checked ? 'checked' : ''} aria-label="${checked ? 'Completed task' : 'Task'}"></label><div>${blocks(n.content)}</div></li>`;
     }
     default:
       return '';

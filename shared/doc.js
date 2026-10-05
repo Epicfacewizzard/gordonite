@@ -4,6 +4,11 @@
 // explicit format version (DOC_FORMAT). Format 1 allows only the nodes and
 // marks below. Changing the allowed set, or the meaning of an attribute,
 // requires a new format number and a migration in `migrateDoc`.
+import { isValidDateString } from './dates.js';
+
+// Optional attributes may be ADDED to a node (e.g. taskItem due/start/hidden) without a new format:
+// existing documents stay valid and meaning does not change. Removing a node/mark/attribute or
+// changing what one means needs a new number.
 export const DOC_FORMAT = 1;
 
 const NODE_TYPES = new Set([
@@ -56,6 +61,11 @@ export function validateDoc(doc) {
       const a = node.attrs ?? {};
       if (a.checked !== undefined && typeof a.checked !== 'boolean') return 'taskItem.checked must be boolean';
       if (a.id != null && typeof a.id !== 'string') return 'taskItem.id must be a string';
+      // Optional, added without a format bump: older documents simply do not have them.
+      for (const k of ['due', 'start']) {
+        if (a[k] != null && !isValidDateString(a[k])) return `taskItem.${k} must be a YYYY-MM-DD date`;
+      }
+      if (a.hidden != null && typeof a.hidden !== 'boolean') return 'taskItem.hidden must be boolean';
     }
     if (node.content !== undefined) {
       if (!Array.isArray(node.content)) return 'content must be an array';
