@@ -22,6 +22,10 @@ deliberately not built.
 * **A stream** shows today's entry first, then earlier days, newest first. Only the entry you are writing in
   is a live editor; the others are light read-only views (tap one to edit it). Opening a stream saves nothing;
   today's note is created on your first keystroke.
+* **A note on its own page.** Tap a note's date (or ⋯ → *Open on its own page*, or *Open this task's note* in a
+  task's sheet) to see just that one note full-screen at `#/n/<id>`. It is the same editor, status dot and menu,
+  and the same note as in the stream, so the two never disagree. The link can be bookmarked or opened in another
+  browser tab. Back returns to where you came from.
 * **Toolbar** (bottom, above the keyboard): bold, italic, H1, H2, bullets, **task**, undo, redo. Buttons never
   take focus from the text, so the keyboard stays up. Tapping **task** converts the current line or bullet
   in place; tapping a checkbox ticks it where it is. Both are undoable.

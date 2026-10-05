@@ -184,6 +184,7 @@ export function TasksView({ config }) {
         <TaskSheet
           text={sheet.text}
           noteDate={sheet.date}
+          noteId={sheet.noteId}
           today={today}
           picked={{ due: sheet.dueFrom === 'set' ? sheet.due : null, start: sheet.startFrom === 'set' ? sheet.start : null, hidden: sheet.hidden }}
           onChange={(patch) => apply(sheet, patch)}

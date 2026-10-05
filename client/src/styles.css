@@ -785,3 +785,18 @@ input[type='date'] {
     min-width: 37px;
   }
 }
+
+/* ---------- note on its own page ---------- */
+.note-date-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--muted);
+}
+a.menu-item {
+  justify-content: center;
+  text-decoration: none;
+  font: inherit;
+}
+.note-page .note {
+  border-bottom: 0;
+}

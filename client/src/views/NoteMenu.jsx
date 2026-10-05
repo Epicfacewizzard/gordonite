@@ -23,12 +23,17 @@ async function settle(session) {
   if (session.hasUnsaved) throw new Error('Some changes are not saved on the server yet (see the status). Try again once they are.');
 }
 
-export function NoteMenu({ session, tag, onClose, onTagsChanged, onDeleted, onRestored }) {
+export function NoteMenu({ session, tag, standalone, onClose, onTagsChanged, onDeleted, onRestored }) {
   const [view, setView] = useState('main');
   return (
     <Sheet title={{ main: 'Note options', tags: 'Tags', history: 'History', delete: 'Delete note' }[view]} onClose={onClose}>
       {view === 'main' && (
         <div class="menu-list">
+          {!standalone && session.revision > 0 && (
+            <a class="menu-item" href={`#/n/${session.id}`} data-testid="menu-open">
+              Open on its own page
+            </a>
+          )}
           <button type="button" class="menu-item" data-testid="menu-tags" onClick={() => setView('tags')}>
             Tags…
           </button>

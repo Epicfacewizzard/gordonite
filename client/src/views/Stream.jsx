@@ -3,17 +3,17 @@ import { api } from '../api.js';
 import { sync } from '../sync.js';
 import { useSession, useToday } from '../hooks.js';
 import { formatDateLabel, formatDateShort } from '../../../shared/dates.js';
-import { NoteEditor, updateTaskById } from '../editor/NoteEditor.jsx';
-import { Toolbar } from '../editor/Toolbar.jsx';
+import { NoteEditor } from '../editor/NoteEditor.jsx';
 import { renderDoc } from '../editor/render.js';
 import { ConflictPanel } from './parts.jsx';
 import { NoteMenu } from './NoteMenu.jsx';
-import { TaskSheet } from './TaskSheet.jsx';
-import { taskText } from '../../../shared/tasks.js';
+import { EditorBar } from './EditorBar.jsx';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
 
-function NoteCard({ session, tag, today, active, onActivate, onChanged, onEditor, focusRequest }) {
+// One note: its date, tags, status panels and either the live editor or a read-only view. `tag` is the
+// stream it is shown in (null on its own page); `standalone` marks the own-page case.
+export function NoteCard({ session, tag, today, active, onActivate, onChanged, onEditor, focusRequest, standalone }) {
   useSession(session);
   const [menu, setMenu] = useState(false);
   const [problem, setProblem] = useState(null);
@@ -47,7 +47,13 @@ function NoteCard({ session, tag, today, active, onActivate, onChanged, onEditor
     <article class="note" data-testid="note" data-note-id={session.id} data-date={session.date} data-active={active}>
       <header class="note-head">
         <h2 class="note-date">
-          {label}
+          {standalone || session.revision === 0 ? (
+            label
+          ) : (
+            <a class="note-date-link" href={`#/n/${session.id}`} data-testid="open-note" aria-label={`Open ${label} on its own page`}>
+              {label}
+            </a>
+          )}
           {weekday && <span class="note-date-sub">{weekday}</span>}
         </h2>
         <button type="button" class="icon-btn" aria-label="Note options" data-testid="note-menu" onClick={() => setMenu(true)}>
@@ -87,9 +93,10 @@ function NoteCard({ session, tag, today, active, onActivate, onChanged, onEditor
         <NoteMenu
           session={session}
           tag={tag}
+          standalone={standalone}
           onClose={() => setMenu(false)}
           onTagsChanged={(tags) => {
-            if (!tags.some((t) => t.path === tag)) onChanged();
+            if (!tag || !tags.some((t) => t.path === tag)) onChanged();
           }}
           onDeleted={onChanged}
           onRestored={onChanged}
@@ -108,7 +115,6 @@ export function StreamView({ tag, config }) {
   const [activeId, setActiveId] = useState(null);
   const [focusRequest, setFocusRequest] = useState(null);
   const [editor, setEditor] = useState(null);
-  const [taskSheet, setTaskSheet] = useState(null);
   const [, refresh] = useState(0);
   const generation = useRef(0);
 
@@ -182,19 +188,6 @@ export function StreamView({ tag, config }) {
     setFocusRequest(req ? { ...req, n: Date.now() } : null);
   };
 
-  // The task the caret is in (the innermost one, for nested tasks): open its dates sheet.
-  const openTaskDates = () => {
-    if (!editor || editor.isDestroyed) return;
-    const { $from } = editor.state.selection;
-    for (let d = $from.depth; d > 0; d--) {
-      const node = $from.node(d);
-      if (node.type.name !== 'taskItem') continue;
-      const a = node.attrs;
-      setTaskSheet({ id: a.id, text: taskText(node.toJSON()), noteDate: sync.get(effectiveActive)?.date ?? today, picked: { due: a.due, start: a.start, hidden: a.hidden } });
-      return;
-    }
-  };
-
   const startNewDay = () => {
     setShownToday(today);
     setNewDay(false);
@@ -248,20 +241,7 @@ export function StreamView({ tag, config }) {
         <p class="muted center">Notes you write here are saved by day under “{tag}”.</p>
       )}
       <div class="toolbar-spacer" />
-      <Toolbar editor={editor} onTaskDates={openTaskDates} />
-      {taskSheet && (
-        <TaskSheet
-          text={taskSheet.text}
-          noteDate={taskSheet.noteDate}
-          today={today}
-          picked={taskSheet.picked}
-          onChange={(patch) => updateTaskById(editor, taskSheet.id, patch)}
-          onClose={() => {
-            setTaskSheet(null);
-            editor?.chain().focus(undefined, { scrollIntoView: false }).run();
-          }}
-        />
-      )}
+      <EditorBar editor={editor} noteDate={sync.get(effectiveActive)?.date} today={today} />
     </div>
   );
 }

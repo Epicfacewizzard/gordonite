@@ -8,7 +8,7 @@ import { parseTaskDates } from '../../../shared/taskdates.js';
  * `picked` holds what was chosen by hand; a date typed in the text ("due fri") fills in until one is picked.
  * Every change is passed straight to onChange (no Save button), so closing the sheet never loses anything.
  */
-export function TaskSheet({ text, noteDate, today, picked, onChange, onClose }) {
+export function TaskSheet({ text, noteDate, today, picked, noteId, onChange, onClose }) {
   const [values, setValues] = useState({ due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden });
   const typed = parseTaskDates(text, noteDate);
 
@@ -57,6 +57,11 @@ export function TaskSheet({ text, noteDate, today, picked, onChange, onClose }) 
   return (
     <Sheet title="Task dates" onClose={onClose}>
       <p class="task-sheet-text">{text}</p>
+      {noteId && (
+        <p class="small">
+          <a href={`#/n/${noteId}`} data-testid="open-task-note">Open this task’s note</a>
+        </p>
+      )}
       {field('due', 'Due', 'due')}
       {field('start', 'Starts', 'start')}
       <label class="check-row">

@@ -5,6 +5,7 @@ import { go, useHashRoute, useSession } from './hooks.js';
 import { StreamView } from './views/Stream.jsx';
 import { HomeView } from './views/Home.jsx';
 import { TasksView } from './views/Tasks.jsx';
+import { NoteView } from './views/NotePage.jsx';
 import { TrashView } from './views/Trash.jsx';
 import { DataView } from './views/Data.jsx';
 import { STATUS_TEXT } from './views/parts.jsx';
@@ -51,13 +52,21 @@ function GlobalStatus() {
   );
 }
 
+// On a note page, Back returns to the stream or list you came from; with no history it goes home.
+function goBack(e) {
+  if (history.length > 1) {
+    e.preventDefault();
+    history.back();
+  }
+}
+
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : 'Personal HQ';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : 'Personal HQ';
   return (
     <header class="topbar">
       {!onHome && (
-        <a class="icon-btn back" href="#/" aria-label="Back to all tags">
+        <a class="icon-btn back" href="#/" aria-label={route.startsWith('/n/') ? 'Back' : 'Back to all tags'} onClick={route.startsWith('/n/') ? goBack : undefined}>
           ‹
         </a>
       )}
@@ -108,6 +117,9 @@ export function App() {
   } else if (route.startsWith('/t/')) {
     const tag = route.slice(3);
     view = <StreamView key={tag} tag={tag} config={config} />;
+  } else if (route.startsWith('/n/')) {
+    const id = route.slice(3);
+    view = <NoteView key={id} id={id} config={config} />;
   } else if (route === '/tasks') {
     view = <TasksView config={config} />;
   } else if (route === '/trash') {
