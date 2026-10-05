@@ -115,13 +115,21 @@ export class Store {
   listTags() {
     return this.db
       .prepare(
-        `SELECT t.id, t.path, t.created_at AS createdAt, COUNT(n.id) AS noteCount, MAX(nt.note_date) AS lastDate
+        `SELECT t.id, t.path, t.created_at AS createdAt, t.favorite, COUNT(n.id) AS noteCount, MAX(nt.note_date) AS lastDate
          FROM tags t
          LEFT JOIN note_tags nt ON nt.tag_id = t.id AND nt.live = 1
          LEFT JOIN notes n ON n.id = nt.note_id AND n.deleted_at IS NULL
          GROUP BY t.id ORDER BY t.path`,
       )
-      .all();
+      .all()
+      .map((t) => ({ ...t, favorite: t.favorite === 1 }));
+  }
+
+  setTagFavorite(id, favorite) {
+    if (typeof favorite !== 'boolean') throw new HttpError(400, 'bad_favorite', '"favorite" must be true or false');
+    const res = this.db.prepare('UPDATE tags SET favorite = ? WHERE id = ?').run(favorite ? 1 : 0, id);
+    if (res.changes === 0) throw new HttpError(404, 'not_found', 'Tag not found');
+    return { id, favorite };
   }
 
   createTag(rawPath) {

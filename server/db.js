@@ -54,6 +54,8 @@ const MIGRATIONS = [
     value TEXT NOT NULL
   );
   `,
+  // v2: favourite tags are pinned to the top of the home screen.
+  `ALTER TABLE tags ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

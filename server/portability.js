@@ -14,7 +14,10 @@ export const EXPORT_FORMAT_VERSION = 1;
 // ---------- full-fidelity JSON export ----------
 
 export function exportAll(db, cfg) {
-  const tags = db.prepare('SELECT id, path, created_at AS createdAt FROM tags ORDER BY path').all();
+  const tags = db
+    .prepare('SELECT id, path, created_at AS createdAt, favorite FROM tags ORDER BY path')
+    .all()
+    .map((t) => ({ ...t, favorite: t.favorite === 1 }));
   const links = db.prepare('SELECT note_id, tag_id FROM note_tags ORDER BY note_id, tag_id').all();
   const byNote = new Map();
   for (const l of links) {
@@ -162,7 +165,7 @@ export function importAll(db, cfg, data, mode) {
     if (mode === 'replace') {
       db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags;');
       for (const t of data.tags) {
-        db.prepare('INSERT INTO tags (id, path, created_at) VALUES (?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString());
+        db.prepare('INSERT INTO tags (id, path, created_at, favorite) VALUES (?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0);
         tagIdFor.set(t.id, t.id);
         report.tagsCreated++;
       }
@@ -181,7 +184,7 @@ export function importAll(db, cfg, data, mode) {
       } else {
         const idTaken = db.prepare('SELECT 1 FROM tags WHERE id = ?').get(t.id);
         const id = idTaken ? uuid() : t.id;
-        db.prepare('INSERT INTO tags (id, path, created_at) VALUES (?,?,?)').run(id, t.path, t.createdAt ?? new Date().toISOString());
+        db.prepare('INSERT INTO tags (id, path, created_at, favorite) VALUES (?,?,?,?)').run(id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0);
         tagIdFor.set(t.id, id);
         report.tagsCreated++;
       }

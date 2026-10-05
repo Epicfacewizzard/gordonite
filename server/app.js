@@ -89,6 +89,9 @@ export function createApp({ config, db, log = console }) {
   // ----- tags & streams -----
   route('GET', '/api/tags', async ({ res }) => sendJson(res, 200, { tags: store.listTags() }));
   route('POST', '/api/tags', async ({ res, body }) => sendJson(res, 200, { tag: store.createTag(body.path) }));
+  route('PUT', '/api/tags/:id/favorite', async ({ res, params, body }) => {
+    sendJson(res, 200, store.setTagFavorite(checkId(params.id, 'tag id'), body.favorite));
+  });
   route('GET', '/api/stream', async ({ res, query }) => {
     sendJson(res, 200, store.stream(query.get('tag') ?? '', { before: query.get('before'), limit: query.get('limit') }));
   });

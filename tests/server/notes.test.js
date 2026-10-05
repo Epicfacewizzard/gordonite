@@ -293,3 +293,40 @@ describe('notes API', () => {
     db2.close();
   });
 });
+
+describe('favorite tags', () => {
+  let t;
+  before(async () => (t = await startServer()));
+  after(() => t.close());
+
+  test('a tag can be favorited and unfavorited, and the flag survives export and replace-import', async () => {
+    await save(t, uuid(), docOf(para('a')), { tags: ['alpha'] });
+    await save(t, uuid(), docOf(para('b')), { tags: ['beta'] });
+    let tags = (await t.api('GET', '/api/tags')).json.tags;
+    assert.deepEqual(tags.map((x) => x.favorite), [false, false], 'new tags are not favorites');
+
+    const beta = tags.find((x) => x.path === 'beta');
+    let r = await t.api('PUT', `/api/tags/${beta.id}/favorite`, { favorite: true });
+    assert.equal(r.status, 200);
+    tags = (await t.api('GET', '/api/tags')).json.tags;
+    assert.equal(tags.find((x) => x.path === 'beta').favorite, true);
+    assert.equal(tags.find((x) => x.path === 'alpha').favorite, false);
+
+    const exported = (await t.api('GET', '/api/export/json')).json;
+    assert.equal(exported.tags.find((x) => x.path === 'beta').favorite, true);
+    r = await t.api('POST', '/api/import?mode=replace', exported);
+    assert.equal(r.status, 200);
+    tags = (await t.api('GET', '/api/tags')).json.tags;
+    assert.equal(tags.find((x) => x.path === 'beta').favorite, true, 'kept through export/import');
+
+    await t.api('PUT', `/api/tags/${beta.id}/favorite`, { favorite: false });
+    tags = (await t.api('GET', '/api/tags')).json.tags;
+    assert.equal(tags.find((x) => x.path === 'beta').favorite, false);
+  });
+
+  test('bad requests are refused', async () => {
+    assert.equal((await t.api('PUT', `/api/tags/${uuid()}/favorite`, { favorite: true })).status, 404);
+    const [tag] = (await t.api('GET', '/api/tags')).json.tags;
+    assert.equal((await t.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: 'yes' })).status, 400);
+  });
+});

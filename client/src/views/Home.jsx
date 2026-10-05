@@ -22,6 +22,43 @@ export function HomeView() {
     load();
   }, []);
 
+  // Optimistic: flip the star at once, put it back if the server says no.
+  const toggleFavorite = async (tag) => {
+    const next = !tag.favorite;
+    const set = (favorite) => setTags((list) => list.map((t) => (t.id === tag.id ? { ...t, favorite } : t)));
+    set(next);
+    try {
+      await api.setFavorite(tag.id, next);
+    } catch (e) {
+      set(!next);
+      setError(e.message);
+    }
+  };
+
+  const row = (t) => (
+    <li key={t.id} class="tag-item">
+      <a class="tag-row" href={`#/t/${encodeURIComponent(t.path).replaceAll('%2F', '/')}`} data-testid="tag-link">
+        <span class="tag-name">{t.path}</span>
+        <span class="tag-meta">
+          {t.noteCount} {t.noteCount === 1 ? 'note' : 'notes'}
+          {t.lastDate ? ` · last ${formatDateShort(t.lastDate)}` : ''}
+        </span>
+      </a>
+      <button
+        type="button"
+        class={`star${t.favorite ? ' on' : ''}`}
+        onClick={() => toggleFavorite(t)}
+        aria-pressed={t.favorite}
+        aria-label={t.favorite ? `Remove ${t.path} from favorites` : `Add ${t.path} to favorites`}
+        data-testid="tag-star"
+      >
+        {t.favorite ? '★' : '☆'}
+      </button>
+    </li>
+  );
+
+  const favorites = tags?.filter((t) => t.favorite) ?? [];
+
   const open = async (e) => {
     e.preventDefault();
     const path = normalizeTag(text);
@@ -32,6 +69,14 @@ export function HomeView() {
 
   return (
     <div class="home">
+      {favorites.length > 0 && (
+        <>
+          <h2 class="section">Favorites</h2>
+          <ul class="tag-list" data-testid="favorite-list">
+            {favorites.map(row)}
+          </ul>
+        </>
+      )}
       <h2 class="section">Daily-note streams</h2>
       {error && (
         <div class="banner error" role="alert">
@@ -43,17 +88,7 @@ export function HomeView() {
       )}
       {tags && tags.length === 0 && <p class="muted">No tags yet. Open one below, e.g. “daily-jots”.</p>}
       <ul class="tag-list" data-testid="tag-list">
-        {tags?.map((t) => (
-          <li key={t.id}>
-            <a class="tag-row" href={`#/t/${encodeURIComponent(t.path).replaceAll('%2F', '/')}`} data-testid="tag-link">
-              <span class="tag-name">{t.path}</span>
-              <span class="tag-meta">
-                {t.noteCount} {t.noteCount === 1 ? 'note' : 'notes'}
-                {t.lastDate ? ` · last ${formatDateShort(t.lastDate)}` : ''}
-              </span>
-            </a>
-          </li>
-        ))}
+        {tags?.map(row)}
       </ul>
 
       <form class="row open-tag" onSubmit={open}>
