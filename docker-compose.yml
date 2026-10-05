@@ -1,0 +1,26 @@
+# Build and run from this folder:   docker compose up -d --build
+# (CasaOS users: see deploy/casaos-compose.yml and docs/DEPLOYMENT.md)
+name: personal-hq
+services:
+  personal-hq:
+    build: .
+    image: personal-hq:0.1.0
+    container_name: personal-hq
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    # The app runs as this user; the host folders below must be writable by it.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      HOME_TZ: America/Edmonton          # note dates and "today" follow this zone
+      BACKUP_INTERVAL_HOURS: "6"         # 0 turns automatic backups off
+      BACKUP_KEEP_LATEST: "6"            # always keep the newest N backups ...
+      BACKUP_KEEP_DAILY: "14"            # ... plus the newest of each of the last N days ...
+      BACKUP_KEEP_WEEKLY: "8"            # ... and of each of the last N weeks
+      TRASH_RETENTION_DAYS: "30"         # 0 keeps deleted notes forever
+    volumes:
+      - ./data:/data                     # database + backups (persists across container replacement)
+      # Optional: put backups on a different disk than the database
+      # - /mnt/other-disk/personal-hq-backups:/backups
+      # and add   BACKUP_DIR: /backups   under environment
+    stop_grace_period: 20s

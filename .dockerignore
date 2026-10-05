@@ -1,0 +1,8 @@
+node_modules
+client/dist
+data
+tests
+docs
+.git
+*.md
+!README.md

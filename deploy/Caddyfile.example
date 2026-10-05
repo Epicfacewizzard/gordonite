@@ -1,0 +1,16 @@
+# Reverse proxy that terminates HTTPS in front of Personal HQ (see docs/DEPLOYMENT.md, "HTTPS").
+#
+# Option A: your own domain, certificate via DNS challenge (works for private/VPN-only servers,
+# nothing needs to be reachable from the internet). Needs a Caddy build with your DNS provider module.
+notes.example.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy personal-hq:8080
+}
+
+# Option B: Caddy's own private CA. HTTPS works once the phone trusts Caddy's root certificate.
+# notes.home.arpa {
+# 	tls internal
+# 	reverse_proxy personal-hq:8080
+# }

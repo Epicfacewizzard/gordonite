@@ -1,0 +1,54 @@
+# For CasaOS: App Store -> "Custom Install" -> import this file.
+# CasaOS pulls images instead of building them, so build the image once on the server first:
+#     cd personal-hq && docker build -t personal-hq:0.1.0 .
+# Then see docs/DEPLOYMENT.md (permissions, HTTPS, backups).
+name: personal-hq
+services:
+  personal-hq:
+    image: personal-hq:0.1.0
+    container_name: personal-hq
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - target: 8080
+        published: "8080"
+        protocol: tcp
+    environment:
+      - HOME_TZ=America/Edmonton
+      - BACKUP_INTERVAL_HOURS=6
+      - BACKUP_KEEP_LATEST=6
+      - BACKUP_KEEP_DAILY=14
+      - BACKUP_KEEP_WEEKLY=8
+      - TRASH_RETENTION_DAYS=30
+    volumes:
+      - type: bind
+        source: /DATA/AppData/personal-hq/data
+        target: /data
+    stop_grace_period: 20s
+    x-casaos:
+      envs:
+        - container: HOME_TZ
+          description:
+            en_us: Time zone used for note dates and "today" (IANA name)
+      ports:
+        - container: "8080"
+          description:
+            en_us: Web UI
+      volumes:
+        - container: /data
+          description:
+            en_us: Database and automatic backups
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: personal-hq
+  index: /
+  port_map: "8080"
+  title:
+    en_us: Personal HQ
+  tagline:
+    en_us: Tagged daily notes with inline tasks
+  description:
+    en_us: Self-hosted notes with a daily stream per tag, inline tasks, versions, trash, backups and export.
+  category: Productivity
