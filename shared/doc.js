@@ -66,6 +66,8 @@ export function validateDoc(doc) {
         if (a[k] != null && !isValidDateString(a[k])) return `taskItem.${k} must be a YYYY-MM-DD date`;
       }
       if (a.hidden != null && typeof a.hidden !== 'boolean') return 'taskItem.hidden must be boolean';
+      if (a.hideUntil != null && !isValidDateString(a.hideUntil)) return 'taskItem.hideUntil must be a YYYY-MM-DD date';
+      if (a.priority != null && !['both', 'urgent', 'important'].includes(a.priority)) return 'taskItem.priority must be both, urgent or important';
     }
     if (node.content !== undefined) {
       if (!Array.isArray(node.content)) return 'content must be an array';

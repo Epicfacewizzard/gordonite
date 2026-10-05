@@ -3,16 +3,34 @@ import { api } from '../api.js';
 import { sync } from '../sync.js';
 import { useToday } from '../hooks.js';
 import { addDays, formatDateShort } from '../../../shared/dates.js';
-import { parseTaskDates } from '../../../shared/taskdates.js';
+import { findDatePhrases, parseTaskDates } from '../../../shared/taskdates.js';
+import { PRIORITY_LABEL, priorityRank } from '../../../shared/tasks.js';
 import { TaskSheet } from './TaskSheet.jsx';
+import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
 
 const keyOf = (t) => `${t.noteId}:${t.taskId}`;
 const byDate = (field) => (a, b) => (a[field] < b[field] ? -1 : a[field] > b[field] ? 1 : a.date < b.date ? 1 : -1);
+// Most pressing first (urgent & important, urgent, important, none); the other order breaks ties.
+const byPriorityThen = (tiebreak) => (a, b) => priorityRank(a.priority) - priorityRank(b.priority) || tiebreak(a, b);
+const isHiddenNow = (t, today) => t.hidden || (t.hideUntil && t.hideUntil > today);
+
+// A date typed in the text ("due fri") shown dimmer than the rest, so you can see it was understood.
+function TaskText({ text, date }) {
+  const parts = [];
+  let at = 0;
+  for (const p of findDatePhrases(text, date)) {
+    if (p.index < at) continue;
+    parts.push(text.slice(at, p.index), <span key={p.index} class="typed-date">{text.slice(p.index, p.index + p.length)}</span>);
+    at = p.index + p.length;
+  }
+  parts.push(text.slice(at));
+  return parts;
+}
 
 // Which part of the list a task belongs in. A task ticked on this page stays where it was.
 function bucketOf(t, today, touched) {
   if (t.checked && !touched.has(keyOf(t))) return 'done';
-  if (t.hidden) return 'hidden';
+  if (isHiddenNow(t, today)) return 'hidden';
   if (t.start && t.start > today) return 'later';
   if (t.due && t.due < today) return 'overdue';
   if (t.due === today) return 'today';
@@ -30,7 +48,8 @@ export function TasksView({ config, compact = false }) {
   const [tasks, setTasks] = useState(null);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState({ done: false, hidden: false, later: false });
-  const [sheet, setSheet] = useState(null); // the task being edited in the dates sheet
+  const [sheet, setSheet] = useState(null); // the task being edited in the details sheet
+  const [menu, setMenu] = useState(null); // { key, kind: 'date' | 'hide' | 'priority' }: a round button's menu
   // Tasks ticked on this page stay listed (struck through) so a slip can be undone.
   const [touched, setTouched] = useState(() => new Set());
 
@@ -92,10 +111,11 @@ export function TasksView({ config, compact = false }) {
 
   const buckets = { overdue: [], today: [], upcoming: [], anytime: [], later: [], hidden: [], done: [] };
   for (const t of tasks ?? []) buckets[bucketOf(t, today, touched)].push(t);
-  buckets.overdue.sort(byDate('due'));
-  buckets.today.sort(byDate('due'));
-  buckets.upcoming.sort(byDate('due'));
+  buckets.overdue.sort(byPriorityThen(byDate('due')));
+  buckets.today.sort(byPriorityThen(byDate('due')));
+  buckets.upcoming.sort(byPriorityThen(byDate('due')));
   buckets.later.sort(byDate('start'));
+  buckets.anytime.sort(byPriorityThen(() => 0)); // sort is stable: the rest keep their order
   const streams = new Map();
   for (const t of buckets.anytime) {
     const stream = t.tags[0] ?? '(untagged)';
@@ -111,22 +131,45 @@ export function TasksView({ config, compact = false }) {
   const openCount = [...buckets.overdue, ...buckets.today, ...buckets.upcoming, ...buckets.anytime].filter((t) => !t.checked).length;
   const row = (t) => {
     const overdue = t.due && !t.checked && t.due < today;
+    const hiddenNow = isHiddenNow(t, today);
+    const open = (kind) => setMenu({ key: keyOf(t), kind });
     return (
-      <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}`} data-testid="task-row">
+      <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}`} data-testid="task-row" data-priority={t.priority ?? ''}>
         <label class="task-check">
           <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} aria-label={t.checked ? 'Completed task' : 'Task'} />
         </label>
-        <button type="button" class="task-body" onClick={() => setSheet(t)} aria-label={`Dates and options for: ${t.text}`} data-testid="task-open">
-          <span class="task-text">{t.text}</span>
+        <button type="button" class="task-body" onClick={() => setSheet(t)} aria-label={`Details for: ${t.text}`} data-testid="task-open">
+          <span class="task-text">
+            <TaskText text={t.text} date={t.date} />
+          </span>
           <span class="task-meta">
             {t.due && <span class={`task-chip${overdue ? ' overdue' : ''}`} data-testid="chip-due">due {formatDateShort(t.due)}</span>}
             {t.start && t.start > today && <span class="task-chip" data-testid="chip-start">starts {formatDateShort(t.start)}</span>}
             {t.hidden && <span class="task-chip" data-testid="chip-hidden">hidden</span>}
+            {!t.hidden && t.hideUntil && t.hideUntil > today && <span class="task-chip" data-testid="chip-hidden">hidden until {formatDateShort(t.hideUntil)}</span>}
             <span>
               {t.tags[0] ?? ''} · {formatDateShort(t.date)}
             </span>
           </span>
         </button>
+        <div class="task-actions">
+          <button type="button" class={`round-btn${hiddenNow ? ' on' : ''}`} onClick={() => open('hide')} aria-label={hiddenNow ? 'Hidden: change or show again' : 'Hide for a while'} title="Hide" data-testid="task-hide">
+            <Glyph name="eyeOff" />
+          </button>
+          <button type="button" class={`round-btn${t.due || (t.start && t.start > today) ? ' on' : ''}`} onClick={() => open('date')} aria-label="Due date" title="Due date" data-testid="task-date">
+            <Glyph name="calendar" />
+          </button>
+          <button
+            type="button"
+            class={`round-btn prio-${t.priority ?? 'none'}`}
+            onClick={() => open('priority')}
+            aria-label={`Priority: ${PRIORITY_LABEL[t.priority] ?? 'none'}`}
+            title="Priority"
+            data-testid="task-priority"
+          >
+            <PriorityStar value={t.priority} />
+          </button>
+        </div>
       </li>
     );
   };
@@ -205,13 +248,22 @@ export function TasksView({ config, compact = false }) {
       {!compact && folded('later', 'Starts later', buckets.later)}
       {!compact && folded('hidden', 'Hidden', buckets.hidden)}
       {!compact && folded('done', 'Done', buckets.done)}
+      {menu && (() => {
+        const t = tasks?.find((x) => keyOf(x) === menu.key);
+        if (!t) return null;
+        const close = () => setMenu(null);
+        const onPick = (patch) => apply(t, patch);
+        if (menu.kind === 'date') return <DateMenu today={today} due={t.dueFrom === 'set' ? t.due : null} start={t.startFrom === 'set' ? t.start : null} onPick={onPick} onClose={close} />;
+        if (menu.kind === 'hide') return <HideMenu today={today} hidden={t.hidden} hideUntil={t.hideUntil} onPick={onPick} onClose={close} />;
+        return <PriorityMenu value={t.priority} onPick={onPick} onClose={close} />;
+      })()}
       {sheet && (
         <TaskSheet
           text={sheet.text}
           noteDate={sheet.date}
           noteId={sheet.noteId}
           today={today}
-          picked={{ due: sheet.dueFrom === 'set' ? sheet.due : null, start: sheet.startFrom === 'set' ? sheet.start : null, hidden: sheet.hidden }}
+          picked={{ due: sheet.dueFrom === 'set' ? sheet.due : null, start: sheet.startFrom === 'set' ? sheet.start : null, hidden: sheet.hidden, hideUntil: sheet.hideUntil, priority: sheet.priority }}
           onChange={(patch) => apply(sheet, patch)}
           onClose={() => setSheet(null)}
         />

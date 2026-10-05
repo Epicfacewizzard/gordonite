@@ -857,3 +857,55 @@ describe('Markdown to note', () => {
     assert.equal(markdownToDoc('').content.length, 1, 'empty input is still a valid empty note');
   });
 });
+
+describe('task priority, hide-until and date phrase positions', () => {
+  test('findDatePhrases says where in the text each date phrase is', async () => {
+    const { findDatePhrases } = await import('../../shared/taskdates.js');
+    const text = 'send the deck due fri then rest, starts oct 12';
+    const found = findDatePhrases(text, '2026-10-05');
+    assert.deepEqual(found.map((p) => [p.kind, p.date, text.slice(p.index, p.index + p.length)]), [
+      ['due', '2026-10-09', 'due fri'],
+      ['start', '2026-10-12', 'starts oct 12'],
+    ]);
+    assert.deepEqual(findDatePhrases('nothing due soon', '2026-10-05'), []);
+  });
+
+  test('priority and hide-until are stored only when set, validated, and listed', async () => {
+    const { extractTasks, updateTask, priorityRank, taskMetaLabel } = await import('../../shared/tasks.js');
+    const id = 'task-pppp-1111';
+    const doc = docOf({ type: 'taskList', content: [task('plan trip', false, id)] });
+    const set = updateTask(doc, id, { priority: 'both', hideUntil: '2026-10-20' });
+    const [t] = extractTasks(set, '2026-10-05');
+    assert.deepEqual([t.priority, t.hideUntil], ['both', '2026-10-20']);
+    assert.equal(taskMetaLabel(set.content[0].content[0].attrs), 'urgent & important · hidden until Tue, Oct 20');
+    const cleared = updateTask(set, id, { priority: null, hideUntil: null });
+    assert.deepEqual(cleared.content[0].content[0].attrs, { checked: false, id }, 'None / shown again leaves no trace');
+    assert.deepEqual(['both', 'urgent', 'important', null].map(priorityRank), [0, 1, 2, 3]);
+
+    const withAttrs = (attrs) => docOf({ type: 'taskList', content: [{ ...task('x', false, id), attrs: { checked: false, id, ...attrs } }] });
+    assert.match(validateDoc(withAttrs({ priority: 'high' })), /priority must be/);
+    assert.match(validateDoc(withAttrs({ hideUntil: 'later' })), /hideUntil must be/);
+    assert.equal(validateDoc(withAttrs({ priority: 'urgent', hideUntil: '2026-10-20' })), null);
+  });
+
+  test('the assistant can set priority and hide-until, and hidden-until tasks leave its overview', async () => {
+    const KEY = 'test-key-0123456789-abcdefghij';
+    const t = await startServer({ ASSISTANT_TOKEN: KEY });
+    try {
+      const as = (method, p, body) => t.api(method, `/api/assistant${p}`, body, { authorization: `Bearer ${KEY}` });
+      const day = (n) => dateInTz(new Date(Date.now() + n * 86_400_000), t.config.tz);
+      const { id } = (await as('POST', '/notes', { markdown: '- [ ] keep visible\n- [ ] snooze me' })).json;
+      const tasks = (await as('GET', `/notes/${id}`)).json.tasks;
+      const idOf = (text) => tasks.find((x) => x.text === text).id;
+      assert.equal((await as('POST', `/notes/${id}/tasks/${idOf('keep visible')}`, { priority: 'urgent' })).status, 200);
+      assert.equal((await as('POST', `/notes/${id}/tasks/${idOf('snooze me')}`, { hideUntil: day(5) })).status, 200);
+      const overview = (await as('GET', '/overview')).json.tasks;
+      assert.deepEqual(overview.map((x) => [x.text, x.priority]), [['keep visible', 'urgent']], 'the snoozed one is out of the overview');
+      assert.equal((await as('POST', `/notes/${id}/tasks/${idOf('keep visible')}`, { priority: 'huge' })).status, 400);
+      assert.equal((await as('POST', `/notes/${id}/tasks/${idOf('keep visible')}`, { hideUntil: 'someday' })).status, 400);
+      assert.equal((await t.api('GET', '/api/tasks')).json.tasks.find((x) => x.text === 'snooze me').hideUntil, day(5));
+    } finally {
+      await t.close();
+    }
+  });
+});

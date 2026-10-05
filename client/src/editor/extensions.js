@@ -36,6 +36,16 @@ const TaskItemWithDates = TaskItem.extend({
         }),
       },
       start: dateAttr('start'),
+      hideUntil: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-hide-until') || null,
+        renderHTML: (attrs) => (attrs.hideUntil ? { 'data-hide-until': attrs.hideUntil } : {}),
+      },
+      priority: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-priority') || null,
+        renderHTML: (attrs) => (attrs.priority ? { 'data-priority': attrs.priority } : {}),
+      },
       hidden: {
         default: false,
         parseHTML: (el) => el.getAttribute('data-hidden') === 'true',

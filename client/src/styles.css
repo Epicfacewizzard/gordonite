@@ -993,3 +993,104 @@ body[data-typing] .tabbar {
 body:not([data-editing]) .today .toolbar {
   display: none;
 }
+
+/* ---------- task rows: card with round buttons ---------- */
+:root {
+  --star: #c98a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --star: #f0b429;
+  }
+}
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-row {
+  align-items: center;
+  background: var(--surface);
+  border-bottom: 0;
+  border-radius: 10px;
+  /* a slot for a colour that will mean something later; invisible until it is given a value */
+  border-left: 3px solid var(--task-bar, transparent);
+  padding-right: 8px;
+}
+.task-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+.round-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+}
+.round-btn.on {
+  color: var(--accent);
+}
+.round-btn.prio-both,
+.round-btn.prio-urgent,
+.round-btn.prio-important,
+.prio-both,
+.prio-urgent,
+.prio-important {
+  color: var(--star);
+}
+.prio {
+  display: inline-flex;
+  margin-right: 10px;
+  color: var(--muted);
+}
+.menu-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.menu-row-label {
+  display: inline-flex;
+  align-items: center;
+}
+.menu-item.on {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.choose-date {
+  min-height: 52px;
+  justify-content: center;
+  cursor: default;
+}
+.choose-date input[type='number'] {
+  min-height: 44px;
+  width: 7rem;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.typed-date {
+  color: var(--muted);
+}
+.prio-btn.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+@media (max-width: 420px) {
+  .round-btn {
+    width: 30px;
+    height: 30px;
+  }
+  .task-actions {
+    gap: 4px;
+  }
+}

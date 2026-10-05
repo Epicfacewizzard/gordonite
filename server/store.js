@@ -248,15 +248,18 @@ export class Store {
     const note = this.#liveNote(noteId);
     const clean = {};
     for (const [k, v] of Object.entries(patch ?? {})) {
-      if (k === 'checked' || k === 'hidden') {
+      if (k === 'priority') {
+        if (v !== null && !['both', 'urgent', 'important'].includes(v)) throw new HttpError(400, 'bad_task', '"priority" must be both, urgent, important or null');
+        clean[k] = v;
+      } else if (k === 'checked' || k === 'hidden') {
         if (typeof v !== 'boolean') throw new HttpError(400, 'bad_task', `"${k}" must be true or false`);
         clean[k] = v;
-      } else if (k === 'due' || k === 'start') {
+      } else if (k === 'due' || k === 'start' || k === 'hideUntil') {
         if (v !== null && !isValidDateString(v)) throw new HttpError(400, 'bad_task', `"${k}" must be YYYY-MM-DD or null`);
         clean[k] = v;
       }
     }
-    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use checked, due, start or hidden)');
+    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use checked, due, start, hidden, hideUntil or priority)');
     const doc = updateTask(note.doc, taskId, clean);
     if (!doc) throw new HttpError(404, 'not_found', 'Task not found in that note');
     const res = this.saveNote(noteId, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid() });
@@ -268,7 +271,7 @@ export class Store {
     const today = this.#today();
     const soon = dateInTz(new Date(Date.now() + 7 * 86_400_000), this.cfg.tz);
     const tasks = this.listTasks()
-      .filter((t) => !t.checked && !t.hidden && !(t.start && t.start > today))
+      .filter((t) => !t.checked && !t.hidden && !(t.hideUntil && t.hideUntil > today) && !(t.start && t.start > today))
       .map((t) => ({
         ...t,
         bucket: !t.due ? 'nodate' : t.due < today ? 'overdue' : t.due === today ? 'today' : t.due <= soon ? 'upcoming' : 'later',
@@ -311,6 +314,8 @@ export class Store {
           due: t.due,
           start: t.start,
           hidden: t.hidden,
+          hideUntil: t.hideUntil,
+          priority: t.priority,
           dueFrom: t.dueFrom,
           startFrom: t.startFrom,
           date: note.date,

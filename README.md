@@ -36,8 +36,17 @@ deliberately not built.
   take focus from the text, so the keyboard stays up. Tapping **task** converts the current line or bullet
   in place; tapping a checkbox ticks it where it is. Both are undoable.
 * **Tasks** (home page, top): every task from every note in one list, grouped as Overdue / Today / Upcoming /
-  Anytime (by stream). Tick one right there and it is saved into its own note like any other edit. Tap a task for
-  its dates.
+  Anytime (by stream). Tick one right there and it is saved into its own note like any other edit. Each task is a
+  card with three round buttons: **hide** (eye), **due date** (calendar) and **priority** (star). Tap the task's text
+  for all of its details in one sheet.
+  * **Date button** → *Due*: Today, Tomorrow, This weekend, One week, Three weeks (each with its date), Choose date,
+    Clear. The footer switches the same menu to *Starts at*. A task is out of the main list until its start date.
+  * **Hide button** → *Hide until*: Tomorrow, This weekend, One week, Three weeks, Choose date, Choose number of days, or
+    *Hide until I show it*. It comes back by itself on the day; *Show again* undoes it.
+  * **Priority button**: Urgent & Important (filled star), Urgent (half), Important (outline), None. The most pressing
+    tasks sort to the top of each section.
+  * A date you type in a task (`due fri`) is shown dimmer in the task's text so you can see it was understood.
+  * The coloured strip down a task's left edge is reserved (invisible for now) for something to be decided.
   * **Due, starts, hidden.** Type it in the task (`call dentist due fri`, `essay starts oct 12`, `due in 3 days`,
     `due 2026-11-01`) or pick it: the calendar button in the toolbar (caret in a task), or tap a task on the Tasks
     page. A picked date wins over a typed one. A task before its start date is under *Starts later* and a *hidden*

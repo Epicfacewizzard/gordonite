@@ -63,14 +63,20 @@ function resolve(g, noteDate) {
   return null;
 }
 
+/** Every date phrase in the text, in order: [{ kind: 'due' | 'start', date, index, length }] (index/length locate it in the text). */
+export function findDatePhrases(text, noteDate) {
+  const out = [];
+  if (typeof text !== 'string' || !isValidDateString(noteDate)) return out;
+  for (const m of text.matchAll(PHRASE)) {
+    const date = resolve(m.groups, noteDate);
+    if (date) out.push({ kind: m.groups.kw.toLowerCase() === 'due' ? 'due' : 'start', date, index: m.index, length: m[0].length });
+  }
+  return out;
+}
+
 /** { due, start } found in the text (YYYY-MM-DD or null). The first phrase of each kind wins. */
 export function parseTaskDates(text, noteDate) {
   const out = { due: null, start: null };
-  if (typeof text !== 'string' || !isValidDateString(noteDate)) return out;
-  for (const m of text.matchAll(PHRASE)) {
-    const kind = m.groups.kw.toLowerCase() === 'due' ? 'due' : 'start';
-    if (out[kind]) continue;
-    out[kind] = resolve(m.groups, noteDate);
-  }
+  for (const p of findDatePhrases(text, noteDate)) if (!out[p.kind]) out[p.kind] = p.date;
   return out;
 }

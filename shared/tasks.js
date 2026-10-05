@@ -7,6 +7,8 @@
 //   due    YYYY-MM-DD   when it is due
 //   start  YYYY-MM-DD   it should not show up as "to do" before this day
 //   hidden true         kept out of the combined Tasks list (still in its note)
+//   hideUntil YYYY-MM-DD  hidden from the list until that day, then back by itself
+//   priority  'both' | 'urgent' | 'important'   (none = no attribute)
 // A date typed in the text ("due fri", see taskdates.js) is used when no date was picked;
 // a picked date always wins.
 import { formatDateShort } from './dates.js';
@@ -47,6 +49,8 @@ export function extractTasks(doc, noteDate) {
           due: a.due ?? typed.due,
           start: a.start ?? typed.start,
           hidden: !!a.hidden,
+          hideUntil: a.hideUntil ?? null,
+          priority: a.priority ?? null,
           dueFrom: a.due ? 'set' : typed.due ? 'text' : null,
           startFrom: a.start ? 'set' : typed.start ? 'text' : null,
         });
@@ -59,7 +63,7 @@ export function extractTasks(doc, noteDate) {
 }
 
 // Attributes that are only stored when they mean something, so untouched tasks stay exactly as before.
-const OPTIONAL = { due: (v) => !v, start: (v) => !v, hidden: (v) => !v };
+const OPTIONAL = { due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v };
 
 function tidyAttrs(attrs) {
   const next = { ...attrs };
@@ -95,11 +99,17 @@ export function updateTask(doc, taskId, patch) {
 
 export const setTaskChecked = (doc, taskId, checked) => updateTask(doc, taskId, { checked });
 
-/** Short words shown on a task that has picked dates or is hidden, e.g. "due Fri, Oct 9 · starts Mon, Oct 12". */
+export const PRIORITY_LABEL = { both: 'Urgent & Important', urgent: 'Urgent', important: 'Important' };
+// Sort order: most pressing first, no priority last.
+export const priorityRank = (p) => ({ both: 0, urgent: 1, important: 2 })[p] ?? 3;
+
+/** Short words shown on a task that has picked dates, a priority or is hidden, e.g. "urgent · due Fri, Oct 9". */
 export function taskMetaLabel(attrs) {
   const parts = [];
+  if (attrs?.priority && PRIORITY_LABEL[attrs.priority]) parts.push(PRIORITY_LABEL[attrs.priority].toLowerCase());
   if (attrs?.due) parts.push(`due ${formatDateShort(attrs.due)}`);
   if (attrs?.start) parts.push(`starts ${formatDateShort(attrs.start)}`);
   if (attrs?.hidden) parts.push('hidden');
+  else if (attrs?.hideUntil) parts.push(`hidden until ${formatDateShort(attrs.hideUntil)}`);
   return parts.join(' · ');
 }

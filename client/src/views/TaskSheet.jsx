@@ -2,6 +2,8 @@ import { useState } from 'preact/hooks';
 import { Sheet } from './parts.jsx';
 import { addDays, formatDateShort } from '../../../shared/dates.js';
 import { parseTaskDates } from '../../../shared/taskdates.js';
+import { PRIORITY_LABEL } from '../../../shared/tasks.js';
+import { PriorityStar } from './TaskMenus.jsx';
 
 /**
  * Pick when a task is due, when it starts, and whether it is hidden from the Tasks list.
@@ -9,7 +11,7 @@ import { parseTaskDates } from '../../../shared/taskdates.js';
  * Every change is passed straight to onChange (no Save button), so closing the sheet never loses anything.
  */
 export function TaskSheet({ text, noteDate, today, picked, noteId, onChange, onClose }) {
-  const [values, setValues] = useState({ due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden });
+  const [values, setValues] = useState({ due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null });
   const typed = parseTaskDates(text, noteDate);
 
   const change = (patch) => {
@@ -64,6 +66,20 @@ export function TaskSheet({ text, noteDate, today, picked, noteId, onChange, onC
       )}
       {field('due', 'Due', 'due')}
       {field('start', 'Starts', 'start')}
+      {field('hideUntil', 'Hide until', '')}
+      <div class="field" data-testid="field-priority">
+        <label>Priority</label>
+        <div class="row">
+          {[['both', 'Urgent & Important'], ['urgent', 'Urgent'], ['important', 'Important'], [null, 'None']].map(([id, label]) => (
+            <button key={label} type="button" class={`btn prio-btn${(values.priority ?? null) === id ? ' on' : ''}`} aria-pressed={(values.priority ?? null) === id} onClick={() => change({ priority: id })} data-testid={`sheet-priority-${id ?? 'none'}`}>
+              <span class={`prio prio-${id ?? 'none'}`}>
+                <PriorityStar value={id} size={16} />
+              </span>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <label class="check-row">
         <input type="checkbox" checked={values.hidden} onChange={(e) => change({ hidden: e.currentTarget.checked })} data-testid="input-hidden" />
         <span>Hide from the Tasks list (it stays in its note)</span>
