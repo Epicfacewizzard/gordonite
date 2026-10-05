@@ -58,6 +58,7 @@ export function exportAll(db, cfg) {
     formatVersion: EXPORT_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
     homeTimeZone: cfg.tz,
+    settings: db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get() ? { dailyTag: db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get().value } : {},
     tags,
     notes,
   };
@@ -169,6 +170,13 @@ export function importAll(db, cfg, data, mode) {
 
   tx(db, () => {
     const tagIdFor = new Map(); // import tag id -> local tag id
+
+    // Settings: replace takes the export's; merge only fills in what is not set here.
+    const dailyTag = normalizeTag(data.settings?.dailyTag);
+    if (dailyTag) {
+      const set = db.prepare("INSERT INTO meta (key, value) VALUES ('daily_tag', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING'));
+      set.run(dailyTag);
+    }
 
     if (mode === 'replace') {
       db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags;');

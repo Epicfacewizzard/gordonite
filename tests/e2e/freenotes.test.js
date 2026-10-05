@@ -24,7 +24,7 @@ describe('free notes: add a note, then tag it', () => {
   test('new note -> tags and sub-tags before and after saving -> found in the Notes list and in the tag stream', () =>
     withPhone(browser, async ({ page, app }) => {
       await page.goto(`${app.url}/#/`);
-      await page.getByTestId('home-new-note').tap();
+      await page.getByTestId('today-new-note').tap();
       await page.waitForSelector('[data-testid="note-page"]');
       assert.match(await page.evaluate(() => location.hash), /^#\/n\/[\w-]+$/);
       await noteEditor(page).waitFor();

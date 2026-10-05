@@ -18,7 +18,11 @@ deliberately not built.
 
 ## Using it
 
-* **Home** lists tags (`daily-jots`, `school/fall26`, …). Type a name in the box to open or start one.
+* **Today** (the home screen): the date, buttons for New note / Notes / Tags, any starred tags, what needs doing
+  (Overdue, Due today, Coming up in the next 7 days, and a few tasks with no date; tick them right there), and
+  today's note ready to write in. Which tag's daily entry it shows is a setting at the bottom of that section.
+  It is a stack of independent sections, so adding one (a calendar, a mood check-in, goals) is adding one component.
+* **Tags** (`#/tags`) lists every tag (`daily-jots`, `school/fall26`, …). Type a name in the box to open or start one.
 * **A stream** shows today's entry first, then earlier days, newest first. Only the entry you are writing in
   is a live editor; the others are light read-only views (tap one to edit it). Opening a stream saves nothing;
   today's note is created on your first keystroke.

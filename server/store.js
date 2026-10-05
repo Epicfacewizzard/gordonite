@@ -19,6 +19,7 @@ const nowIso = () => new Date().toISOString();
 
 // A note title: one line, at most 120 characters; empty means untitled (null).
 const MAX_TITLE = 120;
+const DEFAULT_DAILY_TAG = 'daily-jots';
 function cleanTitle(value) {
   if (value === null || value === undefined) return null;
   if (typeof value !== 'string') throw new HttpError(400, 'bad_title', 'title must be text');
@@ -156,6 +157,21 @@ export class Store {
     const path = normalizeTag(rawPath);
     if (!path) throw new HttpError(400, 'bad_tag', 'Tag names use letters, numbers, - _ . and / for sub-tags');
     return tx(this.db, () => this.#ensureTag(path));
+  }
+
+  // ---------- settings (the meta table) ----------
+
+  // dailyTag: whose entry for today the Today screen shows for writing.
+  getSettings() {
+    const row = this.db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get();
+    return { dailyTag: row?.value ?? DEFAULT_DAILY_TAG };
+  }
+
+  setDailyTag(rawPath) {
+    const path = normalizeTag(rawPath);
+    if (!path) throw new HttpError(400, 'bad_tag', 'Tag names use letters, numbers, - _ . and / for sub-tags');
+    this.db.prepare("INSERT INTO meta (key, value) VALUES ('daily_tag', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(path);
+    return this.getSettings();
   }
 
   // ---------- tasks ----------

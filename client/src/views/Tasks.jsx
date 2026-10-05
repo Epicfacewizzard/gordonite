@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { sync } from '../sync.js';
 import { useToday } from '../hooks.js';
-import { formatDateShort } from '../../../shared/dates.js';
+import { addDays, formatDateShort } from '../../../shared/dates.js';
 import { parseTaskDates } from '../../../shared/taskdates.js';
 import { TaskSheet } from './TaskSheet.jsx';
 
@@ -20,7 +20,12 @@ function bucketOf(t, today, touched) {
   return 'anytime';
 }
 
-export function TasksView({ config }) {
+// `compact` is the version on the Today screen: only what needs attention now (overdue, today, the next week,
+// a few undated ones), no folded sections, and a link on to the full list.
+const COMPACT_UNDATED = 5;
+const COMPACT_DAYS = 7;
+
+export function TasksView({ config, compact = false }) {
   const today = useToday(config.tz);
   const [tasks, setTasks] = useState(null);
   const [error, setError] = useState(null);
@@ -98,6 +103,10 @@ export function TasksView({ config }) {
     streams.get(stream).push(t);
   }
 
+  const upcomingShown = compact ? buckets.upcoming.filter((t) => t.due <= addDays(today, COMPACT_DAYS)) : buckets.upcoming;
+  const undatedShown = compact ? buckets.anytime.slice(0, COMPACT_UNDATED) : buckets.anytime;
+  const undatedMore = compact ? buckets.anytime.length - undatedShown.length : 0;
+
   // Tasks ticked on this page stay listed but no longer count as open.
   const openCount = [...buckets.overdue, ...buckets.today, ...buckets.upcoming, ...buckets.anytime].filter((t) => !t.checked).length;
   const row = (t) => {
@@ -157,15 +166,31 @@ export function TasksView({ config }) {
       {tasks && (
         <p class="muted" data-testid="task-count">
           {openCount} open {openCount === 1 ? 'task' : 'tasks'}
+          {compact && (
+            <>
+              {' · '}
+              <a href="#/tasks" data-testid="all-tasks">
+                All tasks
+              </a>
+            </>
+          )}
         </p>
       )}
       {tasks && openCount === 0 && !error && (
-        <p class="muted center">Nothing to do. Turn a line into a task with the toolbar’s task button while writing a note.</p>
+        <p class="muted center">
+          {compact ? 'Nothing is due. Open All tasks to see everything.' : 'Nothing to do. Turn a line into a task with the toolbar’s task button while writing a note.'}
+        </p>
       )}
       {section('overdue', 'Overdue', buckets.overdue)}
-      {section('today', 'Today', buckets.today)}
-      {section('upcoming', 'Upcoming', buckets.upcoming)}
-      {streams.size > 0 && (
+      {section('today', 'Due today', buckets.today)}
+      {section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
+      {compact && section('anytime', 'No date', undatedShown)}
+      {compact && undatedMore > 0 && (
+        <p class="muted small">
+          <a href="#/tasks">{undatedMore} more with no date</a>
+        </p>
+      )}
+      {!compact && streams.size > 0 && (
         <section class="task-group" data-testid="section-anytime">
           {[...streams.keys()].sort().map((stream) => (
             <div key={stream} data-testid="task-group" data-stream={stream}>
@@ -177,9 +202,9 @@ export function TasksView({ config }) {
           ))}
         </section>
       )}
-      {folded('later', 'Starts later', buckets.later)}
-      {folded('hidden', 'Hidden', buckets.hidden)}
-      {folded('done', 'Done', buckets.done)}
+      {!compact && folded('later', 'Starts later', buckets.later)}
+      {!compact && folded('hidden', 'Hidden', buckets.hidden)}
+      {!compact && folded('done', 'Done', buckets.done)}
       {sheet && (
         <TaskSheet
           text={sheet.text}

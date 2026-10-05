@@ -58,6 +58,7 @@ export const api = {
   createTag: (path) => request('POST', '/api/tags', { path }),
   setDaily: (tagId, daily) => request('PUT', `/api/tags/${enc(tagId)}/daily`, { daily }),
   setFavorite: (tagId, favorite) => request('PUT', `/api/tags/${enc(tagId)}/favorite`, { favorite }),
+  setSettings: (settings) => request('PUT', '/api/settings', settings),
   tasks: () => request('GET', '/api/tasks'),
   notes: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));

@@ -4,6 +4,7 @@ import { sync } from './sync.js';
 import { go, useHashRoute, useSession } from './hooks.js';
 import { StreamView } from './views/Stream.jsx';
 import { HomeView } from './views/Home.jsx';
+import { TodayView } from './views/Today.jsx';
 import { TasksView } from './views/Tasks.jsx';
 import { NoteView } from './views/NotePage.jsx';
 import { NotesView } from './views/Notes.jsx';
@@ -85,11 +86,11 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : 'Personal HQ';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : route === '/tags' ? 'Tags' : 'Today';
   return (
     <header class="topbar">
       {!onHome && (
-        <a class="icon-btn back" href="#/" aria-label={route.startsWith('/n/') ? 'Back' : 'Back to all tags'} onClick={route.startsWith('/n/') ? goBack : undefined}>
+        <a class="icon-btn back" href="#/" aria-label={route.startsWith('/n/') ? 'Back' : 'Back to Today'} onClick={route.startsWith('/n/') ? goBack : undefined}>
           ‹
         </a>
       )}
@@ -140,6 +141,8 @@ export function App() {
   } else if (route.startsWith('/t/')) {
     const tag = route.slice(3);
     view = <StreamView key={tag} tag={tag} config={config} />;
+  } else if (route === '/tags') {
+    view = <HomeView />;
   } else if (route === '/notes') {
     view = <NotesView />;
   } else if (route === '/new' || route.startsWith('/new?')) {
@@ -154,7 +157,7 @@ export function App() {
   } else if (route === '/data') {
     view = <DataView config={config} />;
   } else {
-    view = <HomeView />;
+    view = <TodayView config={config} />;
   }
 
   return (

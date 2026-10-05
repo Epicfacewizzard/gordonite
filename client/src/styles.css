@@ -916,3 +916,40 @@ input.note-title-input[type='text']:focus {
   margin-top: 20px;
   color: var(--muted);
 }
+
+/* ---------- today screen ---------- */
+.today-date {
+  margin: 8px 0 12px;
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+.today-nav {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.today-nav .btn {
+  flex: 1;
+}
+.widget {
+  margin: 0 0 12px;
+}
+.today-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.today-source select {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  padding: 0 8px;
+}
+.today .tasks .task-group:first-of-type .section {
+  margin-top: 8px;
+}

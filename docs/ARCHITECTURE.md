@@ -54,11 +54,19 @@ bump: older documents simply do not have them, and empty ones are never stored):
   phone copy first, then the server against the note's revision, so a stale change gives the usual visible conflict.
   `sync.track()` keeps the status dot from showing saved while that is still on its way into the queue.
 
+## Today screen and settings
+
+`#/` is the Today screen (`client/src/views/Today.jsx`): a list of sections (`WIDGETS`), each a component given the same
+context (today's date in `HOME_TZ`, config, tags, the chosen daily tag). It reuses `TasksView` in `compact` mode and
+the stream's `NoteCard` for today's entry, so ticking, saving and conflicts behave exactly as elsewhere. The one setting
+so far, which tag's daily entry Today shows, lives in the `meta` table (`daily_tag`, default `daily-jots`), is returned by
+`GET /api/config` and changed with `PUT /api/settings { dailyTag }`, and travels with JSON export/import.
+
 ## API (JSON; all state changes require `Content-Type: application/json`)
 
 ```
 GET  /api/config  /api/tags  /api/tasks  /api/notes?...  /api/stream?tag=&before=&limit=  /api/trash  /api/health
-POST /api/tags      PUT /api/tags/:id/favorite   PUT /api/tags/:id/daily
+POST /api/tags      PUT /api/tags/:id/favorite   PUT /api/tags/:id/daily   PUT /api/settings
 GET/PUT/DELETE /api/notes/:id               PUT = create or save; DELETE = move to trash
 POST /api/notes/:id/restore[?dropConflictingTags=1]
 POST/DELETE /api/notes/:id/tags[/:tagId]

@@ -23,9 +23,9 @@ describe('a note on its own page', () => {
       await page.locator(`[data-note-id="${a}"]`).getByTestId('open-note').tap();
       await page.waitForSelector('[data-testid="note-page"]');
       assert.equal(await page.evaluate(() => location.hash), `#/n/${a}`);
+      await noteEditor(page).waitFor(); // the page shell appears first; wait for the note itself
       assert.equal(await page.getByTestId('note').count(), 1, 'only this note');
       assert.equal(await page.getByTestId('title').innerText(), 'Note');
-      await noteEditor(page).waitFor();
       assert.equal(await noteEditor(page).textContent(), 'Saturday idea');
       assert.equal(await page.locator('[data-testid="note-page"] .chips a').getAttribute('href'), '#/t/ideas', 'its tag links to the stream');
 

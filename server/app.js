@@ -83,7 +83,13 @@ export function createApp({ config, db, log = console }) {
       today: dateInTz(new Date(), config.tz),
       docFormat: DOC_FORMAT,
       trashRetentionDays: config.trashRetentionDays,
+      ...store.getSettings(),
     });
+  });
+  route('PUT', '/api/settings', async ({ res, body }) => {
+    // one setting so far; unknown fields are ignored
+    if (body.dailyTag !== undefined) store.setDailyTag(body.dailyTag);
+    sendJson(res, 200, store.getSettings());
   });
 
   // ----- tags & streams -----
