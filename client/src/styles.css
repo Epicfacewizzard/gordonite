@@ -1094,3 +1094,31 @@ body:not([data-editing]) .today .toolbar {
     gap: 4px;
   }
 }
+
+/* ---------- task buttons: icons show what is set; unset ones appear on hover ---------- */
+:root {
+  --due: #2b6cb0;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --due: #7fb0ff;
+  }
+}
+.round-btn.due-set {
+  color: var(--due);
+}
+.round-btn.due-soon {
+  color: var(--danger); /* due today or overdue */
+}
+/* Where there is a pointer to hover with, buttons with nothing set stay out of sight until the row is hovered
+   (or has keyboard focus). Touch screens have no hover, so all three stay visible there. */
+@media (hover: hover) {
+  .task-row .round-btn.unset {
+    opacity: 0;
+  }
+  .task-row:hover .round-btn.unset,
+  .task-row:focus-within .round-btn.unset,
+  .round-btn.unset:focus-visible {
+    opacity: 1;
+  }
+}

@@ -2,7 +2,7 @@ import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { uuid } from '../../shared/ids.js';
 import { dateInTz, addDays } from '../../shared/dates.js';
-import { launch, TZ, withPhone, waitSaved } from './harness.js';
+import { launch, startApp, TZ, withPhone, waitSaved } from './harness.js';
 
 let browser;
 before(async () => (browser = await launch()));
@@ -154,4 +154,52 @@ describe('the task row: hide, due and priority buttons', () => {
       await waitSaved(page);
       assert.equal(await rowOf(page, 'plain task').getAttribute('data-priority'), 'urgent');
     }));
+});
+
+describe('task buttons on a computer (with a pointer to hover)', () => {
+  test('buttons with nothing set stay hidden until the row is hovered; set ones always show, coloured', async () => {
+    const app = await startApp();
+    const context = await browser.newContext({ viewport: { width: 900, height: 800 }, timezoneId: TZ }); // no touch: hover works
+    const page = await context.newPage();
+    try {
+      const mk = (text, attrs = {}) => ({ type: 'taskItem', attrs: { checked: false, id: uuid(), ...attrs }, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+      await app.api('PUT', `/api/notes/${uuid()}`, {
+        baseRevision: 0,
+        doc: { type: 'doc', content: [{ type: 'taskList', content: [mk('nothing set'), mk('due today', { due: today() }), mk('due later', { due: addDays(today(), 5), priority: 'both' })] }] },
+        docFormat: 1,
+        tags: ['school'],
+        date: today(),
+        opId: uuid(),
+      });
+      await page.goto(`${app.url}/#/tasks`);
+      await rowOf(page, 'nothing set').waitFor();
+      const opacity = (text, testid) => rowOf(page, text).getByTestId(testid).evaluate((el) => getComputedStyle(el).opacity);
+      const color = (text, testid) => rowOf(page, text).getByTestId(testid).evaluate((el) => getComputedStyle(el).color);
+
+      await page.mouse.move(5, 5); // pointer away from every row
+      assert.deepEqual([await opacity('nothing set', 'task-hide'), await opacity('nothing set', 'task-date'), await opacity('nothing set', 'task-priority')], ['0', '0', '0']);
+      assert.equal(await opacity('due today', 'task-date'), '1', 'a set button is always shown');
+      assert.equal(await opacity('due today', 'task-hide'), '0', 'the unset ones on that row are not');
+      assert.equal(await opacity('due later', 'task-priority'), '1');
+
+      await rowOf(page, 'nothing set').hover();
+      assert.deepEqual([await opacity('nothing set', 'task-hide'), await opacity('nothing set', 'task-date'), await opacity('nothing set', 'task-priority')], ['1', '1', '1'], 'hovering the row shows them');
+
+      // red when due today, blue when due later
+      const resolved = (cssVar) =>
+        page.evaluate((v) => {
+          const probe = document.createElement('span');
+          probe.style.color = `var(${v})`;
+          document.body.append(probe);
+          const c = getComputedStyle(probe).color;
+          probe.remove();
+          return c;
+        }, cssVar);
+      assert.equal(await color('due today', 'task-date'), await resolved('--danger'), 'due today is the red');
+      assert.equal(await color('due later', 'task-date'), await resolved('--due'), 'due later is the blue');
+    } finally {
+      await context.close();
+      await app.close();
+    }
+  });
 });

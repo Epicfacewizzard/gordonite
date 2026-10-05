@@ -153,15 +153,15 @@ export function TasksView({ config, compact = false }) {
           </span>
         </button>
         <div class="task-actions">
-          <button type="button" class={`round-btn${hiddenNow ? ' on' : ''}`} onClick={() => open('hide')} aria-label={hiddenNow ? 'Hidden: change or show again' : 'Hide for a while'} title="Hide" data-testid="task-hide">
+          <button type="button" class={`round-btn${hiddenNow ? ' on' : ' unset'}`} onClick={() => open('hide')} aria-label={hiddenNow ? 'Hidden: change or show again' : 'Hide for a while'} title="Hide" data-testid="task-hide">
             <Glyph name="eyeOff" />
           </button>
-          <button type="button" class={`round-btn${t.due || (t.start && t.start > today) ? ' on' : ''}`} onClick={() => open('date')} aria-label="Due date" title="Due date" data-testid="task-date">
+          <button type="button" class={`round-btn${!t.due && !(t.start && t.start > today) ? ' unset' : t.due && t.due <= today && !t.checked ? ' due-soon' : ' due-set'}`} onClick={() => open('date')} aria-label="Due date" title="Due date" data-testid="task-date">
             <Glyph name="calendar" />
           </button>
           <button
             type="button"
-            class={`round-btn prio-${t.priority ?? 'none'}`}
+            class={`round-btn prio-${t.priority ?? 'none'}${t.priority ? '' : ' unset'}`}
             onClick={() => open('priority')}
             aria-label={`Priority: ${PRIORITY_LABEL[t.priority] ?? 'none'}`}
             title="Priority"
