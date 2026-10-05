@@ -3,8 +3,8 @@
 ## Data model (SQLite, schema version in `PRAGMA user_version`)
 
 ```
-tags(id, path UNIQUE, created_at)
-notes(id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at, kind)
+tags(id, path UNIQUE, created_at, favorite, daily)
+notes(id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at, kind, title)
 note_tags(note_id, tag_id, note_date, live, slot)  UNIQUE(tag_id, note_date) WHERE live = 1 AND slot = 1
 note_versions(id, note_id, revision, doc, doc_format, kind, created_at)
 meta(key, value)
@@ -24,6 +24,13 @@ meta(key, value)
   A multi-tag note has one `note_tags` row per tag, so any tag's stream shows the same page.
   Trashed notes set `live = 0` (freeing any slot); restoring a daily note needs its slots to still be free.
   Free notes are created by the same `PUT /api/notes/:id` with `kind: 'note'` (tags may be empty).
+* **Titles** (`notes.title`, free notes only; null = untitled, at most 120 characters, one line). The title rides in the
+  same `PUT` as the text and counts as part of the note's state: renaming bumps the revision, a stale rename is a
+  `409 revision` like a stale edit, and on the phone it is held in the same pending record. A rename alone does not
+  create a text version. Daily entries ignore a title (their date is their name). Leaving `title` out of a save keeps it.
+* **`tags.daily`** (default 1) says whether a stream shows an entry for today. A tag created by a free note is made
+  with `daily = 0`; one created by a daily note (or by hand) with `daily = 1`; a tag that does not exist yet reads as
+  daily. It only changes what the stream shows; existing daily notes stay.
 * **Streams match exact tags** (`WHERE tag_id = ?`). No prefix matching. Stream pages are whole days, so a
   day with several notes is never split. `GET /api/notes?tag=&sub=1&untagged=1&q=&limit=&offset=` lists notes
   (most recently changed first) and can include a tag's sub-tags (`path/%`, with `_` escaped) or search the text.
@@ -51,7 +58,7 @@ bump: older documents simply do not have them, and empty ones are never stored):
 
 ```
 GET  /api/config  /api/tags  /api/tasks  /api/notes?...  /api/stream?tag=&before=&limit=  /api/trash  /api/health
-POST /api/tags      PUT /api/tags/:id/favorite
+POST /api/tags      PUT /api/tags/:id/favorite   PUT /api/tags/:id/daily
 GET/PUT/DELETE /api/notes/:id               PUT = create or save; DELETE = move to trash
 POST /api/notes/:id/restore[?dropConflictingTags=1]
 POST/DELETE /api/notes/:id/tags[/:tagId]

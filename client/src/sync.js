@@ -50,12 +50,13 @@ function combineDocs(serverDoc, mineDoc) {
 }
 
 export class Session extends Emitter {
-  constructor(sync, { id, tags, date, revision = 0, doc = null, kind = 'daily', createdAt = null }) {
+  constructor(sync, { id, tags, date, revision = 0, doc = null, kind = 'daily', createdAt = null, title = null }) {
     super();
     this.sync = sync;
     this.id = id;
     this.tags = tags; // tag paths; used when the note is first created on the server
     this.date = date;
+    this.title = title; // the note's name (free notes only); null = untitled
     this.kind = kind; // 'daily' (a stream's entry for a day) or 'note' (a free note: any number per day, may have no tag)
     this.createdAt = createdAt ?? new Date().toISOString(); // only used to order notes of one day
     this.revision = revision; // server revision our edits are based on (0 = not on server yet)
@@ -130,10 +131,15 @@ export class Session extends Emitter {
       this.emit();
       return;
     }
-    this.pending = { doc, seq: this.dirtySeq };
+    this.pending = this.#pendingOf(doc, this.dirtySeq);
     this.persist();
     if (schedule) this.scheduleFlush();
     this.emit();
+  }
+
+  // What is waiting to be sent: the text and the name as they are right now.
+  #pendingOf(doc, seq) {
+    return { doc, seq, title: this.title };
   }
 
   // ----- durable local copy -----
@@ -143,6 +149,7 @@ export class Session extends Emitter {
     const record = {
       noteId: this.id,
       doc: this.pending.doc,
+      title: this.pending.title ?? null,
       tags: this.tags,
       date: this.date,
       kind: this.kind,
@@ -204,6 +211,8 @@ export class Session extends Emitter {
         baseRevision: this.revision,
         doc: snap.doc,
         docFormat: DOC_FORMAT,
+        // only free notes have a name; a daily entry is named by its date
+        ...(this.kind === 'note' ? { title: snap.title ?? null } : {}),
         tags: this.tags,
         date: this.date,
         kind: this.kind,
@@ -253,7 +262,8 @@ export class Session extends Emitter {
 
   // ----- conflict resolution (always keeps the other version somewhere recoverable) -----
 
-  #replaceContent(doc, { revision, markPending, serverDoc = doc }) {
+  #replaceContent(doc, { revision, markPending, serverDoc = doc, title }) {
+    if (title !== undefined) this.title = title;
     this.serverDoc = serverDoc;
     this.revision = revision;
     this.conflict = null;
@@ -263,7 +273,7 @@ export class Session extends Emitter {
     if (markPending) {
       this.dirtySeq++;
       this.capturedSeq = this.dirtySeq;
-      this.pending = { doc, seq: this.dirtySeq };
+      this.pending = this.#pendingOf(doc, this.dirtySeq);
       this.persist();
       this.scheduleFlush(100);
     } else {
@@ -295,7 +305,7 @@ export class Session extends Emitter {
   resolveUseServer() {
     const { reason, note } = this.conflict;
     if (reason === 'revision') {
-      this.#replaceContent(note.doc, { revision: note.revision, markPending: false });
+      this.#replaceContent(note.doc, { revision: note.revision, markPending: false, title: note.title ?? null });
     } else {
       this.#discard();
     }
@@ -306,7 +316,7 @@ export class Session extends Emitter {
     const { reason, note } = this.conflict;
     const mine = this.currentDoc();
     if (reason === 'revision') {
-      this.#replaceContent(combineDocs(note.doc, mine), { revision: note.revision, markPending: true, serverDoc: note.doc });
+      this.#replaceContent(combineDocs(note.doc, mine), { revision: note.revision, markPending: true, serverDoc: note.doc, title: this.title ?? note.title ?? null });
     } else if (reason === 'slot') {
       const target = this.sync.adopt(note);
       target.#replaceContent(combineDocs(note.doc, mine), { revision: note.revision, markPending: true, serverDoc: note.doc });
@@ -340,17 +350,36 @@ export class Session extends Emitter {
     if (!doc) return false;
     this.dirtySeq++;
     this.capturedSeq = this.dirtySeq;
-    this.pending = { doc, seq: this.dirtySeq };
+    this.pending = this.#pendingOf(doc, this.dirtySeq);
     this.persist();
     this.scheduleFlush(100);
     this.emit();
     return true;
   }
 
+  /**
+   * Rename a free note (empty = untitled). It travels with the text through the same save path: kept on the
+   * phone first, then sent against the note's revision, so a stale rename is a visible conflict, not an overwrite.
+   */
+  editTitle(title) {
+    this.title = String(title ?? '').slice(0, 120);
+    const doc = this.provider ? this.provider() : this.currentDoc();
+    if (this.revision === 0 && isEmptyDoc(doc) && !this.title.trim() && !this.pending) {
+      this.emit(); // an unsaved note with no text and no name is still nothing
+      return;
+    }
+    this.dirtySeq++;
+    this.capturedSeq = this.dirtySeq;
+    this.pending = this.#pendingOf(doc, this.dirtySeq);
+    this.persist();
+    this.scheduleFlush();
+    this.emit();
+  }
+
   /** Show exactly what the server has (e.g. after restoring a version). Remounts the editor. */
   applyServerNote(note) {
     this.tags = note.tags.map((t) => t.path);
-    this.#replaceContent(note.doc, { revision: note.revision, markPending: false });
+    this.#replaceContent(note.doc, { revision: note.revision, markPending: false, title: note.title ?? null });
   }
 
   #discard() {
@@ -397,8 +426,8 @@ class SyncManager extends Emitter {
         this.storageError = err;
       }
       for (const r of records) {
-        const s = this.#make({ id: r.noteId, tags: r.tags, date: r.date, revision: r.baseRevision, kind: r.kind ?? 'daily' });
-        s.pending = { doc: r.doc, seq: r.seq };
+        const s = this.#make({ id: r.noteId, tags: r.tags, date: r.date, revision: r.baseRevision, kind: r.kind ?? 'daily', title: r.title ?? null });
+        s.pending = { doc: r.doc, seq: r.seq, title: r.title ?? null };
         s.dirtySeq = s.capturedSeq = r.seq;
         s.unknownOps = r.unknownOps ?? [];
         if (r.baseRevision === 0 && s.kind === 'daily') for (const t of r.tags) this.drafts.set(`${t}|${r.date}`, s);
@@ -439,7 +468,7 @@ class SyncManager extends Emitter {
   adopt(note) {
     let s = this.sessions.get(note.id);
     if (!s) {
-      s = this.#make({ id: note.id, tags: note.tags.map((t) => t.path), date: note.date, revision: note.revision, doc: note.doc, kind: note.kind, createdAt: note.createdAt });
+      s = this.#make({ id: note.id, tags: note.tags.map((t) => t.path), date: note.date, revision: note.revision, doc: note.doc, kind: note.kind, createdAt: note.createdAt, title: note.title ?? null });
     } else if (!s.hasUnsaved && !s.conflict && !s.provider) {
       // Only refresh a note nobody is editing. With an editor open, its text is based on the
       // revision it was loaded at; moving that base forward without showing the new text would
@@ -447,6 +476,7 @@ class SyncManager extends Emitter {
       // produces a visible conflict when saving.
       s.revision = note.revision;
       s.serverDoc = note.doc;
+      s.title = note.title ?? null;
     }
     s.tags = note.tags.map((t) => t.path);
     return s;

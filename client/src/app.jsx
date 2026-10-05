@@ -54,6 +54,27 @@ function GlobalStatus() {
   );
 }
 
+// A tag's name as a trail: each part before the last is a link to that parent tag (school/fall26 -> school).
+function TagCrumbs({ path }) {
+  const parts = path.split('/');
+  return parts.map((part, i) => {
+    const upTo = parts.slice(0, i + 1);
+    const last = i === parts.length - 1;
+    return (
+      <>
+        {i > 0 && '/'}
+        {last ? (
+          part
+        ) : (
+          <a class="crumb" href={`#/t/${upTo.map(encodeURIComponent).join('/')}`} data-testid="crumb">
+            {part}
+          </a>
+        )}
+      </>
+    );
+  });
+}
+
 // On a note page, Back returns to the stream or list you came from; with no history it goes home.
 function goBack(e) {
   if (history.length > 1) {
@@ -73,7 +94,7 @@ function Header({ route }) {
         </a>
       )}
       <h1 class="title" data-testid="title">
-        {title}
+        {route.startsWith('/t/') ? <TagCrumbs path={route.slice(3)} /> : title}
       </h1>
       <GlobalStatus />
     </header>

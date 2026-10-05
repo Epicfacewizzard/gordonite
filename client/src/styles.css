@@ -884,3 +884,35 @@ a.btn {
   font-size: 0.78rem;
   color: var(--muted);
 }
+
+/* ---------- titles, crumbs, daily switch ---------- */
+input.note-title-input[type='text'] {
+  width: 100%;
+  min-height: 44px;
+  margin: 2px 0 6px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 650;
+}
+input.note-title-input[type='text']::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+input.note-title-input[type='text']:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+.topbar .title .crumb {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+}
+.daily-toggle {
+  margin-top: 20px;
+  color: var(--muted);
+}

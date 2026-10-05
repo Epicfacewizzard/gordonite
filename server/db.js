@@ -65,6 +65,12 @@ const MIGRATIONS = [
   DROP INDEX note_tags_slot;
   CREATE UNIQUE INDEX note_tags_slot ON note_tags (tag_id, note_date) WHERE live = 1 AND slot = 1;
   `,
+  // v4: free notes can have a title (null = untitled); a tag can switch its daily entry off
+  // (tags.daily: 1 = a stream shows an entry for today, as before; 0 = only the notes written there).
+  `
+  ALTER TABLE notes ADD COLUMN title TEXT;
+  ALTER TABLE tags ADD COLUMN daily INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

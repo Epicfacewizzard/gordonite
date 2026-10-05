@@ -15,9 +15,9 @@ export const EXPORT_FORMAT_VERSION = 1;
 
 export function exportAll(db, cfg) {
   const tags = db
-    .prepare('SELECT id, path, created_at AS createdAt, favorite FROM tags ORDER BY path')
+    .prepare('SELECT id, path, created_at AS createdAt, favorite, daily FROM tags ORDER BY path')
     .all()
-    .map((t) => ({ ...t, favorite: t.favorite === 1 }));
+    .map((t) => ({ ...t, favorite: t.favorite === 1, daily: t.daily === 1 }));
   const links = db.prepare('SELECT note_id, tag_id FROM note_tags ORDER BY note_id, tag_id').all();
   const byNote = new Map();
   for (const l of links) {
@@ -42,6 +42,7 @@ export function exportAll(db, cfg) {
     .map((n) => ({
       id: n.id,
       kind: n.kind,
+      title: n.title ?? null,
       date: n.note_date,
       docFormat: n.doc_format,
       doc: JSON.parse(n.doc),
@@ -145,8 +146,8 @@ export function importAll(db, cfg, data, mode) {
   };
 
   const insertNote = db.prepare(
-    `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at, kind)
-     VALUES (?,?,?,?,?,NULL,?,?,?,?,?)`,
+    `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, deleted_at, last_snapshot_at, kind, title)
+     VALUES (?,?,?,?,?,NULL,?,?,?,?,?,?)`,
   );
   const insertLink = db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live, slot) VALUES (?,?,?,?,?)');
   const insertVersion = db.prepare(
@@ -161,7 +162,7 @@ export function importAll(db, cfg, data, mode) {
   const addNote = (n, tagIdFor, links) => {
     const doc = docOf(n);
     const kind = n.kind === 'note' ? 'note' : 'daily';
-    insertNote.run(n.id, n.date, doc, DOC_FORMAT, n.revision ?? 1, n.createdAt, n.updatedAt, n.deletedAt ?? null, n.updatedAt, kind);
+    insertNote.run(n.id, n.date, doc, DOC_FORMAT, n.revision ?? 1, n.createdAt, n.updatedAt, n.deletedAt ?? null, n.updatedAt, kind, kind === 'note' && typeof n.title === 'string' ? n.title.slice(0, 120) : null);
     for (const tid of links) insertLink.run(n.id, tagIdFor(tid), n.date, n.deletedAt ? 0 : 1, kind === 'daily' ? 1 : 0);
     addVersions(n);
   };
@@ -172,7 +173,7 @@ export function importAll(db, cfg, data, mode) {
     if (mode === 'replace') {
       db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags;');
       for (const t of data.tags) {
-        db.prepare('INSERT INTO tags (id, path, created_at, favorite) VALUES (?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0);
+        db.prepare('INSERT INTO tags (id, path, created_at, favorite, daily) VALUES (?,?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0, t.daily === false ? 0 : 1);
         tagIdFor.set(t.id, t.id);
         report.tagsCreated++;
       }
@@ -191,7 +192,7 @@ export function importAll(db, cfg, data, mode) {
       } else {
         const idTaken = db.prepare('SELECT 1 FROM tags WHERE id = ?').get(t.id);
         const id = idTaken ? uuid() : t.id;
-        db.prepare('INSERT INTO tags (id, path, created_at, favorite) VALUES (?,?,?,?)').run(id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0);
+        db.prepare('INSERT INTO tags (id, path, created_at, favorite, daily) VALUES (?,?,?,?,?)').run(id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0, t.daily === false ? 0 : 1);
         tagIdFor.set(t.id, id);
         report.tagsCreated++;
       }

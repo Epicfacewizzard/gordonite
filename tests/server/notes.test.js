@@ -622,3 +622,108 @@ describe('free notes survive export and import', () => {
     }
   });
 });
+
+describe('note titles and the per-tag daily switch', () => {
+  let t;
+  before(async () => (t = await startServer()));
+  after(() => t.close());
+
+  const put = (id, text, extra = {}) =>
+    t.api('PUT', `/api/notes/${id}`, { baseRevision: 0, doc: docOf(para(text)), docFormat: 1, tags: [], date: '2026-10-05', opId: uuid(), kind: 'note', ...extra });
+  const get = async (id) => (await t.api('GET', `/api/notes/${id}`)).json.note;
+
+  test('a free note can be titled; changing only the title is an ordinary save; empty means untitled', async () => {
+    const id = uuid();
+    assert.equal((await put(id, 'body text', { title: '  Trip   to China  ' })).status, 200);
+    assert.equal((await get(id)).title, 'Trip to China', 'trimmed to one line');
+
+    // same text, new title: a new revision, and nothing else about the note moves
+    let r = await t.api('PUT', `/api/notes/${id}`, { baseRevision: 1, doc: docOf(para('body text')), docFormat: 1, opId: uuid(), title: 'China trip' });
+    assert.equal(r.json.revision, 2);
+    assert.equal((await get(id)).title, 'China trip');
+    assert.equal((await t.api('GET', `/api/notes/${id}/versions`)).json.versions.length, 0, 'a rename does not create a text version');
+
+    // identical title and text: nothing happens
+    r = await t.api('PUT', `/api/notes/${id}`, { baseRevision: 2, doc: docOf(para('body text')), docFormat: 1, opId: uuid(), title: 'China trip' });
+    assert.equal(r.json.unchanged, true);
+
+    // leaving title out keeps it; an empty title clears it
+    r = await t.api('PUT', `/api/notes/${id}`, { baseRevision: 2, doc: docOf(para('body text changed')), docFormat: 1, opId: uuid() });
+    assert.equal((await get(id)).title, 'China trip');
+    r = await t.api('PUT', `/api/notes/${id}`, { baseRevision: 3, doc: docOf(para('body text changed')), docFormat: 1, opId: uuid(), title: '   ' });
+    assert.equal((await get(id)).title, null);
+
+    // a stale rename is refused like any stale save
+    r = await t.api('PUT', `/api/notes/${id}`, { baseRevision: 1, doc: docOf(para('body text changed')), docFormat: 1, opId: uuid(), title: 'Late rename' });
+    assert.equal(r.status, 409);
+    assert.equal((await get(id)).title, null, 'nothing was overwritten');
+
+    assert.equal((await put(uuid(), 'x', { title: 5 })).status, 400);
+    const long = uuid();
+    assert.equal((await put(long, 'x', { title: 'x'.repeat(300) })).status, 200);
+    assert.equal((await get(long)).title.length, 120, 'long titles are cut to 120 characters');
+  });
+
+  test('daily entries are named by their date: a title sent for one is ignored', async () => {
+    const id = uuid();
+    await put(id, 'daily text', { kind: 'daily', tags: ['journal'], title: 'Nope' });
+    const n = await get(id);
+    assert.equal(n.kind, 'daily');
+    assert.equal(n.title, null);
+  });
+
+  test('the notes list shows a name when there is one, otherwise the first line; search finds names', async () => {
+    const named = uuid();
+    const plain = uuid();
+    await put(named, 'first line\nsecond line', { title: 'Flight plans' });
+    await put(plain, 'Just a thought\nmore words');
+    const list = (await t.api('GET', '/api/notes?limit=100')).json.notes;
+    const a = list.find((n) => n.id === named);
+    const b = list.find((n) => n.id === plain);
+    assert.deepEqual([a.title, a.named, a.preview], ['Flight plans', true, 'first line · second line']);
+    assert.deepEqual([b.title, b.named, b.preview], ['Just a thought', false, 'more words']);
+    const hit = (await t.api('GET', '/api/notes?q=flight')).json.notes.map((n) => n.id);
+    assert.deepEqual(hit, [named], 'a title is searchable');
+  });
+
+  test('tags made by writing a free note have no daily entry; tags made by a daily note do; it can be switched', async () => {
+    await put(uuid(), 'x', { tags: ['trip/china'] });
+    await save(t, uuid(), docOf(para('d')), { tags: ['journal-x'] });
+    let tags = (await t.api('GET', '/api/tags')).json.tags;
+    const china = tags.find((x) => x.path === 'trip/china');
+    const journal = tags.find((x) => x.path === 'journal-x');
+    assert.deepEqual([china.daily, journal.daily], [false, true]);
+
+    // the stream says so, and a tag that does not exist yet is a new daily stream
+    assert.equal((await t.api('GET', '/api/stream?tag=trip/china')).json.tag.daily, false);
+    assert.equal((await t.api('GET', '/api/stream?tag=never-used')).json.tag.daily, true);
+
+    assert.equal((await t.api('PUT', `/api/tags/${china.id}/daily`, { daily: true })).status, 200);
+    assert.equal((await t.api('GET', '/api/stream?tag=trip/china')).json.tag.daily, true);
+    assert.equal((await t.api('PUT', `/api/tags/${china.id}/daily`, { daily: 'yes' })).status, 400);
+    assert.equal((await t.api('PUT', `/api/tags/${uuid()}/daily`, { daily: true })).status, 404);
+
+    // tagging a free note with a brand-new tag makes a no-daily tag; export/import keeps the setting
+    const id = uuid();
+    await put(id, 'y', { tags: [] });
+    await t.api('POST', `/api/notes/${id}/tags`, { path: 'fresh-topic' });
+    await t.api('PUT', `/api/tags/${journal.id}/daily`, { daily: false });
+    const exported = (await t.api('GET', '/api/export/json')).json;
+    assert.equal(exported.tags.find((x) => x.path === 'fresh-topic').daily, false);
+    assert.equal((await t.api('POST', '/api/import?mode=replace', exported)).status, 200);
+    tags = (await t.api('GET', '/api/tags')).json.tags;
+    assert.deepEqual(
+      ['trip/china', 'journal-x', 'fresh-topic'].map((p) => tags.find((x) => x.path === p).daily),
+      [true, false, false],
+    );
+  });
+
+  test('titles survive export and import', async () => {
+    const id = uuid();
+    await put(id, 'keep my name', { title: 'Named note' });
+    const exported = (await t.api('GET', '/api/export/json')).json;
+    assert.equal(exported.notes.find((n) => n.id === id).title, 'Named note');
+    assert.equal((await t.api('POST', '/api/import?mode=replace', exported)).status, 200);
+    assert.equal((await get(id)).title, 'Named note');
+  });
+});

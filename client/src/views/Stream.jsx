@@ -12,6 +12,36 @@ import { TagEditor } from './TagEditor.jsx';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
 
+// The name of a free note, editable on its own page. Typing goes through the note's save session, like the text.
+function NoteTitle({ session }) {
+  const ref = useRef(null);
+  // A brand-new note asks for its name first (Enter moves on to the text).
+  const fresh = useRef(session.revision === 0 && !session.title && !session.pending);
+  useEffect(() => {
+    if (fresh.current) ref.current?.focus();
+  }, []);
+  return (
+    <input
+      ref={ref}
+      class="note-title-input"
+      type="text"
+      defaultValue={session.title ?? ''}
+      placeholder="Untitled"
+      aria-label="Note title"
+      maxLength={120}
+      autocomplete="off"
+      enterkeyhint="next"
+      data-testid="note-title"
+      onInput={(e) => session.editTitle(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        document.querySelector('.note-page .note-text[contenteditable="true"]')?.focus();
+      }}
+    />
+  );
+}
+
 // One note: its date, tags, status panels and either the live editor or a read-only view. `tag` is the
 // stream it is shown in (null on its own page); `standalone` marks the own-page case.
 export function NoteCard({ session, tag, today, active, onActivate, onChanged, onEditor, focusRequest, standalone }) {
@@ -22,6 +52,15 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
   const weekday = label === 'Today' || label === 'Yesterday' ? formatDateShort(session.date) : null;
   const html = useMemo(() => (active ? '' : renderDoc(session.currentDoc())), [session.pending, session.serverDoc, session.generation, active]);
   const otherTags = session.tags.filter((t) => t !== tag);
+  // The heading is a link to the note's own page, except there or while it is not on the server yet.
+  const link = (text) =>
+    standalone || session.revision === 0 ? (
+      text
+    ) : (
+      <a class="note-date-link" href={`#/n/${session.id}`} data-testid="open-note" aria-label={`Open ${text} on its own page`}>
+        {text}
+      </a>
+    );
   const empty = !session.currentDoc().content?.some((n) => n.content?.length);
 
   const activate = (e) => {
@@ -48,20 +87,20 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
     <article class="note" data-testid="note" data-note-id={session.id} data-date={session.date} data-active={active}>
       <header class="note-head">
         <h2 class="note-date">
-          {standalone || session.revision === 0 ? (
-            label
+          {/* a free note in a stream is known by its name; everything else by its date */}
+          {link(session.kind === 'note' && !standalone ? session.title || 'Untitled' : label)}
+          {session.kind === 'note' && !standalone ? (
+            <span class="note-date-sub">{label}</span>
           ) : (
-            <a class="note-date-link" href={`#/n/${session.id}`} data-testid="open-note" aria-label={`Open ${label} on its own page`}>
-              {label}
-            </a>
+            weekday && <span class="note-date-sub">{weekday}</span>
           )}
-          {weekday && <span class="note-date-sub">{weekday}</span>}
           {session.kind === 'note' && <span class="note-kind">note</span>}
         </h2>
         <button type="button" class="icon-btn" aria-label="Note options" data-testid="note-menu" onClick={() => setMenu(true)}>
           ⋯
         </button>
       </header>
+      {standalone && session.kind === 'note' && <NoteTitle key={`title:${session.id}:${session.generation}`} session={session} />}
       {standalone && <TagEditor session={session} />}
       {!standalone && otherTags.length > 0 && (
         <ul class="chips small" aria-label="Also tagged">
@@ -114,7 +153,7 @@ export function StreamView({ tag, config }) {
   const today = useToday(config.tz);
   const [shownToday, setShownToday] = useState(today);
   const [newDay, setNewDay] = useState(false);
-  const [load, setLoad] = useState({ status: 'loading', notes: [], hasMore: false, error: null });
+  const [load, setLoad] = useState({ status: 'loading', notes: [], hasMore: false, error: null, daily: true, tagId: null });
   const [activeId, setActiveId] = useState(null);
   const [focusRequest, setFocusRequest] = useState(null);
   const [editor, setEditor] = useState(null);
@@ -137,14 +176,14 @@ export function StreamView({ tag, config }) {
       const res = await api.stream(tag);
       if (mine !== generation.current) return;
       res.notes.forEach((n) => sync.adopt(n));
-      setLoad({ status: 'ready', notes: res.notes.map((n) => n.id), hasMore: res.hasMore, error: null });
+      setLoad({ status: 'ready', notes: res.notes.map((n) => n.id), hasMore: res.hasMore, error: null, daily: res.tag.daily, tagId: res.tag.id });
     } catch (err) {
       if (mine === generation.current) setLoad((l) => ({ ...l, status: 'error', error: err.message }));
     }
   }, [tag]);
 
   useEffect(() => {
-    setLoad({ status: 'loading', notes: [], hasMore: false, error: null });
+    setLoad({ status: 'loading', notes: [], hasMore: false, error: null, daily: true, tagId: null });
     setActiveId(null);
     fetchFirst();
   }, [tag]);
@@ -176,8 +215,10 @@ export function StreamView({ tag, config }) {
       const inWindow = !load.hasMore || (oldest && s.date >= oldest);
       if (touched && inWindow && (s.pending || s.drafted)) byId.set(s.id, s);
     }
-    const todaySession = [...byId.values()].find((s) => s.date === shownToday && s.kind === 'daily') ?? sync.draft(tag, shownToday);
-    byId.set(todaySession.id, todaySession);
+    // A tag with its daily entry switched off shows only the notes written in it (and any daily entries it already has).
+    const existingToday = [...byId.values()].find((s) => s.date === shownToday && s.kind === 'daily');
+    const todaySession = existingToday ?? (load.daily ? sync.draft(tag, shownToday) : null);
+    if (todaySession) byId.set(todaySession.id, todaySession);
     // Newest day first; within a day the daily entry, then free notes newest first.
     const rank = (x) => (x.kind === 'daily' ? 0 : 1);
     return [...byId.values()].sort((a, b) => {
@@ -204,6 +245,26 @@ export function StreamView({ tag, config }) {
     activate(s.id, {});
   };
 
+  // Switch the daily entry for this tag on or off (a tag that has no notes yet is created first).
+  const toggleDaily = async () => {
+    const next = !load.daily;
+    setLoad((l) => ({ ...l, daily: next }));
+    try {
+      let id = load.tagId;
+      if (!id) id = (await api.createTag(tag)).tag.id;
+      await api.setDaily(id, next);
+      setLoad((l) => ({ ...l, tagId: id }));
+    } catch (err) {
+      setLoad((l) => ({ ...l, daily: !next, error: err.message }));
+    }
+  };
+
+  const newNoteButton = (
+    <a class="btn block" href={`#/new?tag=${encodeURIComponent(tag).replaceAll('%2F', '/')}`} data-testid="new-note-here">
+      New note in “{tag}”
+    </a>
+  );
+
   const changed = () => {
     refresh((n) => n + 1);
     fetchFirst();
@@ -228,6 +289,7 @@ export function StreamView({ tag, config }) {
         </div>
       )}
       {load.status === 'loading' && <p class="muted center">Loading…</p>}
+      {!load.daily && newNoteButton}
       {entries.map((s) => (
         <NoteCard
           key={s.id}
@@ -241,16 +303,25 @@ export function StreamView({ tag, config }) {
           onEditor={s.id === effectiveActive ? setEditor : undefined}
         />
       ))}
-      <a class="btn block" href={`#/new?tag=${encodeURIComponent(tag).replaceAll('%2F', '/')}`} data-testid="new-note-here">
-        New note in “{tag}”
-      </a>
+      {load.daily && newNoteButton}
       {load.hasMore && (
         <button type="button" class="btn block" data-testid="load-older" onClick={loadMore}>
           Load older notes
         </button>
       )}
-      {load.status === 'ready' && !load.hasMore && entries.length <= 1 && (
+      {load.status === 'ready' && !load.hasMore && load.daily && entries.length <= 1 && (
         <p class="muted center">Notes you write here are saved by day under “{tag}”.</p>
+      )}
+      {load.status === 'ready' && !load.daily && entries.length === 0 && (
+        <p class="muted center" data-testid="no-notes">
+          No notes in “{tag}” yet.
+        </p>
+      )}
+      {load.status === 'ready' && (
+        <label class="check-row small daily-toggle">
+          <input type="checkbox" checked={load.daily} onChange={toggleDaily} data-testid="daily-toggle" />
+          <span>Show an entry for today in “{tag}” (turn off for a topic you only write notes in)</span>
+        </label>
       )}
       <div class="toolbar-spacer" />
       <EditorBar editor={editor} noteDate={sync.get(effectiveActive)?.date} today={today} />

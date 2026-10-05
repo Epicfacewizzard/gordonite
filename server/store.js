@@ -17,6 +17,14 @@ export class HttpError extends Error {
 const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const nowIso = () => new Date().toISOString();
 
+// A note title: one line, at most 120 characters; empty means untitled (null).
+const MAX_TITLE = 120;
+function cleanTitle(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') throw new HttpError(400, 'bad_title', 'title must be text');
+  return value.replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE) || null;
+}
+
 export function checkId(id, what = 'id') {
   if (typeof id !== 'string' || !ID_RE.test(id)) throw new HttpError(400, 'bad_id', `Invalid ${what}`);
   return id;
@@ -54,6 +62,7 @@ export class Store {
       docFormat: DOC_FORMAT,
       revision: row.revision,
       kind: row.kind,
+      title: row.title ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       deletedAt: row.deleted_at,
@@ -66,11 +75,13 @@ export class Store {
     return rows.map((r) => this.#toNote(r, tags.get(r.id)));
   }
 
-  #ensureTag(path) {
+  // A tag created by writing a free note in it is a plain topic (no daily entry); one created by a stream's
+  // daily note, or by hand, keeps the daily entry on.
+  #ensureTag(path, { daily = true } = {}) {
     const row = this.db.prepare('SELECT id, path FROM tags WHERE path = ?').get(path);
     if (row) return { id: row.id, path: row.path };
     const id = uuid();
-    this.db.prepare('INSERT INTO tags (id, path, created_at) VALUES (?, ?, ?)').run(id, path, nowIso());
+    this.db.prepare('INSERT INTO tags (id, path, created_at, daily) VALUES (?, ?, ?, ?)').run(id, path, nowIso(), daily ? 1 : 0);
     return { id, path };
   }
 
@@ -117,14 +128,21 @@ export class Store {
   listTags() {
     return this.db
       .prepare(
-        `SELECT t.id, t.path, t.created_at AS createdAt, t.favorite, COUNT(n.id) AS noteCount, MAX(nt.note_date) AS lastDate
+        `SELECT t.id, t.path, t.created_at AS createdAt, t.favorite, t.daily, COUNT(n.id) AS noteCount, MAX(nt.note_date) AS lastDate
          FROM tags t
          LEFT JOIN note_tags nt ON nt.tag_id = t.id AND nt.live = 1
          LEFT JOIN notes n ON n.id = nt.note_id AND n.deleted_at IS NULL
          GROUP BY t.id ORDER BY t.path`,
       )
       .all()
-      .map((t) => ({ ...t, favorite: t.favorite === 1 }));
+      .map((t) => ({ ...t, favorite: t.favorite === 1, daily: t.daily === 1 }));
+  }
+
+  setTagDaily(id, daily) {
+    if (typeof daily !== 'boolean') throw new HttpError(400, 'bad_daily', '"daily" must be true or false');
+    const res = this.db.prepare('UPDATE tags SET daily = ? WHERE id = ?').run(daily ? 1 : 0, id);
+    if (res.changes === 0) throw new HttpError(404, 'not_found', 'Tag not found');
+    return { id, daily };
   }
 
   setTagFavorite(id, favorite) {
@@ -186,8 +204,10 @@ export class Store {
     if (!path) throw new HttpError(400, 'bad_tag', 'Invalid tag');
     if (before !== null && !isValidDateString(before)) throw new HttpError(400, 'bad_date', 'Invalid "before" date');
     limit = Math.min(Math.max(Number(limit) || 14, 1), 60);
-    const tag = this.db.prepare('SELECT id, path FROM tags WHERE path = ?').get(path);
-    if (!tag) return { tag: { id: null, path }, notes: [], hasMore: false };
+    const tag = this.db.prepare('SELECT id, path, daily FROM tags WHERE path = ?').get(path);
+    // A tag that does not exist yet is a new daily stream (that is how a stream starts).
+    if (!tag) return { tag: { id: null, path, daily: true }, notes: [], hasMore: false };
+    const info = { id: tag.id, path: tag.path, daily: tag.daily === 1 };
     const dates = this.db
       .prepare(
         `SELECT DISTINCT nt.note_date AS d FROM note_tags nt JOIN notes n ON n.id = nt.note_id
@@ -198,7 +218,7 @@ export class Store {
       .map((r) => r.d);
     const hasMore = dates.length > limit;
     const shown = dates.slice(0, limit);
-    if (shown.length === 0) return { tag: { id: tag.id, path: tag.path }, notes: [], hasMore: false };
+    if (shown.length === 0) return { tag: info, notes: [], hasMore: false };
     const rows = this.db
       .prepare(
         `SELECT n.* FROM note_tags nt JOIN notes n ON n.id = nt.note_id
@@ -206,7 +226,7 @@ export class Store {
          ORDER BY nt.note_date DESC, CASE n.kind WHEN 'daily' THEN 0 ELSE 1 END, n.created_at DESC`,
       )
       .all(tag.id, shown[shown.length - 1], before, before);
-    return { tag: { id: tag.id, path: tag.path }, notes: this.#notes(rows), hasMore };
+    return { tag: info, notes: this.#notes(rows), hasMore };
   }
 
   // All live notes, most recently changed first, for the Notes page. Filters: tag (exact, or with its
@@ -235,7 +255,10 @@ export class Store {
     let hasMore;
     if (needle) {
       // The words live inside the JSON documents, so search in code; fine at personal scale.
-      const all = this.db.prepare(sql).all(...args).filter((r) => plainText(JSON.parse(r.doc)).toLowerCase().includes(needle));
+      const all = this.db
+        .prepare(sql)
+        .all(...args)
+        .filter((r) => `${r.title ?? ''}\n${plainText(JSON.parse(r.doc))}`.toLowerCase().includes(needle));
       hasMore = all.length > offset + limit;
       rows = all.slice(offset, offset + limit);
     } else {
@@ -256,8 +279,10 @@ export class Store {
         revision: r.revision,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
-        title: (lines[0] ?? '').slice(0, 120),
-        preview: lines.slice(1).join(' · ').slice(0, 200),
+        // A name wins; otherwise the first line stands in for one.
+        title: r.title || (lines[0] ?? '').slice(0, 120),
+        named: !!r.title,
+        preview: (r.title ? lines : lines.slice(1)).join(' · ').slice(0, 200),
         tags: tagsOf.get(r.id),
       };
     });
@@ -286,25 +311,29 @@ export class Store {
     const opId = typeof body.opId === 'string' ? body.opId.slice(0, 64) : null;
     const afterOps = Array.isArray(body.afterOps) ? body.afterOps.filter((x) => typeof x === 'string').slice(-50) : [];
     const docStr = JSON.stringify(body.doc);
+    // title is optional and only free notes have one. Left out = leave the stored title alone.
+    const hasTitle = Object.hasOwn(body, 'title');
+    const title = hasTitle ? cleanTitle(body.title) : undefined;
 
     return tx(this.db, () => {
       const note = this.db.prepare('SELECT * FROM notes WHERE id = ?').get(id);
 
-      if (!note) return this.#createNote(id, body, docStr, opId);
+      if (!note) return this.#createNote(id, body, docStr, opId, title ?? null);
 
       if (note.deleted_at) {
         if (note.doc !== docStr) this.#storeConflictCopy(id, baseRevision, docStr);
         return { status: 'conflict', reason: 'deleted', note: this.#notes([note])[0] };
       }
 
-      if (note.doc === docStr) {
+      const nextTitle = note.kind === 'note' && hasTitle ? title : note.title;
+      if (note.doc === docStr && nextTitle === note.title) {
         return { status: 'ok', revision: note.revision, updatedAt: note.updated_at, unchanged: true };
       }
 
       const lineageCurrent =
         baseRevision === note.revision || (note.last_op_id !== null && afterOps.includes(note.last_op_id));
       if (!lineageCurrent) {
-        this.#storeConflictCopy(id, baseRevision, docStr);
+        if (note.doc !== docStr) this.#storeConflictCopy(id, baseRevision, docStr);
         return { status: 'conflict', reason: 'revision', note: this.#notes([note])[0] };
       }
 
@@ -313,7 +342,7 @@ export class Store {
       const sinceSnap = Date.now() - Date.parse(note.last_snapshot_at ?? note.created_at);
       const oldLen = plainText(JSON.parse(note.doc)).trim().length;
       let snapKind = null;
-      if (oldLen > 0) {
+      if (oldLen > 0 && note.doc !== docStr) {
         // keepPrevious: the sender is deliberately replacing content it had a conflict with.
         if (body.keepPrevious === true || sinceSnap >= this.cfg.versionIntervalMinutes * 60_000) snapKind = 'auto';
         else if (oldLen >= 20 && plainText(body.doc).trim().length < oldLen * 0.5) snapKind = 'guard';
@@ -323,23 +352,23 @@ export class Store {
       const revision = note.revision + 1;
       this.db
         .prepare(
-          `UPDATE notes SET doc = ?, doc_format = ?, revision = ?, last_op_id = ?, updated_at = ?, last_snapshot_at = ?
+          `UPDATE notes SET doc = ?, doc_format = ?, revision = ?, last_op_id = ?, updated_at = ?, last_snapshot_at = ?, title = ?
            WHERE id = ?`,
         )
-        .run(docStr, DOC_FORMAT, revision, opId, now, snapKind ? now : note.last_snapshot_at, id);
+        .run(docStr, DOC_FORMAT, revision, opId, now, snapKind ? now : note.last_snapshot_at, nextTitle, id);
       if (snapKind) this.#pruneVersions(id);
       return { status: 'ok', revision, updatedAt: now };
     });
   }
 
-  #createNote(id, body, docStr, opId) {
+  #createNote(id, body, docStr, opId, title) {
     if (!isValidDateString(body.date)) throw new HttpError(400, 'bad_date', 'A valid note date (YYYY-MM-DD) is required');
     // 'daily' (default) is a stream's entry for a day; 'note' is a free note (no slot, may be untagged).
     const kind = body.kind === 'note' ? 'note' : 'daily';
     const paths = [...new Set((Array.isArray(body.tags) ? body.tags : []).map(normalizeTag))];
     if (paths.includes(null) || (kind === 'daily' && paths.length === 0)) throw new HttpError(400, 'bad_tag', 'At least one valid tag is required');
 
-    const tags = paths.map((p) => this.#ensureTag(p));
+    const tags = paths.map((p) => this.#ensureTag(p, { daily: kind === 'daily' }));
     const holders = new Map();
     for (const t of kind === 'daily' ? tags : []) {
       const h = this.#slotHolder(t.id, body.date, id);
@@ -353,10 +382,10 @@ export class Store {
     const now = nowIso();
     this.db
       .prepare(
-        `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, last_snapshot_at, kind)
-         VALUES (?,?,?,?,1,?,?,?,?,?)`,
+        `INSERT INTO notes (id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_at, last_snapshot_at, kind, title)
+         VALUES (?,?,?,?,1,?,?,?,?,?,?)`,
       )
-      .run(id, body.date, docStr, DOC_FORMAT, opId, now, now, now, kind);
+      .run(id, body.date, docStr, DOC_FORMAT, opId, now, now, now, kind, kind === 'note' ? title : null);
     const link = this.db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live, slot) VALUES (?,?,?,1,?)');
     for (const t of tags) link.run(id, t.id, body.date, kind === 'daily' ? 1 : 0);
     return { status: 'ok', revision: 1, updatedAt: now, created: true };
@@ -370,7 +399,7 @@ export class Store {
     return tx(this.db, () => {
       const note = this.db.prepare('SELECT * FROM notes WHERE id = ? AND deleted_at IS NULL').get(noteId);
       if (!note) throw new HttpError(404, 'not_found', 'Note not found (it may not be saved on the server yet)');
-      const tag = this.#ensureTag(path);
+      const tag = this.#ensureTag(path, { daily: note.kind === 'daily' });
       const has = this.db.prepare('SELECT 1 FROM note_tags WHERE note_id = ? AND tag_id = ?').get(noteId, tag.id);
       if (!has) {
         const daily = note.kind === 'daily';

@@ -45,6 +45,14 @@ deliberately not built.
   page. Nothing is created on the server until you type, so opening it and leaving leaves no trace. Free notes are
   not tied to a day: a tag can hold any number of them, even on the same day, next to its daily entry (marked
   *note* in a stream), and they can have no tag at all.
+* **Names.** A free note has a title field at the top of its page ("Untitled" until you name it); a new note puts
+  the cursor there first, and Enter moves on to the text. The name shows in streams and in the Notes list (search
+  finds it too). A name alone is enough to create the note. Daily entries have no name: their date is their name.
+* **Daily entry per tag.** Every tag starts as a daily stream: an entry for today waits at the top. For a topic you
+  only write notes in (`trip/china`), untick *Show an entry for today* at the bottom of its stream and it shows just
+  its notes. A tag first made by writing a free note starts with that off. Empty days are never saved (today's
+  entry is created on your first keystroke), so there is nothing to archive.
+* **Header trail.** In a stream the tag name is a trail: tap `school` in `school/fall26` to go up to it.
 * **Tags** are edited right on the note's page: the chips show its tags, **×** removes one, **+** starts a
   sub-tag under it, and the box adds any tag (suggestions come from the tags you already have). A tag is a path:
   `school` is a tag, `school/fall26/math` is a sub-tag of it. You can tag a note before writing anything; the

@@ -73,6 +73,7 @@ export function noteToMarkdownFile(note) {
     '---',
     `id: ${note.id}`,
     `date: ${note.date}`,
+    ...(note.title ? [`title: ${JSON.stringify(note.title)}`] : []),
     `tags: [${note.tags.map((t) => t.path).join(', ')}]`,
     `created: ${note.createdAt}`,
     `updated: ${note.updatedAt}`,

@@ -20,6 +20,8 @@ export function NoteView({ id, config }) {
   const load = useCallback(async () => {
     try {
       await sync.ready;
+      // A brand-new note that only exists on this phone has no copy on the server to ask for.
+      if (sync.get(id)?.revision === 0) return setState({ status: 'ready', error: null });
       try {
         const { note } = await api.getNote(id);
         if (note.deletedAt && !sync.get(id)?.hasUnsaved) return setState({ status: 'trashed', error: null });
