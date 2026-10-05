@@ -69,6 +69,10 @@ export function HomeView() {
 
   return (
     <div class="home">
+      <a class="tag-row tasks-link" href="#/tasks" data-testid="tasks-link">
+        <span class="tag-name">Tasks</span>
+        <span class="tag-meta">Everything still to do, across all streams</span>
+      </a>
       {favorites.length > 0 && (
         <>
           <h2 class="section">Favorites</h2>

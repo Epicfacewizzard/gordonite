@@ -1,5 +1,6 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { uuid } from '../../shared/ids.js';
 import { launch, withPhone, open, editor, waitSaved, tap, structure, caret } from './harness.js';
 
 let browser;
@@ -232,5 +233,41 @@ describe('stage 2: inline tasks', () => {
       const html = await editor(page).innerHTML();
       assert.match(html, /<strong>line<\/strong>/);
       assert.match(html, /<strong> two<\/strong>/);
+    }));
+});
+
+describe('combined Tasks view', () => {
+  test('lists open tasks from every stream; ticking one saves it into its own note', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const mk = (text) => ({ type: 'taskItem', attrs: { checked: false, id: uuid() }, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+      const put = (tags, date, ...items) =>
+        app.api('PUT', `/api/notes/${uuid()}`, {
+          baseRevision: 0,
+          doc: { type: 'doc', content: [{ type: 'taskList', content: items }] },
+          docFormat: 1,
+          tags,
+          date,
+          opId: uuid(),
+        });
+      await put(['school/fall26'], '2026-10-05', mk('read chapter four'), mk('email the professor'));
+      await put(['daily-jots'], '2026-10-04', mk('water the plants'));
+
+      await page.goto(`${app.url}/#/tasks`);
+      await page.waitForSelector('[data-testid="task-row"]');
+      assert.deepEqual(await page.getByTestId('task-group').evaluateAll((g) => g.map((x) => x.dataset.stream)), ['daily-jots', 'school/fall26']);
+      assert.match(await page.getByTestId('task-count').innerText(), /3 open tasks/);
+
+      await page.locator('[data-testid="task-row"]', { hasText: 'email the professor' }).locator('input').tap();
+      await waitSaved(page);
+      assert.match(await page.getByTestId('task-count').innerText(), /2 open tasks · show 1 done/);
+      const note = app.notes().find((n) => n.doc.includes('email the professor'));
+      const ticked = JSON.parse(note.doc).content[0].content.map((t) => t.attrs.checked);
+      assert.deepEqual(ticked, [false, true], 'only the tapped task changed, inside its own note');
+      assert.equal(note.revision, 2);
+
+      await page.reload();
+      await page.waitForSelector('[data-testid="task-row"]');
+      assert.match(await page.getByTestId('task-count').innerText(), /2 open tasks/, 'the tick survives a reload');
+      assert.deepEqual(page.errors, []);
     }));
 });

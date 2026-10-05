@@ -6,7 +6,7 @@ import { formatDateLabel, formatDateShort } from '../../../shared/dates.js';
 import { NoteEditor } from '../editor/NoteEditor.jsx';
 import { Toolbar } from '../editor/Toolbar.jsx';
 import { renderDoc } from '../editor/render.js';
-import { ConflictPanel, SaveBadge } from './parts.jsx';
+import { ConflictPanel } from './parts.jsx';
 import { NoteMenu } from './NoteMenu.jsx';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
@@ -48,7 +48,6 @@ function NoteCard({ session, tag, today, active, onActivate, onChanged, onEditor
           {label}
           {weekday && <span class="note-date-sub">{weekday}</span>}
         </h2>
-        <SaveBadge session={session} />
         <button type="button" class="icon-btn" aria-label="Note options" data-testid="note-menu" onClick={() => setMenu(true)}>
           ⋯
         </button>

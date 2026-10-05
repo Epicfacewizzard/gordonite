@@ -30,7 +30,8 @@ const reconnect = async (page, pattern = '**/api/**') => {
   await page.unroute(pattern);
   await page.evaluate(() => window.dispatchEvent(new Event('online'))); // what the browser fires on reconnect
 };
-const badge = (page) => page.getByTestId('save-status').first();
+// The header dot is the only status indicator; its words are in the accessible label.
+const badge = (page) => page.getByTestId('global-status');
 
 describe('stage 4: interrupted connections', () => {
   test('offline: edits are pending on the phone, then saved on reconnect (one note, nothing lost)', () =>
@@ -40,12 +41,12 @@ describe('stage 4: interrupted connections', () => {
       await type(page, 'online part');
       await waitSaved(page);
       assert.equal(await badge(page).getAttribute('data-status'), 'saved');
-      assert.match(await badge(page).innerText(), /Saved on server/);
+      assert.match(await badge(page).getAttribute('aria-label'), /Saved on server/);
 
       await context.setOffline(true);
       await type(page, ' and offline part');
       await waitStatus(page, 'offline');
-      assert.match(await badge(page).innerText(), /Pending on phone/);
+      assert.match(await badge(page).getAttribute('aria-label'), /Pending on phone/);
       assert.deepEqual(TODAY_TEXT(app), ['online part'], 'server does not have the offline text yet');
       const held = await pendingRecords(page);
       assert.equal(held.length, 1);
@@ -74,7 +75,7 @@ describe('stage 4: interrupted connections', () => {
       await page.reload(); // phone app restarted while still offline
       await page.waitForSelector('.note-text');
       assert.equal(await editor(page).textContent(), 'written on the train with no signal', 'unsent text is back in the editor');
-      assert.match(await badge(page).innerText(), /Pending on phone/);
+      assert.match(await badge(page).getAttribute('aria-label'), /Pending on phone/);
       assert.equal(await page.getByTestId('load-error').count(), 1, 'the app says the server is unreachable');
 
       await reconnect(page);
@@ -117,7 +118,7 @@ describe('stage 4: interrupted connections', () => {
       await open(page);
       await editor(page).tap();
       await type(page, 'first words');
-      await page.waitForFunction(() => document.querySelector('[data-testid="save-status"]')?.dataset.status === 'offline', null, { timeout: 8000 });
+      await page.waitForFunction(() => document.querySelector('[data-testid="global-status"]')?.dataset.status === 'offline', null, { timeout: 8000 });
       await type(page, ' second words');
       await waitSaved(page, 20_000);
       assert.equal(dropped >= 1, true);
@@ -142,7 +143,7 @@ describe('stage 4: interrupted connections', () => {
       await editor(page).tap();
       await type(page, 'must not be lost');
       await waitStatus(page, 'failed', 8000);
-      assert.match(await badge(page).innerText(), /Save failed/);
+      assert.match(await badge(page).getAttribute('aria-label'), /Save failed/);
       assert.match(await page.locator('.error.inline').innerText(), /database is busy/);
       assert.equal(app.notes().length, 0);
       assert.equal((await pendingRecords(page)).length, 1);
@@ -191,7 +192,7 @@ describe('stage 4: conflicts keep both versions', () => {
       const { page, app } = ctx;
       const id = await makeConflict(ctx);
       assert.equal(await page.getByTestId('global-status').getAttribute('data-status'), 'conflict');
-      assert.match(await badge(page).innerText(), /Conflict/);
+      assert.match(await badge(page).getAttribute('aria-label'), /Conflict/);
       assert.equal(await editor(page).textContent(), 'base text <phone>', 'the editor still shows what was typed');
       assert.equal(app.docText(id), 'base text <desktop>', 'the other version was not overwritten');
       const versions = (await app.api('GET', `/api/notes/${id}/versions`)).json.versions;

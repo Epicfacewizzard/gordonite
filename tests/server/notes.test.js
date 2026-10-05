@@ -330,3 +330,52 @@ describe('favorite tags', () => {
     assert.equal((await t.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: 'yes' })).status, 400);
   });
 });
+
+describe('combined task list', () => {
+  let t;
+  before(async () => (t = await startServer()));
+  after(() => t.close());
+
+  test('lists tasks from every live note with tag and date; trashed notes drop out', async () => {
+    const a = uuid();
+    const b = uuid();
+    const ta = task('call the dentist');
+    const tb = task('hand in essay', true);
+    const nested = task('outline');
+    nested.content.push({ type: 'taskList', content: [task('sources')] });
+    await save(t, a, docOf(para('plan'), { type: 'taskList', content: [ta, nested] }), { tags: ['daily-jots', 'school'], date: '2026-10-04' });
+    await save(t, b, docOf({ type: 'taskList', content: [tb, task('')] }), { tags: ['school'], date: '2026-10-05' });
+    await save(t, uuid(), docOf(para('no tasks here')), { tags: ['misc'], date: '2026-10-05' });
+
+    let tasks = (await t.api('GET', '/api/tasks')).json.tasks;
+    assert.deepEqual(
+      tasks.map((x) => [x.text, x.checked, x.date, x.tags]),
+      [
+        ['hand in essay', true, '2026-10-05', ['school']],
+        ['call the dentist', false, '2026-10-04', ['daily-jots', 'school']],
+        ['outline', false, '2026-10-04', ['daily-jots', 'school']],
+        ['sources', false, '2026-10-04', ['daily-jots', 'school']],
+      ],
+      'newest note first, document order inside, empty tasks skipped, nested tasks listed on their own',
+    );
+    assert.equal(tasks[1].noteId, a);
+    assert.equal(tasks[1].taskId, ta.attrs.id);
+
+    await t.api('DELETE', `/api/notes/${b}`);
+    tasks = (await t.api('GET', '/api/tasks')).json.tasks;
+    assert.equal(tasks.some((x) => x.text === 'hand in essay'), false, 'trashed notes are not listed');
+  });
+});
+
+describe('task helpers', () => {
+  test('setTaskChecked changes only the named task and leaves the input alone', async () => {
+    const { setTaskChecked, extractTasks } = await import('../../shared/tasks.js');
+    const one = task('one', false, 'id-one-1234');
+    const two = task('two', false, 'id-two-1234');
+    const doc = docOf({ type: 'taskList', content: [one, two] });
+    const next = setTaskChecked(doc, 'id-two-1234', true);
+    assert.deepEqual(extractTasks(next).map((x) => x.checked), [false, true]);
+    assert.deepEqual(extractTasks(doc).map((x) => x.checked), [false, false], 'original untouched');
+    assert.equal(setTaskChecked(doc, 'missing-id', true), null);
+  });
+});

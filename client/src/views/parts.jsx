@@ -10,20 +10,6 @@ export const STATUS_TEXT = {
   conflict: 'Conflict · both versions kept',
 };
 
-/** Per-note save state. Text, not colour alone, tells the states apart. */
-export function SaveBadge({ session }) {
-  useSession(session);
-  if (session.revision === 0 && !session.hasUnsaved) return null;
-  const status = session.status;
-  return (
-    <span class={`badge badge-${status}`} data-testid="save-status" data-status={status} role="status" aria-live="polite">
-      <span class="dot" aria-hidden="true" />
-      {STATUS_TEXT[status]}
-      {session.localError && <span class="warn" title={String(session.localError.message ?? session.localError)}> · ⚠ not stored on phone</span>}
-    </span>
-  );
-}
-
 export function Sheet({ title, onClose, children }) {
   const ref = useRef(null);
   useEffect(() => {

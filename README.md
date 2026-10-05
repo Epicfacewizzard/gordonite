@@ -27,8 +27,9 @@ deliberately not built.
   in place; tapping a checkbox ticks it where it is. Both are undoable.
 * **Tags** (⋯ → Tags): a note can have several tags; it is one page whichever tag you open it through.
   Streams match the exact tag: `school` does not include `school/fall26`. A tag can have one note per date.
-* **Status badge** on each note and in the header: *Saved on server*, *Saving…*, *Pending on phone*,
-  *Pending on phone · offline*, *Save failed · kept on phone*, or *Conflict · both versions kept*.
+* **Status dot** in the header: green = saved on the server, yellow = held on the phone and on its way
+  (saving, pending, offline), red = needs a look (save failed, conflict, or the phone cannot store your text).
+  Tap it when it is not green to retry or jump to a conflict; press and hold or hover for the exact words.
 * **⋯ → History** lists earlier versions (including text kept from conflicts); restoring never discards the
   current text. **⋯ → Move to trash**; **Trash** (home page) restores for 30 days.
 * **Data & backups** (home page): back up now, download a backup, export (JSON full-fidelity, Markdown zip),
@@ -96,7 +97,7 @@ On CasaOS, build the image once over SSH (`docker build -t personal-hq:0.1.0 .`)
 ## How saving works (the short version)
 
 1. Typing updates only the editor. 300 ms after you pause, the text is written to **IndexedDB on the phone**;
-   500 ms later it is sent to the server. A reply changes the badge and nothing else: the editor is never
+   500 ms later it is sent to the server. A reply changes the dot and nothing else: the editor is never
    reloaded, so the caret, keyboard and undo history are untouched.
 2. If the connection drops, the text stays **Pending on phone**, retries with backoff and on reconnect, and
    is still there if you close or reload the page. The phone copy is deleted only after the server confirms

@@ -96,6 +96,8 @@ export function createApp({ config, db, log = console }) {
     sendJson(res, 200, store.stream(query.get('tag') ?? '', { before: query.get('before'), limit: query.get('limit') }));
   });
 
+  route('GET', '/api/tasks', async ({ res }) => sendJson(res, 200, { tasks: store.listTasks() }));
+
   // ----- notes -----
   route('GET', '/api/notes/:id', async ({ res, params }) => {
     const note = store.getNote(checkId(params.id));

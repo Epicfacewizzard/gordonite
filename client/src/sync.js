@@ -10,6 +10,7 @@ import { api, ApiError, NetworkError } from './api.js';
 import { pendingStore } from './pending.js';
 import { uuid } from '../../shared/ids.js';
 import { DOC_FORMAT, emptyDoc, isEmptyDoc } from '../../shared/doc.js';
+import { setTaskChecked } from '../../shared/tasks.js';
 
 const CAPTURE_DEBOUNCE_MS = 300;
 const CAPTURE_MAX_WAIT_MS = 1000;
@@ -313,6 +314,23 @@ export class Session extends Emitter {
     return this;
   }
 
+  /**
+   * Tick or untick a task without an editor (the combined Tasks view). It is saved like any
+   * other edit: held on the phone first, then sent against this session's revision, so a note
+   * changed elsewhere gives a visible conflict instead of an overwrite. False if the task is gone.
+   */
+  setTaskChecked(taskId, checked) {
+    const doc = setTaskChecked(this.currentDoc(), taskId, checked);
+    if (!doc) return false;
+    this.dirtySeq++;
+    this.capturedSeq = this.dirtySeq;
+    this.pending = { doc, seq: this.dirtySeq };
+    this.persist();
+    this.scheduleFlush(100);
+    this.emit();
+    return true;
+  }
+
   /** Show exactly what the server has (e.g. after restoring a version). Remounts the editor. */
   applyServerNote(note) {
     this.tags = note.tags.map((t) => t.path);
@@ -342,6 +360,7 @@ class SyncManager extends Emitter {
     this.sessions = new Map();
     this.drafts = new Map(); // "tag|date" -> session for notes that may not exist on the server yet
     this.storageError = null;
+    this.inProgress = 0; // see track()
     this.ready = null;
   }
 
@@ -433,10 +452,25 @@ class SyncManager extends Emitter {
     return [...this.sessions.values()].filter((s) => s.revision === 0 && s.pending && s.tags.includes(tag) && !s.discarded);
   }
 
+  /**
+   * Wrap an edit made outside an editor (it first has to find its note's session) so the
+   * status dot is not green while that edit is still on its way into the save queue.
+   */
+  async track(work) {
+    this.inProgress++;
+    this.emit();
+    try {
+      return await work;
+    } finally {
+      this.inProgress--;
+      this.emit();
+    }
+  }
+
   /** Worst state across all notes, for the always-visible indicator. */
   summary() {
     const order = ['conflict', 'failed', 'offline', 'saving', 'pending', 'saved'];
-    let worst = 'saved';
+    let worst = this.inProgress > 0 ? 'saving' : 'saved';
     let count = 0;
     for (const s of this.sessions.values()) {
       const st = s.status;

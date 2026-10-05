@@ -9,6 +9,9 @@
   --danger: #b3261e;
   --warn: #8a5a00;
   --warn-bg: #fff3d6;
+  --status-ok: #2e9e5b;
+  --status-wait: #e0a800;
+  --status-bad: #d32f2f;
   --ok-bg: #e5f1ec;
   --danger-bg: #fde8e6;
   --sel: #cfe5dd;
@@ -29,6 +32,9 @@
     --danger: #ff8a80;
     --warn: #f0c36b;
     --warn-bg: #3a2f14;
+    --status-ok: #4cd080;
+    --status-wait: #f5c542;
+    --status-bad: #ff6b60;
     --ok-bg: #1b2f28;
     --danger-bg: #3d1f1d;
     --sel: #2e4b42;
@@ -329,55 +335,31 @@ input[type='text'] {
   font-size: 0.78rem;
 }
 
-.badge {
+/* Save status: one dot in the header. Green saved, yellow on its way, red needs a look. */
+.status-dot {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 0.72rem;
-  line-height: 1.4;
-  white-space: nowrap;
-  color: var(--muted);
-}
-.badge .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.badge-saved {
-  color: var(--accent);
-}
-.badge-saving,
-.badge-pending,
-.badge-offline {
-  color: var(--warn);
-  background: var(--warn-bg);
-}
-.badge-offline {
-  border-color: var(--warn);
-}
-.badge-failed,
-.badge-conflict {
-  color: var(--danger);
-  background: var(--danger-bg);
-  border-color: var(--danger);
-  font-weight: 600;
-}
-.badge-failed .dot,
-.badge-conflict .dot {
-  border-radius: 2px;
-}
-.badge.as-button {
-  font: inherit;
-  font-size: 0.72rem;
+  justify-content: center;
+  min-width: 32px;
   min-height: 32px;
-  cursor: pointer;
+  padding: 0;
+  border: 0;
+  background: none;
 }
-.badge .warn {
-  color: var(--danger);
+.status-dot .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--status-ok);
+}
+.status-dot.wait .dot {
+  background: var(--status-wait);
+}
+.status-dot.bad .dot {
+  background: var(--status-bad);
+}
+.status-dot.as-button {
+  cursor: pointer;
 }
 
 .conflict {
@@ -654,4 +636,51 @@ details summary {
   display: flex;
   align-items: center;
   cursor: pointer;
+}
+
+/* ---------- tasks view ---------- */
+.tasks-link {
+  border-bottom: 1px solid var(--line);
+}
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+}
+.task-check {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  min-height: 52px;
+}
+.task-check input {
+  width: 22px;
+  height: 22px;
+}
+.task-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 52px;
+  padding: 8px 4px 8px 0;
+}
+.task-text {
+  overflow-wrap: anywhere;
+}
+.task-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.task-row.done .task-text {
+  text-decoration: line-through;
+  color: var(--muted);
 }

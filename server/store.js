@@ -3,6 +3,7 @@ import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
 import { isValidDateString } from '../shared/dates.js';
 import { DOC_FORMAT, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
+import { extractTasks } from '../shared/tasks.js';
 
 export class HttpError extends Error {
   constructor(status, code, message, extra = {}) {
@@ -136,6 +137,24 @@ export class Store {
     const path = normalizeTag(rawPath);
     if (!path) throw new HttpError(400, 'bad_tag', 'Tag names use letters, numbers, - _ . and / for sub-tags');
     return tx(this.db, () => this.#ensureTag(path));
+  }
+
+  // ---------- tasks ----------
+
+  // Every task in every live note, newest note first, in document order within a note.
+  listTasks() {
+    const rows = this.db
+      .prepare(`SELECT * FROM notes WHERE deleted_at IS NULL AND doc LIKE '%"taskItem"%' ORDER BY note_date DESC, created_at DESC, id`)
+      .all();
+    const tagsOf = this.#tagsByNote(rows.map((r) => r.id));
+    const tasks = [];
+    for (const row of rows) {
+      const note = this.#toNote(row, tagsOf.get(row.id));
+      for (const t of extractTasks(note.doc)) {
+        tasks.push({ noteId: note.id, taskId: t.id, text: t.text, checked: t.checked, date: note.date, tags: note.tags.map((x) => x.path) });
+      }
+    }
+    return tasks;
   }
 
   // ---------- reading ----------

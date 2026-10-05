@@ -57,6 +57,7 @@ export const api = {
   tags: () => request('GET', '/api/tags'),
   createTag: (path) => request('POST', '/api/tags', { path }),
   setFavorite: (tagId, favorite) => request('PUT', `/api/tags/${enc(tagId)}/favorite`, { favorite }),
+  tasks: () => request('GET', '/api/tasks'),
   stream: (tag, before) => request('GET', `/api/stream?tag=${enc(tag)}${before ? `&before=${before}` : ''}`),
   saveNote: (id, body) => request('PUT', `/api/notes/${enc(id)}`, body, { timeout: 20_000 }),
   getNote: (id) => request('GET', `/api/notes/${enc(id)}`),

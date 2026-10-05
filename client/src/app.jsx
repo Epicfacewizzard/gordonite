@@ -4,6 +4,7 @@ import { sync } from './sync.js';
 import { go, useHashRoute, useSession } from './hooks.js';
 import { StreamView } from './views/Stream.jsx';
 import { HomeView } from './views/Home.jsx';
+import { TasksView } from './views/Tasks.jsx';
 import { TrashView } from './views/Trash.jsx';
 import { DataView } from './views/Data.jsx';
 import { STATUS_TEXT } from './views/parts.jsx';
@@ -18,13 +19,20 @@ function loadCachedConfig() {
   }
 }
 
+// Green = on the server, yellow = safe on the phone and on its way, red = needs a look.
+// The words live in the tooltip and the accessible label, not on screen.
+const TONE = { saved: 'ok', saving: 'wait', pending: 'wait', offline: 'wait', failed: 'bad', conflict: 'bad' };
+
 function GlobalStatus() {
   useSession();
-  const { status, count, storageError } = sync.summary();
-  if (status === 'saved' && !storageError) {
+  const { status, count, storageError, localError } = sync.summary();
+  const unsafe = !!(storageError || localError); // edits are not being held durably on the phone
+  const tone = unsafe ? 'bad' : TONE[status];
+  const label = `${STATUS_TEXT[status]}${count > 1 ? ` (${count})` : ''}${unsafe ? ' · not stored on this phone' : ''}`;
+  if (status === 'saved' && !unsafe) {
     return (
-      <span class="badge badge-saved" data-testid="global-status" data-status="saved" role="status">
-        <span class="dot" aria-hidden="true" /> {STATUS_TEXT.saved}
+      <span class={`status-dot ${tone}`} data-testid="global-status" data-status="saved" role="status" aria-label={label} title={label}>
+        <span class="dot" aria-hidden="true" />
       </span>
     );
   }
@@ -37,18 +45,15 @@ function GlobalStatus() {
     }
   };
   return (
-    <button type="button" class={`badge badge-${status} as-button`} data-testid="global-status" data-status={status} onClick={onClick}>
+    <button type="button" class={`status-dot ${tone} as-button`} data-testid="global-status" data-status={status} aria-label={label} title={label} onClick={onClick}>
       <span class="dot" aria-hidden="true" />
-      {STATUS_TEXT[status]}
-      {count > 1 ? ` (${count})` : ''}
-      {storageError && ' · ⚠ phone storage unavailable'}
     </button>
   );
 }
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : 'Personal HQ';
+  const title = route.startsWith('/t/') ? route.slice(3) : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : 'Personal HQ';
   return (
     <header class="topbar">
       {!onHome && (
@@ -103,6 +108,8 @@ export function App() {
   } else if (route.startsWith('/t/')) {
     const tag = route.slice(3);
     view = <StreamView key={tag} tag={tag} config={config} />;
+  } else if (route === '/tasks') {
+    view = <TasksView />;
   } else if (route === '/trash') {
     view = <TrashView config={config} />;
   } else if (route === '/data') {
