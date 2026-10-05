@@ -17,15 +17,9 @@ const streamHref = (tag) => `#/t/${encodeURIComponent(tag).replaceAll('%2F', '/'
 
 function NavWidget() {
   return (
-    <nav class="today-nav" aria-label="Go to">
+    <nav class="today-nav" aria-label="Start something">
       <a class="btn primary" href="#/new" data-testid="today-new-note">
         New note
-      </a>
-      <a class="btn" href="#/notes" data-testid="today-notes">
-        Notes
-      </a>
-      <a class="btn" href="#/tags" data-testid="today-tags">
-        Tags
       </a>
     </nav>
   );

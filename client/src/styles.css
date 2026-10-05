@@ -953,3 +953,43 @@ input.note-title-input[type='text']:focus {
 .today .tasks .task-group:first-of-type .section {
   margin-top: 8px;
 }
+
+/* ---------- bottom tab bar ---------- */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar a {
+  flex: 1;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.72rem;
+}
+.tabbar a[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.page.has-tabbar {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+/* while typing, the keyboard gets the room */
+body[data-typing] .tabbar {
+  display: none;
+}
+/* on Today, the formatting toolbar belongs to today's note: only while its text has the cursor */
+body:not([data-editing]) .today .toolbar {
+  display: none;
+}

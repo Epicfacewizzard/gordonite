@@ -76,6 +76,54 @@ function TagCrumbs({ path }) {
   });
 }
 
+const Icon = ({ d }) => (
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d={d} />
+  </svg>
+);
+
+// The main places, always one tap away. Hidden inside a stream or a note (they have their own toolbar) and
+// while typing (the keyboard needs the room).
+const TABS = [
+  { id: 'today', label: 'Today', href: '#/', match: (r) => r === '/', icon: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
+  { id: 'tasks', label: 'Tasks', href: '#/tasks', match: (r) => r === '/tasks', icon: 'M4 4h16v16H4zM8.5 12.5l2.5 2.5 4.5-5' },
+  { id: 'notes', label: 'Notes', href: '#/notes', match: (r) => r === '/notes', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7' },
+  { id: 'tags', label: 'Tags', href: '#/tags', match: (r) => r === '/tags', icon: 'M3 12V4h8l10 10-8 8zM7.5 8.5h.01' },
+];
+const showsTabBar = (route) => !route.startsWith('/t/') && !route.startsWith('/n/') && !route.startsWith('/new');
+
+function TabBar({ route }) {
+  return (
+    <nav class="tabbar" aria-label="Main" data-testid="tabbar">
+      {TABS.map((t) => (
+        <a key={t.id} href={t.href} aria-current={t.match(route) ? 'page' : undefined} data-testid={`tab-${t.id}`}>
+          <Icon d={t.icon} />
+          <span>{t.label}</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+// Mark the page while a text field has the cursor, so CSS can give the keyboard the room.
+//   data-typing  any field (search box, tag box, note text)   data-editing  a note's text
+function useTypingMarks() {
+  useEffect(() => {
+    const mark = () => {
+      const el = document.activeElement;
+      document.body.toggleAttribute('data-typing', !!el?.matches?.('input, textarea, select, [contenteditable="true"]'));
+      document.body.toggleAttribute('data-editing', !!el?.closest?.('.note-text'));
+    };
+    const later = () => setTimeout(mark, 0); // during focusout the next element is not focused yet
+    document.addEventListener('focusin', mark);
+    document.addEventListener('focusout', later);
+    return () => {
+      document.removeEventListener('focusin', mark);
+      document.removeEventListener('focusout', later);
+    };
+  }, []);
+}
+
 // On a note page, Back returns to the stream or list you came from; with no history it goes home.
 function goBack(e) {
   if (history.length > 1) {
@@ -160,10 +208,13 @@ export function App() {
     view = <TodayView config={config} />;
   }
 
+  useTypingMarks();
+  const tabbar = showsTabBar(route);
   return (
     <>
       <Header route={route} />
-      <main class="page">{view}</main>
+      <main class={`page${tabbar ? ' has-tabbar' : ''}`}>{view}</main>
+      {tabbar && <TabBar route={route} />}
     </>
   );
 }

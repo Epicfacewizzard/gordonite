@@ -18,7 +18,9 @@ deliberately not built.
 
 ## Using it
 
-* **Today** (the home screen): the date, buttons for New note / Notes / Tags, any starred tags, what needs doing
+* **Tab bar** (bottom): Today, Tasks, Notes and Tags, one tap away. It steps aside inside a stream or a note (they have
+  their own toolbar) and while you are typing, so the keyboard gets the room.
+* **Today** (the home screen): the date, a New note button, any starred tags, what needs doing
   (Overdue, Due today, Coming up in the next 7 days, and a few tasks with no date; tick them right there), and
   today's note ready to write in. Which tag's daily entry it shows is a setting at the bottom of that section.
   It is a stack of independent sections, so adding one (a calendar, a mood check-in, goals) is adding one component.

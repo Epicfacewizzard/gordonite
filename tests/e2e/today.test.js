@@ -69,7 +69,7 @@ describe('the Today screen', () => {
       await page.waitForFunction(() => location.hash === '#/tasks');
       await page.goBack();
       await page.getByTestId('today').waitFor();
-      await page.getByTestId('today-tags').tap();
+      await page.getByTestId('tab-tags').tap();
       await page.getByTestId('tag-list').waitFor();
       await page.getByLabel('Back to Today').tap();
       await page.getByTestId('today').waitFor();
@@ -130,5 +130,54 @@ describe('the Today screen', () => {
       await page.getByTestId('widget-pinned').waitFor();
       await page.getByTestId('widget-pinned').getByText('school/fall26').tap();
       await page.waitForFunction(() => location.hash === '#/t/school/fall26');
+    }));
+});
+
+describe('the bottom tab bar', () => {
+  const current = (page) => page.locator('[data-testid="tabbar"] a[aria-current="page"]').allInnerTexts();
+
+  test('Today, Tasks, Notes and Tags are one tap away; the bar steps aside inside streams and notes and while typing', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('tabbar').waitFor();
+      assert.deepEqual(await current(page), ['Today']);
+
+      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['notes', '#/notes', 'Notes'], ['tags', '#/tags', 'Tags'], ['today', '#/', 'Today']]) {
+        await page.getByTestId(`tab-${tab}`).tap();
+        await page.waitForFunction((h) => location.hash === h || (h === '#/' && (location.hash === '' || location.hash === '#/')), hash);
+        await page.waitForFunction((l) => document.querySelector('[data-testid="tabbar"] a[aria-current="page"]')?.innerText === l, label);
+      }
+
+      // inside a stream or a note, or while starting one, the bar is not shown (they have their own toolbar)
+      for (const hash of ['#/t/daily-jots', '#/new']) {
+        await page.goto(`${app.url}/${hash}`);
+        await page.waitForSelector('[data-testid="stream"], [data-testid="note-page"]');
+        assert.equal(await page.getByTestId('tabbar').count(), 0, hash);
+      }
+
+      // while a search box has the cursor, the bar gives the keyboard the room
+      await page.goto(`${app.url}/#/notes`);
+      await page.getByTestId('notes-search').tap();
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="tabbar"]')).display === 'none');
+      await page.getByTestId('notes-search').blur();
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="tabbar"]')).display !== 'none');
+      assert.deepEqual(page.errors, []);
+    }));
+
+  test("on Today the formatting toolbar replaces the bar only while today's note has the cursor", () =>
+    withPhone(browser, async ({ page, app }) => {
+      await page.goto(`${app.url}/#/`);
+      await todayNote(page).waitFor();
+      assert.equal(await page.locator('.today .toolbar').isVisible(), false, 'not in the way while reading');
+      assert.equal(await page.getByTestId('tabbar').isVisible(), true);
+      await todayNote(page).tap();
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('.today .toolbar')).display !== 'none');
+      assert.equal(await page.getByTestId('tabbar').isVisible(), false);
+      await page.keyboard.type('hi');
+      await waitSaved(page);
+      await page.locator('.today-date').tap(); // tap elsewhere: the cursor leaves the note
+      await page.evaluate(() => document.activeElement?.blur());
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="tabbar"]')).display !== 'none');
+      assert.equal(await page.locator('.today .toolbar').isVisible(), false);
     }));
 });
