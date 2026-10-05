@@ -18,6 +18,7 @@ services:
       BACKUP_KEEP_DAILY: "14"            # ... plus the newest of each of the last N days ...
       BACKUP_KEEP_WEEKLY: "8"            # ... and of each of the last N weeks
       TRASH_RETENTION_DAYS: "30"         # 0 keeps deleted notes forever
+      # ASSISTANT_TOKEN: ""              # turns on the assistant door (see docs/ASSISTANT.md); make a key with: node server/cli.js token
     volumes:
       - ./data:/data                     # database + backups (persists across container replacement)
       # Optional: put backups on a different disk than the database

@@ -25,10 +25,10 @@ export async function startServer(env = {}) {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const url = `http://127.0.0.1:${server.address().port}`;
 
-  async function api(method, p, body) {
+  async function api(method, p, body, headers = {}) {
     const res = await fetch(url + p, {
       method,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...headers },
       body: body === undefined || method === 'GET' ? undefined : JSON.stringify(body),
     });
     const text = await res.text();

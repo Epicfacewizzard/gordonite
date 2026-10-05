@@ -14,7 +14,7 @@ deliberately not built.
 | **Runs on** | Node 24 (built-in SQLite, no native modules, no runtime npm dependencies on the server) |
 | **Client** | Preact + [Tiptap](https://tiptap.dev) (ProseMirror) editor, built with Vite |
 | **Storage** | one SQLite file, WAL mode, `synchronous=FULL`; versioned schema migrations |
-| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
+| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
 
 ## Using it
 
@@ -97,6 +97,7 @@ npm run build && npm start      # serves API + built client on http://localhost:
 | `BACKUP_INTERVAL_HOURS` | `6` | automatic backup interval; `0` disables |
 | `BACKUP_KEEP_LATEST` / `_DAILY` / `_WEEKLY` | `6` / `14` / `8` | retention: newest N, plus newest of each of the last N days and weeks |
 | `TRASH_RETENTION_DAYS` | `30` | deleted notes are purged after this; `0` keeps them forever |
+| `ASSISTANT_TOKEN` | *(off)* | a secret key (20+ characters) that lets an AI assistant add notes and tasks; see [docs/ASSISTANT.md](docs/ASSISTANT.md) |
 | `VERSION_INTERVAL_MINUTES` / `VERSION_KEEP` | `5` / `100` | version snapshots at most this often while editing, newest N kept per note |
 | `MAX_BODY_MB` | `100` | request size limit (imports) |
 

@@ -20,6 +20,7 @@ services:
       - BACKUP_KEEP_DAILY=14
       - BACKUP_KEEP_WEEKLY=8
       - TRASH_RETENTION_DAYS=30
+      # - ASSISTANT_TOKEN=            # turns on the assistant door (docs/ASSISTANT.md); make a key with: node server/cli.js token
     volumes:
       - type: bind
         source: /DATA/AppData/personal-hq/data

@@ -1,9 +1,11 @@
 import { tx } from './db.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
-import { isValidDateString } from '../shared/dates.js';
+import { dateInTz, isValidDateString } from '../shared/dates.js';
 import { DOC_FORMAT, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
-import { extractTasks } from '../shared/tasks.js';
+import { extractTasks, updateTask } from '../shared/tasks.js';
+import { markdownToDoc } from '../shared/markdown-import.js';
+import { docToMarkdown } from './markdown.js';
 
 export class HttpError extends Error {
   constructor(status, code, message, extra = {}) {
@@ -157,6 +159,121 @@ export class Store {
     const path = normalizeTag(rawPath);
     if (!path) throw new HttpError(400, 'bad_tag', 'Tag names use letters, numbers, - _ . and / for sub-tags');
     return tx(this.db, () => this.#ensureTag(path));
+  }
+
+  // ---------- for the assistant ----------
+  // Each of these is synchronous, so a read and the write after it are one step: nothing can change in between.
+  // They go through saveNote, so they follow the same rules as any save (validation, versions, revisions).
+
+  #today() {
+    return dateInTz(new Date(), this.cfg.tz);
+  }
+
+  #liveNote(id) {
+    const note = this.getNote(checkId(id, 'note id'));
+    if (!note || note.deletedAt) throw new HttpError(404, 'not_found', 'Note not found');
+    return note;
+  }
+
+  #markdown(value) {
+    if (typeof value !== 'string' || !value.trim()) throw new HttpError(400, 'bad_markdown', '"markdown" must be some text');
+    if (value.length > 500_000) throw new HttpError(400, 'too_long', '"markdown" is too long');
+    return value;
+  }
+
+  assistantCreateNote({ title, markdown, tags, date }) {
+    const id = uuid();
+    const res = this.saveNote(id, {
+      baseRevision: 0,
+      doc: markdownToDoc(this.#markdown(markdown)),
+      docFormat: DOC_FORMAT,
+      kind: 'note',
+      tags: Array.isArray(tags) ? tags : [],
+      date: date ?? this.#today(),
+      opId: uuid(),
+      ...(title !== undefined ? { title } : {}),
+    });
+    return { id, revision: res.revision };
+  }
+
+  // Add to the end of a note. The earlier text is kept as a version first, so it can be restored from History.
+  assistantAppend(id, markdown) {
+    const note = this.#liveNote(id);
+    const blocks = markdownToDoc(this.#markdown(markdown)).content;
+    const existing = note.doc.content ?? [];
+    const blank = existing.length === 1 && existing[0].type === 'paragraph' && !existing[0].content?.length;
+    const res = this.saveNote(id, {
+      baseRevision: note.revision,
+      doc: { ...note.doc, content: [...(blank ? [] : existing), ...blocks] },
+      docFormat: DOC_FORMAT,
+      opId: uuid(),
+      keepPrevious: true,
+    });
+    return { id, revision: res.revision };
+  }
+
+  // Add to today's entry in a tag (the Today screen's tag by default), creating it if it is not there yet.
+  assistantAppendDaily({ markdown, tag }) {
+    const path = normalizeTag(tag ?? this.getSettings().dailyTag);
+    if (!path) throw new HttpError(400, 'bad_tag', 'Invalid tag');
+    const date = this.#today();
+    const row = this.db
+      .prepare(
+        `SELECT n.id FROM note_tags nt JOIN tags t ON t.id = nt.tag_id JOIN notes n ON n.id = nt.note_id
+         WHERE t.path = ? AND nt.note_date = ? AND nt.live = 1 AND nt.slot = 1 AND n.deleted_at IS NULL`,
+      )
+      .get(path, date);
+    if (row) return { ...this.assistantAppend(row.id, markdown), tag: path, date };
+    const id = uuid();
+    const res = this.saveNote(id, { baseRevision: 0, doc: markdownToDoc(this.#markdown(markdown)), docFormat: DOC_FORMAT, kind: 'daily', tags: [path], date, opId: uuid() });
+    return { id, revision: res.revision, tag: path, date, created: true };
+  }
+
+  assistantGetNote(id) {
+    const note = this.#liveNote(id);
+    return {
+      id: note.id,
+      title: note.title,
+      kind: note.kind,
+      date: note.date,
+      tags: note.tags.map((t) => t.path),
+      revision: note.revision,
+      updatedAt: note.updatedAt,
+      markdown: docToMarkdown(note.doc),
+      tasks: extractTasks(note.doc, note.date),
+    };
+  }
+
+  assistantUpdateTask(noteId, taskId, patch) {
+    const note = this.#liveNote(noteId);
+    const clean = {};
+    for (const [k, v] of Object.entries(patch ?? {})) {
+      if (k === 'checked' || k === 'hidden') {
+        if (typeof v !== 'boolean') throw new HttpError(400, 'bad_task', `"${k}" must be true or false`);
+        clean[k] = v;
+      } else if (k === 'due' || k === 'start') {
+        if (v !== null && !isValidDateString(v)) throw new HttpError(400, 'bad_task', `"${k}" must be YYYY-MM-DD or null`);
+        clean[k] = v;
+      }
+    }
+    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use checked, due, start or hidden)');
+    const doc = updateTask(note.doc, taskId, clean);
+    if (!doc) throw new HttpError(404, 'not_found', 'Task not found in that note');
+    const res = this.saveNote(noteId, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid() });
+    return { id: noteId, taskId, revision: res.revision };
+  }
+
+  // What is open right now, with where each task sits: overdue / today / upcoming (next 7 days) / later / nodate.
+  assistantOverview() {
+    const today = this.#today();
+    const soon = dateInTz(new Date(Date.now() + 7 * 86_400_000), this.cfg.tz);
+    const tasks = this.listTasks()
+      .filter((t) => !t.checked && !t.hidden && !(t.start && t.start > today))
+      .map((t) => ({
+        ...t,
+        bucket: !t.due ? 'nodate' : t.due < today ? 'overdue' : t.due === today ? 'today' : t.due <= soon ? 'upcoming' : 'later',
+      }));
+    return { today, tasks };
   }
 
   // ---------- settings (the meta table) ----------

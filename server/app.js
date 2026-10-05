@@ -3,6 +3,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 import { Store, HttpError, checkId } from './store.js';
 import { createBackup, backupPath, backupStatus } from './backup.js';
 import { exportAll, exportMarkdownZip, importAll } from './portability.js';
@@ -69,6 +70,14 @@ export function createApp({ config, db, log = console }) {
     routes.push({ method, re, keys, handler });
   };
 
+  // The assistant's key. Off (404) unless ASSISTANT_TOKEN is set; compared as hashes so timing reveals nothing.
+  const sha = (v) => crypto.createHash('sha256').update(v).digest();
+  function requireAssistant(req) {
+    if (!config.assistantToken) throw new HttpError(404, 'not_found', 'No such endpoint');
+    const given = /^Bearer (.+)$/i.exec(req.headers.authorization ?? '')?.[1] ?? '';
+    if (!crypto.timingSafeEqual(sha(given), sha(config.assistantToken))) throw new HttpError(401, 'unauthorized', 'Missing or wrong assistant key');
+  }
+
   const fileStamp = () => new Date().toISOString().slice(0, 10);
 
   route('GET', '/api/health', async ({ res }) => {
@@ -90,6 +99,20 @@ export function createApp({ config, db, log = console }) {
     // one setting so far; unknown fields are ignored
     if (body.dailyTag !== undefined) store.setDailyTag(body.dailyTag);
     sendJson(res, 200, store.getSettings());
+  });
+
+  // ----- assistant (needs the ASSISTANT_TOKEN key; see docs/ASSISTANT.md) -----
+  route('GET', '/api/assistant/ping', async ({ res }) => sendJson(res, 200, { ok: true, today: dateInTz(new Date(), config.tz), tz: config.tz }));
+  route('GET', '/api/assistant/overview', async ({ res }) => sendJson(res, 200, store.assistantOverview()));
+  route('GET', '/api/assistant/notes', async ({ res, query }) => {
+    sendJson(res, 200, store.listNotes({ tag: query.get('tag'), sub: query.get('sub') === '1', untagged: query.get('untagged') === '1', q: query.get('q') ?? '', limit: query.get('limit'), offset: query.get('offset') }));
+  });
+  route('GET', '/api/assistant/notes/:id', async ({ res, params }) => sendJson(res, 200, store.assistantGetNote(params.id)));
+  route('POST', '/api/assistant/notes', async ({ res, body }) => sendJson(res, 200, store.assistantCreateNote(body)));
+  route('POST', '/api/assistant/notes/:id/append', async ({ res, params, body }) => sendJson(res, 200, store.assistantAppend(params.id, body.markdown)));
+  route('POST', '/api/assistant/daily/append', async ({ res, body }) => sendJson(res, 200, store.assistantAppendDaily(body)));
+  route('POST', '/api/assistant/notes/:id/tasks/:taskId', async ({ res, params, body }) => {
+    sendJson(res, 200, store.assistantUpdateTask(params.id, params.taskId, body));
   });
 
   // ----- tags & streams -----
@@ -236,6 +259,8 @@ export function createApp({ config, db, log = console }) {
           throw new HttpError(415, 'json_required', 'Content-Type must be application/json');
         }
       }
+
+      if (url.pathname.startsWith('/api/assistant/')) requireAssistant(req);
 
       for (const r of routes) {
         if (r.method !== req.method) continue;

@@ -5,6 +5,9 @@ import { uuid } from '../../shared/ids.js';
 import { dateInTz } from '../../shared/dates.js';
 import { normalizeTag } from '../../shared/tags.js';
 import { validateDoc } from '../../shared/doc.js';
+import { loadConfig } from '../../server/config.js';
+
+const plainTextOf = (node) => (node.content ?? []).map((c) => c.text ?? plainTextOf(c)).join('');
 
 describe('dates, tags, documents', () => {
   test('note dates use the home timezone and flip at local midnight', () => {
@@ -725,5 +728,132 @@ describe('note titles and the per-tag daily switch', () => {
     assert.equal(exported.notes.find((n) => n.id === id).title, 'Named note');
     assert.equal((await t.api('POST', '/api/import?mode=replace', exported)).status, 200);
     assert.equal((await get(id)).title, 'Named note');
+  });
+});
+
+describe('assistant access', () => {
+  const KEY = 'test-key-0123456789-abcdefghij';
+  let t;
+  before(async () => (t = await startServer({ ASSISTANT_TOKEN: KEY })));
+  after(() => t.close());
+  const as = (method, p, body) => t.api(method, `/api/assistant${p}`, body, { authorization: `Bearer ${KEY}` });
+
+  test('off unless a key is set; with one, only the right key gets in', async () => {
+    const off = await startServer();
+    try {
+      assert.equal((await off.api('GET', '/api/assistant/ping')).status, 404, 'no key configured: the door does not exist');
+    } finally {
+      await off.close();
+    }
+    assert.equal((await t.api('GET', '/api/assistant/ping')).status, 401);
+    assert.equal((await t.api('GET', '/api/assistant/ping', undefined, { authorization: 'Bearer wrong' })).status, 401);
+    assert.equal((await t.api('POST', '/api/assistant/notes', { markdown: 'x' }, { authorization: 'Bearer nope' })).status, 401);
+    assert.equal((await as('GET', '/ping')).status, 200);
+    assert.equal((await t.api('GET', '/api/tags')).status, 200, 'the normal app API is unaffected');
+    assert.throws(() => loadConfig({ ASSISTANT_TOKEN: 'short' }), /at least 20/);
+  });
+
+  test('a note from Markdown: title, tags, tasks with typed dates, readable back, found by search', async () => {
+    const md = '# Call with Sam\n\nWe agreed on the **plan**.\n\n## Actions\n- [ ] Send the deck due 2026-12-01\n- [x] Book the room\n- plain bullet\n';
+    const made = await as('POST', '/notes', { title: 'Sam call', markdown: md, tags: ['people/sam', 'meetings'], date: '2026-10-05' });
+    assert.equal(made.status, 200);
+    const id = made.json.id;
+
+    const note = (await as('GET', `/notes/${id}`)).json;
+    assert.deepEqual([note.title, note.kind, note.date, note.tags], ['Sam call', 'note', '2026-10-05', ['meetings', 'people/sam']]);
+    assert.match(note.markdown, /# Call with Sam/);
+    assert.match(note.markdown, /- \[ \] Send the deck due 2026-12-01/);
+    assert.match(note.markdown, /- \[x\] Book the room/);
+    assert.deepEqual(note.tasks.map((x) => [x.text, x.checked, x.due]), [['Send the deck due 2026-12-01', false, '2026-12-01'], ['Book the room', true, null]]);
+
+    const found = (await as('GET', '/notes?q=agreed')).json.notes;
+    assert.deepEqual(found.map((n) => n.id), [id]);
+    assert.equal(found[0].title, 'Sam call');
+    // and it is an ordinary note in the app
+    assert.equal((await t.api('GET', `/api/notes/${id}`)).json.note.title, 'Sam call');
+    assert.equal((await t.api('GET', '/api/tasks')).json.tasks.some((x) => x.text === 'Send the deck due 2026-12-01' && x.due === '2026-12-01'), true);
+
+    assert.equal((await as('POST', '/notes', { markdown: '   ' })).status, 400);
+    assert.equal((await as('POST', '/notes', { markdown: 'x', date: 'soon' })).status, 400);
+  });
+
+  test('append adds to the end and keeps the earlier text as a version; the app sees a stale edit as a conflict', async () => {
+    const { id } = (await as('POST', '/notes', { markdown: 'first paragraph', date: '2026-10-05' })).json;
+    const r = await as('POST', `/notes/${id}/append`, { markdown: '## Later\n- [ ] follow up due fri' });
+    assert.equal(r.status, 200);
+    assert.equal(r.json.revision, 2);
+    const note = (await as('GET', `/notes/${id}`)).json;
+    assert.match(note.markdown, /^first paragraph\n\n## Later\n\n- \[ \] follow up due fri/);
+    assert.equal((await t.api('GET', `/api/notes/${id}/versions`)).json.versions.length, 1, 'the text before the append is in History');
+
+    // someone editing the old text in the app does not silently erase it
+    const stale = await t.api('PUT', `/api/notes/${id}`, { baseRevision: 1, doc: docOf(para('first paragraph edited')), docFormat: 1, opId: uuid() });
+    assert.equal(stale.status, 409);
+    assert.match((await as('GET', `/notes/${id}`)).json.markdown, /## Later/);
+
+    assert.equal((await as('POST', `/notes/${uuid()}/append`, { markdown: 'x' })).status, 404);
+    assert.equal((await as('POST', `/notes/${id}/append`, { markdown: '' })).status, 400);
+  });
+
+  test("daily/append: writes into today's entry of the Today tag, creating it once", async () => {
+    const today = dateInTz(new Date(), t.config.tz);
+    const a = (await as('POST', '/daily/append', { markdown: 'Morning thought' })).json;
+    assert.deepEqual([a.tag, a.date, a.created], ['daily-jots', today, true]);
+    const b = (await as('POST', '/daily/append', { markdown: 'Afternoon thought' })).json;
+    assert.equal(b.id, a.id, 'the same entry');
+    const stream = (await t.api('GET', '/api/stream?tag=daily-jots')).json.notes;
+    assert.equal(stream.filter((n) => n.date === today).length, 1);
+    assert.match((await as('GET', `/notes/${a.id}`)).json.markdown, /Morning thought\n\nAfternoon thought/);
+    const other = (await as('POST', '/daily/append', { markdown: 'x', tag: 'work-log' })).json;
+    assert.equal(other.tag, 'work-log');
+  });
+
+  test('tasks: tick and date one; overview sorts what is open', async () => {
+    const today = dateInTz(new Date(), t.config.tz);
+    const day = (n) => dateInTz(new Date(Date.now() + n * 86_400_000), t.config.tz);
+    const md = ['- [ ] overdue thing', '- [ ] today thing', '- [ ] soon thing', '- [ ] far thing', '- [ ] undated thing', '- [ ] hidden thing', '- [ ] not yet thing'].join('\n');
+    const { id } = (await as('POST', '/notes', { markdown: md })).json;
+    const tasks = (await as('GET', `/notes/${id}`)).json.tasks;
+    const idOf = (text) => tasks.find((x) => x.text === text).id;
+    const set = (text, patch) => as('POST', `/notes/${id}/tasks/${idOf(text)}`, patch);
+    assert.equal((await set('overdue thing', { due: day(-3) })).status, 200);
+    assert.equal((await set('today thing', { due: today })).status, 200);
+    assert.equal((await set('soon thing', { due: day(3) })).status, 200);
+    assert.equal((await set('far thing', { due: day(30) })).status, 200);
+    assert.equal((await set('hidden thing', { hidden: true })).status, 200);
+    assert.equal((await set('not yet thing', { start: day(5) })).status, 200);
+
+    const o = (await as('GET', '/overview')).json;
+    assert.equal(o.today, today);
+    const bucket = (text) => o.tasks.find((x) => x.text === text)?.bucket;
+    assert.deepEqual(['overdue thing', 'today thing', 'soon thing', 'far thing', 'undated thing'].map(bucket), ['overdue', 'today', 'upcoming', 'later', 'nodate']);
+    assert.equal(bucket('hidden thing'), undefined, 'hidden tasks are left out');
+    assert.equal(bucket('not yet thing'), undefined, 'tasks that have not started are left out');
+
+    // tick it; it drops off the overview and the note reads back ticked
+    assert.equal((await set('today thing', { checked: true })).status, 200);
+    assert.equal((await as('GET', '/overview')).json.tasks.some((x) => x.text === 'today thing'), false);
+    assert.match((await as('GET', `/notes/${id}`)).json.markdown, /- \[x\] today thing/);
+
+    assert.equal((await as('POST', `/notes/${id}/tasks/${uuid()}`, { checked: true })).status, 404);
+    assert.equal((await set('far thing', { checked: 'yes' })).status, 400);
+    assert.equal((await set('far thing', { due: 'friday' })).status, 400);
+    assert.equal((await set('far thing', {})).status, 400);
+  });
+});
+
+describe('Markdown to note', () => {
+  test('headings, emphasis, nested lists, tasks; odd syntax stays as text; always a valid document', async () => {
+    const { markdownToDoc } = await import('../../shared/markdown-import.js');
+    const doc = markdownToDoc('---\ntags: x\n---\n#### Deep\n\nsnake_case and *it* and __bold__\nwrapped line\n\n- a\n  - b\n    - [x] c\n1. one\n\n> quoted [[Wiki]] [link](http://e.com)\n');
+    assert.equal(validateDoc(doc), null);
+    const kinds = doc.content.map((n) => n.type);
+    assert.deepEqual(kinds, ['heading', 'paragraph', 'bulletList', 'paragraph']);
+    assert.equal(doc.content[0].attrs.level, 3, 'deep headings become level 3');
+    assert.equal(plainTextOf(doc.content[1]), 'snake_case and it and bold wrapped line');
+    assert.equal(doc.content[2].content[0].content[1].content[0].content[1].type, 'taskList', 'nesting follows indentation');
+    assert.equal(plainTextOf(doc.content[2].content[1]), 'one', 'a numbered item joins the bullet list above it');
+    assert.equal(plainTextOf(doc.content.at(-1)), 'quoted [[Wiki]] link', 'quote marker dropped; wiki link and link text kept');
+    assert.equal(markdownToDoc('').content.length, 1, 'empty input is still a valid empty note');
   });
 });

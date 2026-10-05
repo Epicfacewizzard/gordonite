@@ -3,6 +3,8 @@
 //   node server/cli.js backup
 //   node server/cli.js verify <backup.sqlite>
 //   node server/cli.js restore <backup.sqlite> --yes     (stop the app first)
+//   node server/cli.js token                             (a new random key for ASSISTANT_TOKEN)
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from './config.js';
@@ -15,6 +17,8 @@ const config = loadConfig();
 function usage() {
   console.log(`Usage:
   node server/cli.js backup                        Take a verified backup now
+  node server/cli.js token                         Print a new random key to use as ASSISTANT_TOKEN
+                                                   (it is not stored anywhere; put it in the app's settings)
   node server/cli.js verify <file.sqlite>          Check a backup file
   node server/cli.js restore <file.sqlite> --yes   Replace the live database with a backup
                                                    (STOP THE APP FIRST; the current database is saved
@@ -32,6 +36,10 @@ switch (cmd) {
     const info = createBackup(db, config, 'manual');
     db.close();
     console.log(`Backup written and verified: ${path.join(config.backupDir, info.file)}\n  ${describe(info)}`);
+    break;
+  }
+  case 'token': {
+    console.log(crypto.randomBytes(24).toString('base64url'));
     break;
   }
   case 'verify': {

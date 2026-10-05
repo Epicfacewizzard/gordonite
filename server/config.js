@@ -16,6 +16,9 @@ export function loadConfig(env = process.env) {
   const tz = env.HOME_TZ || 'America/Edmonton';
   if (!isValidTimeZone(tz)) throw new Error(`HOME_TZ "${tz}" is not a valid IANA time zone`);
   const dataDir = path.resolve(env.DATA_DIR || path.join(root, 'data'));
+  // The key for /api/assistant/*. Unset = assistant access is off. Make one with: node server/cli.js token
+  const assistantToken = (env.ASSISTANT_TOKEN ?? '').trim();
+  if (assistantToken && assistantToken.length < 20) throw new Error('ASSISTANT_TOKEN must be at least 20 characters (make one with: node server/cli.js token)');
 
   return {
     root,
@@ -26,6 +29,7 @@ export function loadConfig(env = process.env) {
     backupDir: path.resolve(env.BACKUP_DIR || path.join(dataDir, 'backups')),
     staticDir: path.resolve(env.STATIC_DIR || path.join(root, 'client', 'dist')),
     tz,
+    assistantToken: assistantToken || null,
     // Automatic backups. 0 hours disables the scheduler (manual still works).
     backupIntervalHours: int('BACKUP_INTERVAL_HOURS', 6),
     backupKeepLatest: int('BACKUP_KEEP_LATEST', 6, { min: 1 }),
