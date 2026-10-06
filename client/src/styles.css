@@ -383,7 +383,22 @@ input[type='text'] {
 .editor-host {
   position: relative;
 }
+/* Line spacing for note text; the Settings page changes data-spacing on <html>.
+   relaxed is the original look (1.5 lines, a 0.45em gap after each paragraph). */
+:root {
+  --note-lh: 1.4;
+  --note-gap: 0.25em;
+}
+:root[data-spacing='tight'] {
+  --note-lh: 1.3;
+  --note-gap: 0.08em;
+}
+:root[data-spacing='relaxed'] {
+  --note-lh: 1.5;
+  --note-gap: 0.45em;
+}
 .note-text {
+  line-height: var(--note-lh);
   min-height: 3.2rem;
   outline: none;
   caret-color: var(--accent);
@@ -396,7 +411,7 @@ input[type='text'] {
   margin-top: 0;
 }
 .note-text p {
-  margin: 0 0 0.45em;
+  margin: 0 0 var(--note-gap);
 }
 .note-text h1,
 .note-text h2,
@@ -414,11 +429,11 @@ input[type='text'] {
   font-size: 1.07rem;
 }
 .note-text ul {
-  margin: 0 0 0.45em;
+  margin: 0 0 var(--note-gap);
   padding-left: 1.3em;
 }
 .note-text li > p {
-  margin: 0 0 0.15em;
+  margin: 0 0 calc(var(--note-gap) / 3);
 }
 .note-text ul[data-type='taskList'] {
   list-style: none;
@@ -1213,4 +1228,35 @@ body:not([data-editing]) .today .toolbar {
   .note-text .round-btn.unset {
     display: none;
   }
+}
+
+/* ---------- settings ---------- */
+.spacing-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+.spacing-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.spacing-option.on {
+  border-color: var(--accent);
+}
+.spacing-option input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+.spacing-preview {
+  min-height: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
 }

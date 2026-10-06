@@ -126,6 +126,9 @@ export function HomeView() {
       <nav class="footer-links">
         <a href="#/trash">Trash</a>
         <a href="#/data">Data &amp; backups</a>
+        <a href="#/settings" data-testid="settings-link">
+          Settings
+        </a>
       </nav>
     </div>
   );

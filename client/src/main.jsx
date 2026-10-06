@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { App } from './app.jsx';
+import { applySpacing } from './prefs.js';
 import './styles.css';
 
 // Keep the toolbar above the on-screen keyboard even when the browser does not
@@ -20,5 +21,6 @@ function trackKeyboard() {
 // pressure (honoured on HTTPS / installed apps; harmless otherwise).
 navigator.storage?.persist?.().catch(() => {});
 
+applySpacing();
 trackKeyboard();
 render(<App />, document.getElementById('app'));

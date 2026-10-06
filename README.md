@@ -14,10 +14,13 @@ deliberately not built.
 | **Runs on** | Node 24 (built-in SQLite, no native modules, no runtime npm dependencies on the server) |
 | **Client** | Preact + [Tiptap](https://tiptap.dev) (ProseMirror) editor, built with Vite |
 | **Storage** | one SQLite file, WAL mode, `synchronous=FULL`; versioned schema migrations |
-| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
+| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
 
 ## Using it
 
+* **Settings** (Tags page, bottom): line spacing for note text (Tight / Normal / Relaxed, with a live preview), kept
+  per device. Normal is tighter than the app's first version; Relaxed is that original look. Shift+Enter starts a new
+  line inside the same paragraph with no gap.
 * **Tab bar** (bottom): Today, Tasks, Notes and Tags, one tap away. It steps aside inside a stream or a note (they have
   their own toolbar) and while you are typing, so the keyboard gets the room.
 * **Today** (the home screen): the date, a New note button, any starred tags, what needs doing
