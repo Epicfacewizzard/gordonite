@@ -6,7 +6,8 @@ Everything is saved to SQLite on your server, and anything not yet confirmed by 
 on the phone.
 
 This is the first usable version: notes, tags, daily streams, inline tasks, versions, trash, backups,
-export/import, a combined task list with due/start dates. Dashboard, calendar, people, links/backlinks and AI are
+export/import, a combined task list with due/start dates, and cards for people notes. Dashboard, calendar,
+structured contact profiles, links/backlinks and AI are
 deliberately not built.
 
 | | |
@@ -18,16 +19,56 @@ deliberately not built.
 
 ## Using it
 
-* **Settings** (Tags page, bottom): line spacing for note text (Tight / Normal / Relaxed, with a live preview), kept
+To try the folder browser with fictional notes locally, run `npm run preview:local`, then open
+<http://127.0.0.1:8091/#/notes>. It listens only on this computer. Samples and edits persist separately in
+`data/local-preview`; nothing is imported from Obsidian or sent to CasaOS. Stop with Ctrl+C and rerun the
+same command to reopen your preview notes. Automatic backups are off for this sample instance.
+
+**Notes folders** follow slash-separated tags. Expand a folder, select it, then tap a note to edit.
+Intermediate folders appear even if only child tags exist. “Include sub-tags” controls whether folder
+results include descendants; daily streams still match exact tags. Multi-tag notes remain one shared page.
+Your folder and search stay selected when returning from a note in the same browser tab. This browser
+does not yet import Obsidian links, tables or callouts.
+
+For a local comparison with an existing vault, `node scripts/preview-vault.js "path to vault"` copies only
+Markdown notes in `00 Inbox`, `10 School` and `20 CSS` into this separate preview database. It keeps each
+original file byte-for-byte under `data/local-preview/vault-originals` (including frontmatter), excludes
+agent instruction files, and never updates the source vault. Rerunning skips existing preview copies,
+including copies you have edited or trashed. It uses the existing limited Markdown converter: links and
+tables may appear as text, callouts lose their box styling, and attachments are not copied. This is a
+preview comparison, not a full migration. All preview data is ignored by Git.
+Add `--people` to copy only `05 People`, using the same original-file preservation and skip-on-rerun rules.
+
+The current interface is provisional and may receive a full UX/UI redesign. Prioritize working features
+and reliable data; keep navigation and styling replaceable without changing note storage or editor behavior.
+
+* **Settings** (gear in the header): line spacing for note text (Tight / Normal / Relaxed, with a live preview), kept
   per device. Normal is tighter than the app's first version; Relaxed is that original look. Shift+Enter starts a new
   line inside the same paragraph with no gap.
-* **Tab bar** (bottom): Today, Tasks, Notes and Tags, one tap away. It steps aside inside a stream or a note (they have
+* **Tab bar** (bottom): Today, Tasks, People and Notes, one tap away. People searches and opens ordinary notes
+  tagged `05-people` (including child tags). Tags opens from the Notes page and keeps the existing tag controls. The bar steps aside inside a stream or a note (they have
   their own toolbar) and while you are typing, so the keyboard gets the room.
 * **Today** (the home screen): the date, a New note button, any starred tags, what needs doing
   (Overdue, Due today, Coming up in the next 7 days, and a few tasks with no date; tick them right there), and
   today's note ready to write in. Which tag's daily entry it shows is a setting at the bottom of that section.
   It is a stack of independent sections, so adding one (a calendar, a mood check-in, goals) is adding one component.
-* **Tags** (`#/tags`) lists every tag (`daily-jots`, `school/fall26`, …). Type a name in the box to open or start one.
+* **Tags** (Notes → Tags, `#/tags`) lists every tag (`daily-jots`, `school/fall26`, …). Create a tag at the top, or tap an existing tag to open it.
+  The create form saves an empty tag without creating a note. Parent tags expand/collapse; stars keep favorite tags on Today.
+* **Settings** is reachable with the gear beside the save-status dot. Trash and Data & backups live there.
+* **Dismiss a task** from its details to keep it in its note, excluded from active tasks and separate from completed
+  tasks. A UTC dismissal timestamp is stored on the task itself. Open Tasks → Dismissed → task details →
+  Bring back task to reactivate it. **Delete task…** asks for confirmation, then removes its text and any nested
+  items from the note; siblings stay intact. A previous note version is always kept for deletion, even within
+  the normal snapshot interval. Both actions use the existing autosave and conflict protection. Inside an
+  active note editor they are undoable. The toolbar’s Task details button opens these actions for the task
+  under the cursor. No imported tasks are automatically completed, dismissed or deleted.
+* **People** shows cards, searches the note titles/body and filters by child tags of `05-people`, with each card
+  opening its ordinary note page. This is not yet a structured contacts database. Obsidian `[[links]]` are still
+  plain text; linking is the next separate change.
+* **Task history** below a note lists its completed and dismissed tasks, grouped by the recorded date in your
+  home timezone. Choose From/Through dates, filter by status, use All dates, or Show older tasks to expand the
+  range. Bring back reopens a task in place. New checkbox completions record `completedAt` in the same undo
+  operation; imported checked tasks have no fabricated completion timestamp and appear under Date not recorded.
 * **A stream** shows today's entry first, then earlier days, newest first. Only the entry you are writing in
   is a live editor; the others are light read-only views (tap one to edit it). Opening a stream saves nothing;
   today's note is created on your first keystroke.
@@ -209,6 +250,28 @@ for what to verify on the S24 before relying on mobile editing.
   ([HTTPS](docs/DEPLOYMENT.md#https-and-a-stable-address)) and keep using it, or unsent edits made under another address won't be seen.
 
 ## Layout
+
+Settings includes a shared home timezone selector for travel. Its SQLite override survives restarts and
+backups; HOME_TZ supplies the initial default. Existing note dates are never relabelled. Other open devices
+refresh configuration when focused or reopened.
+Opening page is a separate device preference: choose Today, Notes, Tasks or People on each device.
+It applies when opening the root address; explicit note links keep their destination.
+Dismissed tasks are hidden from the note's writing surface and show an X in its history and on the Tasks
+page. Bring them back before completing them. Completed tasks look like crossed-out bullets in the note.
+Task history belongs to its source note and reads that note's task nodes; there is no copied task text.
+The compact Add tag field offers up to six matching existing tags while focused. Select a suggestion,
+then press Add; typing a new tag still works.
+Natural date/time phrases and picked times use the home timezone. Task history has an inclusive range calendar with month navigation. See [Natural dates](docs/NATURAL-DATES.md) for examples, rules and limits.
+
+For a child bullet or task, write a second item beneath its parent and use **Indent list item (→)** in the
+formatting toolbar. **Outdent (←)** moves it back. With a physical keyboard, use Tab and Shift+Tab. Swipe
+the toolbar sideways on narrow phones to reach additional controls. These use the engine's list commands.
+
+Imported `[[Name]]` and `[[Name|alias]]` links open notes. In the editor, tap the ↗ beside a link; in a stream's
+read-only note, tap the link text. Original Markdown text stays editable and unchanged. Resolution matches
+the leaf title (case insensitive, optional `.md`); duplicates require choosing a note and missing targets
+show an explanation. Navigation uses note IDs, but references are not yet permanently bound across renames.
+Folder disambiguation, heading navigation and backlinks remain future work.
 
 ```
 server/    HTTP API, SQLite store, backups, import/export, CLI      (Node built-ins only)

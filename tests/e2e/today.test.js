@@ -69,9 +69,12 @@ describe('the Today screen', () => {
       await page.waitForFunction(() => location.hash === '#/tasks');
       await page.goBack();
       await page.getByTestId('today').waitFor();
-      await page.getByTestId('tab-tags').tap();
+      await page.getByTestId('tab-notes').tap();
+      await page.getByTestId('notes-tags-link').tap();
       await page.getByTestId('tag-list').waitFor();
-      await page.getByLabel('Back to Today').tap();
+      await page.getByLabel('Back to Notes').tap();
+      await page.getByTestId('notes-tags-link').waitFor();
+      await page.getByTestId('tab-today').tap();
       await page.getByTestId('today').waitFor();
       assert.deepEqual(page.errors, []);
     }));
@@ -136,17 +139,22 @@ describe('the Today screen', () => {
 describe('the bottom tab bar', () => {
   const current = (page) => page.locator('[data-testid="tabbar"] a[aria-current="page"]').allInnerTexts();
 
-  test('Today, Tasks, Notes and Tags are one tap away; the bar steps aside inside streams and notes and while typing', () =>
+  test('Today, Tasks, People and Notes are one tap away; tags belong to Notes; the bar steps aside while writing', () =>
     withPhone(browser, async ({ page, app }) => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('tabbar').waitFor();
       assert.deepEqual(await current(page), ['Today']);
 
-      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['notes', '#/notes', 'Notes'], ['tags', '#/tags', 'Tags'], ['today', '#/', 'Today']]) {
+      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['people', '#/people', 'People'], ['notes', '#/notes', 'Notes'], ['today', '#/', 'Today']]) {
         await page.getByTestId(`tab-${tab}`).tap();
         await page.waitForFunction((h) => location.hash === h || (h === '#/' && (location.hash === '' || location.hash === '#/')), hash);
         await page.waitForFunction((l) => document.querySelector('[data-testid="tabbar"] a[aria-current="page"]')?.innerText === l, label);
       }
+      await page.getByTestId('tab-notes').tap();
+      await page.getByTestId('notes-tags-link').tap();
+      await page.getByLabel('Tag to create').waitFor();
+      assert.deepEqual(await current(page), ['Notes']);
+      assert.equal(await page.getByTestId('tab-tags').count(), 0);
 
       // inside a stream or a note, or while starting one, the bar is not shown (they have their own toolbar)
       for (const hash of ['#/t/daily-jots', '#/new']) {

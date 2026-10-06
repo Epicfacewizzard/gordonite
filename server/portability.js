@@ -5,7 +5,7 @@ import { noteToMarkdownFile } from './markdown.js';
 import { makeZip } from './zip.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
-import { isValidDateString } from '../shared/dates.js';
+import { isValidDateString, isValidTimeZone } from '../shared/dates.js';
 import { DOC_FORMAT, migrateDoc, validateDoc } from '../shared/doc.js';
 
 export const EXPORT_FORMAT = 'hq-export';
@@ -177,6 +177,9 @@ export function importAll(db, cfg, data, mode) {
       const set = db.prepare("INSERT INTO meta (key, value) VALUES ('daily_tag', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING'));
       set.run(dailyTag);
     }
+    if (typeof data.homeTimeZone === 'string' && isValidTimeZone(data.homeTimeZone)) {
+      db.prepare("INSERT INTO meta (key, value) VALUES ('home_tz', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING')).run(data.homeTimeZone);
+    }
 
     if (mode === 'replace') {
       db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags;');
@@ -245,5 +248,7 @@ export function importAll(db, cfg, data, mode) {
       report.notesCreated++;
     }
   });
+  const savedTz = db.prepare("SELECT value FROM meta WHERE key = 'home_tz'").get()?.value;
+  if (savedTz && isValidTimeZone(savedTz)) cfg.tz = savedTz;
   return report;
 }

@@ -71,6 +71,24 @@ that changes them is noticed:
 
 ## Unverified / watch list
 
+The indent/outdent toolbar calls stock `sinkListItem` / `liftListItem` for bullets and tasks, preserving
+selection and undo. Wiki links are non-persistent ProseMirror decorations: original text remains ordinary
+editable text, with an explicit open-link control. They add no input rules, popups, or document rewrites.
+Read-only rendering recognises the same syntax across bold/italic text runs.
+
+Task lifecycle additions use ordinary editor transactions: dismissal changes an optional `dismissedAt`
+attribute; deletion removes the selected task item (or its now-empty list) with the engine's range deletion.
+Both are separate undo steps. A small ProseMirror append-transaction plugin records `completedAt` when an
+existing task checkbox changes, joining the same undo operation. It does not invent dates when old checked
+tasks are opened or pasted. Task history is a derived view of document nodes, not duplicate task storage.
+
+Completed tasks retain task nodes but display as crossed-out bullets. Dismissed task node views are hidden;
+read-only note rendering omits them while history reads the full document. A small visibility plugin moves
+selection out of dismissed ancestors and inserts an ordinary writing paragraph if the last visible block
+is dismissed. This joins the same undo operation. Opening an already dismissed-only note supplies that
+paragraph locally without saving until writing changes. No editor remount or full document replacement
+occurs on dismissal/completion. Undo and reactivation restore the same task IDs and original position.
+
 * **Real device.** All of this ran in desktop Chrome with touch and mobile emulation, which exercises the
   same ProseMirror code but not Gboard/Samsung Keyboard, autocorrect, swipe typing, text-selection handles,
   or the soft-keyboard resize. IME composition was *simulated* through the Chrome DevTools protocol (composition
@@ -85,3 +103,5 @@ that changes them is noticed:
   space, Android does not.
 * The tap-to-caret mapping uses `document.caretRangeFromPoint`, available in Chrome; if it is missing the caret
   goes to the end of the note.
+
+Task history date correction operates on the original task node attributes. Its separate history grip uses pointer capture to show older day drop targets; it does not implement dragging or editing inside ProseMirror. Native HTML drag was unreliable in the Windows browser test context, so history uses minimal pointer handling instead. Tap-to-pick dates supports phones and keyboards. Date corrections close the undo group and use the existing editor/session save path.

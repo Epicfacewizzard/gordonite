@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'preact/hooks';
 import { Editor } from '@tiptap/core';
 import { createExtensions } from './extensions.js';
 import { cleanTaskAttrs } from '../../../shared/tasks.js';
+import { closeHistory } from '@tiptap/pm/history';
+import { writableDoc } from './task-visibility.js';
 
 // Toggle a task by its stable id. Goes through the editor so it is a normal,
 // undoable transaction (the same one the checkbox itself dispatches).
@@ -12,7 +14,7 @@ export function toggleTaskById(editor, taskId) {
     if (node.type.name === 'taskItem' && node.attrs.id === taskId) found = { node, pos };
     return !found;
   });
-  if (!found) return false;
+  if (!found || found.node.attrs.dismissedAt) return false;
   return editor
     .chain()
     .command(({ tr }) => {
@@ -31,13 +33,29 @@ export function updateTaskById(editor, taskId, patch) {
     return !found;
   });
   if (!found) return false;
+  if (patch.checked === true && (patch.dismissedAt ?? found.node.attrs.dismissedAt) && patch.dismissedAt !== null) return false;
   return editor
     .chain()
     .command(({ tr }) => {
+      if ('dismissedAt' in patch || 'completedAt' in patch) closeHistory(tr);
       tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...patch });
       return true;
     })
     .run();
+}
+
+export function removeTaskById(editor, taskId) {
+  let found = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === 'taskItem' && node.attrs.id === taskId) found = { node, pos };
+    return !found;
+  });
+  if (!found) return false;
+  const $pos = editor.state.doc.resolve(found.pos);
+  const soleItem = $pos.parent.childCount === 1;
+  const from = soleItem ? $pos.before($pos.depth) : found.pos;
+  const to = soleItem ? from + $pos.parent.nodeSize : found.pos + found.node.nodeSize;
+  return editor.chain().command(({ tr }) => { closeHistory(tr); tr.deleteRange(from, to); return true; }).run();
 }
 
 // Document position for "N characters of text from the start". Used to put the caret where the
@@ -78,7 +96,7 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
         getToday: () => live.current.today,
         getNoteDate: () => session.date,
       }),
-      content: session.currentDoc(),
+      content: writableDoc(session.currentDoc()),
       enableContentCheck: true,
       onContentError: () => {
         // Never autosave over content this editor cannot represent.
@@ -123,9 +141,11 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
     session.attach(() => cleanTaskAttrs(editor.getJSON()));
     // While this editor is open, a change to a task (from a button or a menu) goes through it, as one undoable edit.
     session.taskPatcher = (taskId, patch) => updateTaskById(editor, taskId, patch);
+    session.taskRemover = (taskId) => removeTaskById(editor, taskId);
     onEditor?.(editor);
     return () => {
       session.taskPatcher = null;
+      session.taskRemover = null;
       session.detach();
       onEditor?.(null);
       editor.destroy();

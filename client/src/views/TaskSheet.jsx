@@ -11,13 +11,15 @@ import { PriorityStar } from './TaskMenus.jsx';
  * loses anything. Shown inline when a task is expanded in the list, and in a sheet from the editor.
  * `uid` keeps the field ids unique when several are open at once.
  */
-export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid = 'sheet', onChange, onDone }) {
-  const [values, setValues] = useState({ due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null });
+export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid = 'sheet', onChange, onDone, onDelete, onMove }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [values, setValues] = useState({ dueTime: picked.dueTime ?? null, startTime: picked.startTime ?? null, due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null });
   const phrases = findDatePhrases(text, noteDate);
   const typed = { due: null, start: null, dueWords: '', startWords: '' };
   for (const p of phrases) {
     if (typed[p.kind]) continue;
     typed[p.kind] = p.date;
+    typed[`${p.kind}Time`] = p.time;
     typed[`${p.kind}Words`] = text.slice(p.index, p.index + p.length);
   }
 
@@ -41,6 +43,11 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid 
             Tomorrow
           </button>
         </div>
+        {key !== 'hideUntil' && <div class="row">
+          <label for={`task-${key}-time-${uid}`}>Time</label>
+          <input id={`task-${key}-time-${uid}`} type="time" value={values[`${key}Time`] ?? typed[`${key}Time`] ?? ''} data-testid={`input-${key}-time`} onChange={(e) => change({ [`${key}Time`]: e.currentTarget.value || null, ...(e.currentTarget.value && !effective ? { [key]: noteDate } : {}) })} />
+          {values[`${key}Time`] && <button class="link" onClick={() => change({ [`${key}Time`]: null })}>Clear picked time</button>}
+        </div>}
         <div class="row small">
           {fromText && (
             <span class="muted">
@@ -71,6 +78,7 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid 
           )}
         </p>
       )}
+      {onMove && <div class="row"><button type="button" class="btn" data-testid="task-move-up" onClick={() => onMove(-1)}>Move up</button><button type="button" class="btn" data-testid="task-move-down" onClick={() => onMove(1)}>Move down</button></div>}
       {field('due', 'Due')}
       {field('start', 'Starts')}
       {field('hideUntil', 'Hide until')}
@@ -92,8 +100,20 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid 
         <span>Hide from the Tasks list (it stays in its note)</span>
       </label>
       <p class="muted small">
-        A task is not shown as “to do” before its start date. Typing “due fri” or “starts oct 12” in the task works too, and so does a date word at the end (“… tomorrow”); a date picked here wins.
+        A task is not shown as “to do” before its start date/time. Times use the home timezone in Settings. Typing “due fri” or “starts oct 12” in the task works too, and so does a date word at the end (“… tomorrow”); a date/time picked here wins. Clearing a picked value falls back to the words.
       </p>
+      <div class="row">
+        <button type="button" class="btn" data-testid="task-dismiss" onClick={() => { change({ dismissedAt: picked.dismissedAt ? null : new Date().toISOString() }); onDone?.(); }}>
+          {picked.dismissedAt ? 'Bring back task' : 'Dismiss task'}
+        </button>
+        {onDelete && <button type="button" class="btn" data-testid="task-delete" onClick={() => setConfirmDelete(true)}>Delete task…</button>}
+      </div>
+      <p class="small muted">Dismiss keeps the task in its note without marking it completed. Find it under Dismissed in Tasks.</p>
+      {confirmDelete && <div class="banner" role="alert">
+        <p>Delete this task’s text and any nested items from the note? The previous note version is kept in History.</p>
+        <div class="row"><button type="button" class="btn" data-testid="task-delete-cancel" onClick={() => setConfirmDelete(false)}>Cancel</button>
+          <button type="button" class="btn danger" data-testid="task-delete-confirm" onClick={() => { onDelete(); onDone?.(); }}>Delete task</button></div>
+      </div>}
       <button type="button" class="btn primary block" onClick={onDone} data-testid="task-sheet-done">
         Done
       </button>
@@ -104,7 +124,7 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid 
 /** The same details in a bottom sheet (used from the editor's toolbar). */
 export function TaskSheet({ onClose, ...props }) {
   return (
-    <Sheet title="Task dates" onClose={onClose}>
+    <Sheet title="Task details" onClose={onClose}>
       <TaskDetails {...props} onDone={onClose} />
     </Sheet>
   );

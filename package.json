@@ -13,6 +13,7 @@
     "dev:client": "vite client --host",
     "build": "vite build client",
     "start": "node server/index.js",
+    "preview:local": "npm run build && node scripts/preview-local.js",
     "test": "node --test \"tests/server/*.test.js\" \"tests/client/*.test.js\"",
     "test:e2e": "npm run build && node --test --test-concurrency=1 \"tests/e2e/*.test.js\"",
     "test:all": "npm test && npm run test:e2e",
@@ -29,8 +30,10 @@
     "preact": "^11.0.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@preact/preset-vite": "^2.10.6",
     "playwright-core": "^1.63.0",
-    "vite": "^8.3.2"
+    "vite": "^8.3.2",
+    "zod": "^4.6.5"
   }
 }

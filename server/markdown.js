@@ -55,7 +55,8 @@ function renderBlock(node) {
 function renderItem(prefix, item) {
   const [first, ...rest] = item.content ?? [];
   const head = first ? renderInline(first.content ?? []) : '';
-  const lines = [prefix + head];
+  const schedule = ['due', 'start'].filter((key) => item.attrs?.[key] || item.attrs?.[`${key}Time`]).map((key) => ` (${key} ${item.attrs[key] || 'note date'}${item.attrs[`${key}Time`] ? ' at ' + item.attrs[`${key}Time`] : ''})`).join('');
+  const lines = [prefix + head + schedule + (item.attrs?.dismissedAt ? ` (dismissed ${item.attrs.dismissedAt})` : '')];
   for (const child of rest) {
     for (const line of renderBlock(child).split('\n')) lines.push(`  ${line}`);
   }

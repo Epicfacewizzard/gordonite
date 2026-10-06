@@ -1,6 +1,7 @@
+import { moveTask } from '../editor/task-move.js';
 import { useState } from 'preact/hooks';
 import { Toolbar } from '../editor/Toolbar.jsx';
-import { updateTaskById } from '../editor/NoteEditor.jsx';
+import { updateTaskById, removeTaskById } from '../editor/NoteEditor.jsx';
 import { TaskSheet } from './TaskSheet.jsx';
 import { taskText } from '../../../shared/tasks.js';
 
@@ -19,7 +20,7 @@ export function EditorBar({ editor, noteDate, today }) {
       const node = $from.node(d);
       if (node.type.name !== 'taskItem') continue;
       const a = node.attrs;
-      setSheet({ id: a.id, text: taskText(node.toJSON()), picked: { due: a.due, start: a.start, hidden: a.hidden, hideUntil: a.hideUntil, priority: a.priority } });
+      setSheet({ id: a.id, text: taskText(node.toJSON()), picked: { dueTime: a.dueTime, startTime: a.startTime, due: a.due, start: a.start, hidden: a.hidden, hideUntil: a.hideUntil, priority: a.priority, dismissedAt: a.dismissedAt } });
       return;
     }
   };
@@ -34,6 +35,8 @@ export function EditorBar({ editor, noteDate, today }) {
           today={today}
           picked={sheet.picked}
           onChange={(patch) => updateTaskById(editor, sheet.id, patch)}
+          onMove={(direction) => moveTask(editor, sheet.id, direction)}
+          onDelete={() => removeTaskById(editor, sheet.id)}
           onClose={() => {
             setSheet(null);
             editor?.chain().focus(undefined, { scrollIntoView: false }).run();

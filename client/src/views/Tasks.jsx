@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { sync } from '../sync.js';
-import { useToday } from '../hooks.js';
-import { addDays, formatDateShort } from '../../../shared/dates.js';
-import { findDatePhrases, parseTaskDates } from '../../../shared/taskdates.js';
+import { useToday, useNowTime } from '../hooks.js';
+import { addDays, formatDateShort, formatDateLabel, hasStarted, isOverdue } from '../../../shared/dates.js';
+import { findDatePhrases, parseTaskSchedule } from '../../../shared/taskdates.js';
 import { PRIORITY_LABEL, dueBar, priorityRank } from '../../../shared/tasks.js';
 import { TaskDetails } from './TaskSheet.jsx';
 import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
 
 const keyOf = (t) => `${t.noteId}:${t.taskId}`;
-const byDate = (field) => (a, b) => (a[field] < b[field] ? -1 : a[field] > b[field] ? 1 : a.date < b.date ? 1 : -1);
+const byDate = (field) => (a, b) => `${a[field] || ''} ${a[`${field}Time`] || '23:59'}`.localeCompare(`${b[field] || ''} ${b[`${field}Time`] || '23:59'}`) || b.date.localeCompare(a.date);
 // Most pressing first (urgent & important, urgent, important, none); the other order breaks ties.
 const byPriorityThen = (tiebreak) => (a, b) => priorityRank(a.priority) - priorityRank(b.priority) || tiebreak(a, b);
 const isHiddenNow = (t, today) => t.hidden || (t.hideUntil && t.hideUntil > today);
@@ -28,11 +28,12 @@ function TaskText({ text, date }) {
 }
 
 // Which part of the list a task belongs in. A task ticked on this page stays where it was.
-function bucketOf(t, today, touched) {
+function bucketOf(t, today, touched, now) {
+  if (t.dismissedAt) return 'dismissed';
   if (t.checked && !touched.has(keyOf(t))) return 'done';
   if (isHiddenNow(t, today)) return 'hidden';
-  if (t.start && t.start > today) return 'later';
-  if (t.due && t.due < today) return 'overdue';
+  if (!hasStarted(t.start, t.startTime, today, now)) return 'later';
+  if (isOverdue(t.due, t.dueTime, today, now)) return 'overdue';
   if (t.due === today) return 'today';
   if (t.due) return 'upcoming';
   return 'anytime';
@@ -45,9 +46,10 @@ const COMPACT_DAYS = 7;
 
 export function TasksView({ config, compact = false }) {
   const today = useToday(config.tz);
+  const now = useNowTime(config.tz);
   const [tasks, setTasks] = useState(null);
   const [error, setError] = useState(null);
-  const [open, setOpen] = useState({ done: false, hidden: false, later: false });
+  const [open, setOpen] = useState({ done: false, hidden: false, later: false, dismissed: false });
   const [expanded, setExpanded] = useState(() => new Set()); // tasks opened out to show their details
   const toggleExpanded = (t) =>
     setExpanded((s) => {
@@ -77,8 +79,8 @@ export function TasksView({ config, compact = false }) {
         if (keyOf(t) !== keyOf(task)) return t;
         const next = { ...t, ...patch };
         // A cleared date falls back to a date typed in the text, exactly as the server will say.
-        const typed = parseTaskDates(t.text, t.date);
-        for (const k of ['due', 'start']) {
+        const typed = parseTaskSchedule(t.text, t.date);
+        for (const k of ['due', 'start', 'dueTime', 'startTime']) {
           if (k in patch) {
             next[k] = patch[k] ?? typed[k];
             next[`${k}From`] = patch[k] ? 'set' : typed[k] ? 'text' : null;
@@ -92,31 +94,34 @@ export function TasksView({ config, compact = false }) {
   // copy first, then the server, with the usual conflict protection). Put it back if that fails.
   const apply = async (task, patch) => {
     const before = tasks.find((t) => keyOf(t) === keyOf(task));
-    patchLocal(task, patch);
+    if (patch === null) setTasks((list) => list.filter((t) => keyOf(t) !== keyOf(task)));
+    else patchLocal(task, patch);
     try {
       await sync.track(
         (async () => {
           await sync.ready;
           const { note } = await api.getNote(task.noteId);
           const session = sync.adopt(note);
-          if (!session.editTask(task.taskId, patch)) throw new Error('That task is no longer in its note.');
+          const changed = patch === null ? session.removeTask(task.taskId) : session.applyTaskPatch(task.taskId, patch);
+          if (!changed) throw new Error('That task is no longer in its note.');
         })(),
       );
       setError(null);
     } catch (e) {
-      setTasks((list) => list.map((t) => (keyOf(t) === keyOf(task) ? before : t)));
+      setTasks((list) => patch === null ? [...list, before] : list.map((t) => (keyOf(t) === keyOf(task) ? before : t)));
       await load(); // show what the server really has, then say why the change did not stick
       setError(e.message);
     }
   };
 
   const toggle = (task) => {
+    if (task.dismissedAt) return;
     setTouched((s) => new Set(s).add(keyOf(task)));
     apply(task, { checked: !task.checked });
   };
 
-  const buckets = { overdue: [], today: [], upcoming: [], anytime: [], later: [], hidden: [], done: [] };
-  for (const t of tasks ?? []) buckets[bucketOf(t, today, touched)].push(t);
+  const buckets = { overdue: [], today: [], upcoming: [], anytime: [], later: [], hidden: [], done: [], dismissed: [] };
+  for (const t of tasks ?? []) buckets[bucketOf(t, today, touched, now)].push(t);
   buckets.overdue.sort(byPriorityThen(byDate('due')));
   buckets.today.sort(byPriorityThen(byDate('due')));
   buckets.upcoming.sort(byPriorityThen(byDate('due')));
@@ -136,22 +141,23 @@ export function TasksView({ config, compact = false }) {
   // Tasks ticked on this page stay listed but no longer count as open.
   const openCount = [...buckets.overdue, ...buckets.today, ...buckets.upcoming, ...buckets.anytime].filter((t) => !t.checked).length;
   const row = (t) => {
-    const overdue = t.due && !t.checked && t.due < today;
+    const overdue = !t.checked && isOverdue(t.due, t.dueTime, today, now);
     const hiddenNow = isHiddenNow(t, today);
     const open = (kind) => setMenu({ key: keyOf(t), kind });
     const isOpen = expanded.has(keyOf(t));
     return (
       <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}${isOpen ? ' expanded' : ''}`} data-testid="task-row" data-priority={t.priority ?? ''} data-bar={dueBar(t.due, t.checked, today)}>
         <label class="task-check">
-          <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} aria-label={t.checked ? 'Completed task' : 'Task'} />
+          {t.dismissedAt ? <span class="dismissed-icon" role="img" aria-label="Dismissed task">⊠</span> : <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} aria-label={t.checked ? 'Completed task' : 'Task'} />}
         </label>
         <button type="button" class="task-body" onClick={() => toggleExpanded(t)} aria-expanded={isOpen} aria-label={`Details for: ${t.text}`} data-testid="task-open">
           <span class="task-text">
             <TaskText text={t.text} date={t.date} />
           </span>
           <span class="task-meta">
-            {t.due && <span class={`task-chip${overdue ? ' overdue' : ''}`} data-testid="chip-due">due {formatDateShort(t.due)}</span>}
-            {t.start && t.start > today && <span class="task-chip" data-testid="chip-start">starts {formatDateShort(t.start)}</span>}
+            {t.dismissedAt && <span class="task-chip" data-testid="chip-dismissed">dismissed · {new Date(t.dismissedAt).toLocaleDateString('en-CA', { timeZone: config.tz })}</span>}
+            {t.due && <span class={`task-chip${overdue ? ' overdue' : ''}`} data-testid="chip-due">due {formatDateLabel(t.due, today)}{t.dueTime && ` at ${t.dueTime}`}</span>}
+            {t.start && <span class="task-chip" data-testid="chip-start">starts {formatDateLabel(t.start, today)}{t.startTime && ` at ${t.startTime}`}</span>}
             {t.hidden && <span class="task-chip" data-testid="chip-hidden">hidden</span>}
             {!t.hidden && t.hideUntil && t.hideUntil > today && <span class="task-chip" data-testid="chip-hidden">hidden until {formatDateShort(t.hideUntil)}</span>}
             <span>
@@ -189,8 +195,9 @@ export function TasksView({ config, compact = false }) {
               noteId={t.noteId}
               where={`${t.tags[0] ?? 'No tag'} · ${formatDateShort(t.date)}`}
               today={today}
-              picked={{ due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority }}
+              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt }}
               onChange={(patch) => apply(t, patch)}
+              onDelete={() => apply(t, null)}
               onDone={() => toggleExpanded(t)}
             />
           </div>
@@ -273,6 +280,7 @@ export function TasksView({ config, compact = false }) {
       {!compact && folded('later', 'Starts later', buckets.later)}
       {!compact && folded('hidden', 'Hidden', buckets.hidden)}
       {!compact && folded('done', 'Done', buckets.done)}
+      {!compact && folded('dismissed', 'Dismissed', buckets.dismissed)}
       {menu && (() => {
         const t = tasks?.find((x) => keyOf(x) === menu.key);
         if (!t) return null;

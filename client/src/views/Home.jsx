@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
-import { go } from '../hooks.js';
 import { normalizeTag } from '../../../shared/tags.js';
 import { formatDateShort } from '../../../shared/dates.js';
+import { tagFolders, folderLabel } from '../tag-folders.js';
 
 export function HomeView() {
   const [tags, setTags] = useState(null);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
   const [formError, setFormError] = useState(null);
+  const [creating, setCreating] = useState(false);
 
   const load = () =>
     api
@@ -60,38 +61,32 @@ export function HomeView() {
     </li>
   );
 
-  const favorites = tags?.filter((t) => t.favorite) ?? [];
+  const byPath = new Map((tags ?? []).map((t) => [t.path, t]));
+  const branch = (folder) => folder.children.length ? <li key={folder.path} class="tag-branch"><details open>
+    <summary>{folderLabel(folder.name)}</summary>
+    <ul class="tag-list">{byPath.has(folder.path) && row(byPath.get(folder.path))}{folder.children.map(branch)}</ul>
+  </details></li> : row(byPath.get(folder.path));
 
   const open = async (e) => {
     e.preventDefault();
     const path = normalizeTag(text);
     if (!path) return setFormError('Tag names use letters, numbers, - _ . and / for sub-tags, e.g. school/fall26.');
     setFormError(null);
-    go(`/t/${path}`); // opening a stream creates no note; the tag is stored with its first note
+    setCreating(true);
+    try { await api.createTag(path); setText(''); load(); }
+    catch (e) { setFormError(e.message); }
+    finally { setCreating(false); }
   };
 
   return (
     <div class="home">
-      <a class="btn primary block" href="#/new" data-testid="home-new-note">
-        New note
-      </a>
-      <a class="tag-row tasks-link" href="#/notes" data-testid="notes-link">
-        <span class="tag-name">Notes</span>
-        <span class="tag-meta">All your notes: search, filter by tag, open one by itself</span>
-      </a>
-      <a class="tag-row tasks-link" href="#/tasks" data-testid="tasks-link">
-        <span class="tag-name">Tasks</span>
-        <span class="tag-meta">Everything still to do, across all streams</span>
-      </a>
-      {favorites.length > 0 && (
-        <>
-          <h2 class="section">Favorites</h2>
-          <ul class="tag-list" data-testid="favorite-list">
-            {favorites.map(row)}
-          </ul>
-        </>
-      )}
-      <h2 class="section">Daily-note streams</h2>
+      <form class="row open-tag" onSubmit={open}>
+        <input type="text" value={text} onInput={(e) => setText(e.currentTarget.value)} placeholder="New tag, e.g. school/fall26" aria-label="Tag to create" autocapitalize="none" autocomplete="off" enterkeyhint="done" data-testid="open-tag-input" />
+        <button type="submit" class="btn primary" disabled={creating} data-testid="open-tag-button">{creating ? 'Creating…' : 'Create tag'}</button>
+      </form>
+      {formError && <p class="error" role="alert">{formError}</p>}
+      <p class="small muted">Expand a parent to see its tags. Tap a tag to open it; the star adds it to Today.</p>
+      <h2 class="section">Your tags</h2>
       {error && (
         <div class="banner error" role="alert">
           <span>Can’t reach the server: {error}</span>
@@ -100,36 +95,10 @@ export function HomeView() {
           </button>
         </div>
       )}
-      {tags && tags.length === 0 && <p class="muted">No tags yet. Open one below, e.g. “daily-jots”.</p>}
+      {tags && tags.length === 0 && <p class="muted">No tags yet. Create one above, e.g. “daily-jots”.</p>}
       <ul class="tag-list" data-testid="tag-list">
-        {tags?.map(row)}
+        {tagFolders(tags ?? []).map(branch)}
       </ul>
-
-      <form class="row open-tag" onSubmit={open}>
-        <input
-          type="text"
-          value={text}
-          onInput={(e) => setText(e.currentTarget.value)}
-          placeholder="Open or start a tag, e.g. daily-jots"
-          aria-label="Tag to open"
-          autocapitalize="none"
-          autocomplete="off"
-          enterkeyhint="go"
-          data-testid="open-tag-input"
-        />
-        <button type="submit" class="btn primary" data-testid="open-tag-button">
-          Open
-        </button>
-      </form>
-      {formError && <p class="error" role="alert">{formError}</p>}
-
-      <nav class="footer-links">
-        <a href="#/trash">Trash</a>
-        <a href="#/data">Data &amp; backups</a>
-        <a href="#/settings" data-testid="settings-link">
-          Settings
-        </a>
-      </nav>
     </div>
   );
 }

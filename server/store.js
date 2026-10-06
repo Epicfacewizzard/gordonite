@@ -1,7 +1,7 @@
 import { tx } from './db.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
-import { dateInTz, isValidDateString } from '../shared/dates.js';
+import { dateInTz, isValidDateString, isValidTime, timeInTz, hasStarted, isOverdue, isValidTimeZone } from '../shared/dates.js';
 import { DOC_FORMAT, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
 import { extractTasks, updateTask } from '../shared/tasks.js';
 import { markdownToDoc } from '../shared/markdown-import.js';
@@ -37,6 +37,8 @@ export class Store {
   constructor(db, config) {
     this.db = db;
     this.cfg = config;
+    const savedTz = db.prepare("SELECT value FROM meta WHERE key = 'home_tz'").get()?.value;
+    if (savedTz && isValidTimeZone(savedTz)) this.cfg.tz = savedTz;
   }
 
   // ---------- helpers ----------
@@ -254,6 +256,9 @@ export class Store {
       } else if (k === 'checked' || k === 'hidden') {
         if (typeof v !== 'boolean') throw new HttpError(400, 'bad_task', `"${k}" must be true or false`);
         clean[k] = v;
+      } else if (k === 'dueTime' || k === 'startTime') {
+        if (v !== null && !isValidTime(v)) throw new HttpError(400, 'bad_task', 'Time must be HH:mm or null');
+        clean[k] = v;
       } else if (k === 'due' || k === 'start' || k === 'hideUntil') {
         if (v !== null && !isValidDateString(v)) throw new HttpError(400, 'bad_task', `"${k}" must be YYYY-MM-DD or null`);
         clean[k] = v;
@@ -269,12 +274,13 @@ export class Store {
   // What is open right now, with where each task sits: overdue / today / upcoming (next 7 days) / later / nodate.
   assistantOverview() {
     const today = this.#today();
+    const now = timeInTz(new Date(), this.cfg.tz);
     const soon = dateInTz(new Date(Date.now() + 7 * 86_400_000), this.cfg.tz);
     const tasks = this.listTasks()
-      .filter((t) => !t.checked && !t.hidden && !(t.hideUntil && t.hideUntil > today) && !(t.start && t.start > today))
+      .filter((t) => !t.checked && !t.dismissedAt && !t.hidden && !(t.hideUntil && t.hideUntil > today) && hasStarted(t.start, t.startTime, today, now))
       .map((t) => ({
         ...t,
-        bucket: !t.due ? 'nodate' : t.due < today ? 'overdue' : t.due === today ? 'today' : t.due <= soon ? 'upcoming' : 'later',
+        bucket: !t.due ? 'nodate' : isOverdue(t.due, t.dueTime, today, now) ? 'overdue' : t.due === today ? 'today' : t.due <= soon ? 'upcoming' : 'later',
       }));
     return { today, tasks };
   }
@@ -284,7 +290,13 @@ export class Store {
   // dailyTag: whose entry for today the Today screen shows for writing.
   getSettings() {
     const row = this.db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get();
-    return { dailyTag: row?.value ?? DEFAULT_DAILY_TAG };
+    return { dailyTag: row?.value ?? DEFAULT_DAILY_TAG, tz: this.cfg.tz };
+  }
+
+  setTimeZone(tz) {
+    if (typeof tz !== 'string' || !isValidTimeZone(tz)) throw new HttpError(400, 'bad_timezone', 'Choose a valid IANA timezone, such as America/Edmonton');
+    this.db.prepare("INSERT INTO meta (key, value) VALUES ('home_tz', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(tz);
+    this.cfg.tz = tz;
   }
 
   setDailyTag(rawPath) {
@@ -311,8 +323,12 @@ export class Store {
           taskId: t.id,
           text: t.text,
           checked: t.checked,
+          dismissedAt: t.dismissedAt,
+          completedAt: t.completedAt,
           due: t.due,
           start: t.start,
+          dueTime: t.dueTime, startTime: t.startTime,
+          dueTimeFrom: t.dueTimeFrom, startTimeFrom: t.startTimeFrom,
           hidden: t.hidden,
           hideUntil: t.hideUntil,
           priority: t.priority,
@@ -369,7 +385,7 @@ export class Store {
 
   // All live notes, most recently changed first, for the Notes page. Filters: tag (exact, or with its
   // sub-tags when `sub` is true), untagged, and a text search over the note's words.
-  listNotes({ tag = null, sub = false, untagged = false, q = '', limit = 30, offset = 0 } = {}) {
+  listNotes({ tag = null, sub = false, untagged = false, q = '', limit = 30, offset = 0, sort = 'updated' } = {}) {
     limit = Math.min(Math.max(Number(limit) || 30, 1), 100);
     offset = Math.max(Number(offset) || 0, 0);
     const where = ['n.deleted_at IS NULL'];
@@ -388,7 +404,8 @@ export class Store {
       if (sub) args.push(`${path.replace(/[\\%_]/g, (c) => `\\${c}`)}/%`); // _ is a LIKE wildcard and legal in tags
     }
     const needle = String(q ?? '').trim().toLowerCase();
-    const sql = `SELECT n.* FROM notes n WHERE ${where.join(' AND ')} ORDER BY n.updated_at DESC, n.id`;
+    const order = sort === 'title' ? 'n.title COLLATE NOCASE, n.id' : 'n.updated_at DESC, n.id';
+    const sql = `SELECT n.* FROM notes n WHERE ${where.join(' AND ')} ORDER BY ${order}`;
     let rows;
     let hasMore;
     if (needle) {
@@ -481,8 +498,11 @@ export class Store {
       const oldLen = plainText(JSON.parse(note.doc)).trim().length;
       let snapKind = null;
       if (oldLen > 0 && note.doc !== docStr) {
+        const remaining = new Set(extractTasks(body.doc, note.note_date).map((t) => t.id));
+        const removedTask = extractTasks(JSON.parse(note.doc), note.note_date).some((t) => !remaining.has(t.id));
         // keepPrevious: the sender is deliberately replacing content it had a conflict with.
-        if (body.keepPrevious === true || sinceSnap >= this.cfg.versionIntervalMinutes * 60_000) snapKind = 'auto';
+        if (removedTask) snapKind = 'guard';
+        else if (body.keepPrevious === true || sinceSnap >= this.cfg.versionIntervalMinutes * 60_000) snapKind = 'auto';
         else if (oldLen >= 20 && plainText(body.doc).trim().length < oldLen * 0.5) snapKind = 'guard';
       }
       if (snapKind) this.#addVersion(id, note.revision, note.doc, snapKind, note.doc_format);

@@ -28,6 +28,7 @@ Send `Authorization: Bearer <key>` and, for POST, `Content-Type: application/jso
 | `GET /api/assistant/overview` | Everything open right now, each with a `bucket`: overdue, today, upcoming (7 days), later, nodate |
 | `GET /api/assistant/notes?q=&tag=&sub=1&limit=` | Find notes (title, preview, tags, id); `q` searches words and titles |
 | `GET /api/assistant/notes/:id` | One note as Markdown, with its tags, revision and tasks |
+| `POST /api/assistant/notes/:id/trash` `{ expectedRevision, confirmed:true }` | Move a specifically confirmed note to recoverable Trash; refuse if its revision changed |
 | `POST /api/assistant/notes` `{ title, markdown, tags, date }` | New note (title, tags and date are optional) |
 | `POST /api/assistant/notes/:id/append` `{ markdown }` | Add to the end of a note |
 | `POST /api/assistant/daily/append` `{ markdown, tag? }` | Add to today's entry (the tag Today shows, unless you name one) |
@@ -49,7 +50,7 @@ A due date typed in a task works exactly as in the app: `- [ ] send the deck due
 
 ## Safety
 
-* **Nothing is deleted or replaced.** The assistant can only add to a note or change a task's tick, dates and hidden flag.
+* **Trash requires confirmation.** The MCP tool instructs the assistant to show the note and ask the human before calling. The API requires `confirmed:true` and the reviewed revision. This is a client assertion, not an independently verified human approval: use a trusted assistant client and keep its tool approvals enabled. No permanent purge or text replacement tool is provided. Trash follows the configured retention period (30 days by default).
 * **Earlier text is kept.** Before an append, the note's previous text is saved as a version (⋯ → History to restore).
 * **It follows the app's rules.** If you are editing the same note on your phone while it adds something, your next save
   shows the usual conflict panel with both versions kept. Open notes show the addition after a reload.

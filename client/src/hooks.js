@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from 'preact/hooks';
-import { dateInTz } from '../../shared/dates.js';
+import { dateInTz, timeInTz } from '../../shared/dates.js';
 import { sync } from './sync.js';
+import { getOpeningPage } from './prefs.js';
 
 export function useRerender(subscribe) {
   const [, bump] = useReducer((n) => n + 1, 0);
@@ -15,8 +16,11 @@ export function useSession(session) {
 
 export function useHashRoute() {
   const read = () => decodeURIComponent(location.hash.replace(/^#/, '')) || '/';
-  const [route, setRoute] = useState(read);
+  const [route, setRoute] = useState(() => read() === '/' ? getOpeningPage() : read());
   useEffect(() => {
+    // Only the initial app opening uses this preference. Today remains reachable,
+    // and explicit note/stream links always win over the opening-page setting.
+    if (read() === '/' && route !== '/') history.replaceState(null, '', `#${route}`);
     const on = () => setRoute(read());
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
@@ -42,4 +46,15 @@ export function useToday(tz) {
     };
   }, [tz]);
   return today;
+}
+
+export function useNowTime(tz) {
+  const [time, setTime] = useState(() => timeInTz(new Date(), tz));
+  useEffect(() => {
+    const tick = () => setTime(timeInTz(new Date(), tz));
+    tick(); const id = setInterval(tick, 15_000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick); };
+  }, [tz]);
+  return time;
 }

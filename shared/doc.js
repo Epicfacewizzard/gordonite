@@ -4,7 +4,7 @@
 // explicit format version (DOC_FORMAT). Format 1 allows only the nodes and
 // marks below. Changing the allowed set, or the meaning of an attribute,
 // requires a new format number and a migration in `migrateDoc`.
-import { isValidDateString } from './dates.js';
+import { isValidDateString, isValidTime } from './dates.js';
 
 // Optional attributes may be ADDED to a node (e.g. taskItem due/start/hidden) without a new format:
 // existing documents stay valid and meaning does not change. Removing a node/mark/attribute or
@@ -65,7 +65,13 @@ export function validateDoc(doc) {
       for (const k of ['due', 'start']) {
         if (a[k] != null && !isValidDateString(a[k])) return `taskItem.${k} must be a YYYY-MM-DD date`;
       }
+      for (const k of ['dueTime', 'startTime']) {
+        if (a[k] != null && !isValidTime(a[k])) return `taskItem.${k} must be HH:mm`;
+      }
       if (a.hidden != null && typeof a.hidden !== 'boolean') return 'taskItem.hidden must be boolean';
+      for (const key of ['dismissedAt', 'completedAt']) {
+        if (a[key] != null && (typeof a[key] !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(a[key]) || !Number.isFinite(Date.parse(a[key])))) return `taskItem.${key} must be a UTC timestamp`;
+      }
       if (a.hideUntil != null && !isValidDateString(a.hideUntil)) return 'taskItem.hideUntil must be a YYYY-MM-DD date';
       if (a.priority != null && !['both', 'urgent', 'important'].includes(a.priority)) return 'taskItem.priority must be both, urgent or important';
     }

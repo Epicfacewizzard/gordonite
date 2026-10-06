@@ -54,6 +54,7 @@ const enc = encodeURIComponent;
 
 export const api = {
   config: () => request('GET', '/api/config'),
+  resolveLink: (target) => request('GET', `/api/note-links?target=${enc(target)}`),
   tags: () => request('GET', '/api/tags'),
   createTag: (path) => request('POST', '/api/tags', { path }),
   setDaily: (tagId, daily) => request('PUT', `/api/tags/${enc(tagId)}/daily`, { daily }),

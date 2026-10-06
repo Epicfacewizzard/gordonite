@@ -96,18 +96,33 @@ export function createApp({ config, db, log = console }) {
     });
   });
   route('PUT', '/api/settings', async ({ res, body }) => {
-    // one setting so far; unknown fields are ignored
+    if (body.tz !== undefined) store.setTimeZone(body.tz);
     if (body.dailyTag !== undefined) store.setDailyTag(body.dailyTag);
     sendJson(res, 200, store.getSettings());
+  });
+
+  route('GET', '/api/note-links', async ({ res, query }) => {
+    const target = (query.get('target') ?? '').trim();
+    // Imported folder-qualified names match the leaf title. Show all matches rather
+    // than guessing when names collide; navigation itself uses the stable note ID.
+    const title = target.split('#')[0].split('/').at(-1).replace(/\.md$/i, '');
+    const notes = db.prepare('SELECT id, title, note_date AS date FROM notes WHERE deleted_at IS NULL AND title = ? COLLATE NOCASE ORDER BY note_date DESC, id').all(title);
+    sendJson(res, 200, { notes });
   });
 
   // ----- assistant (needs the ASSISTANT_TOKEN key; see docs/ASSISTANT.md) -----
   route('GET', '/api/assistant/ping', async ({ res }) => sendJson(res, 200, { ok: true, today: dateInTz(new Date(), config.tz), tz: config.tz }));
   route('GET', '/api/assistant/overview', async ({ res }) => sendJson(res, 200, store.assistantOverview()));
   route('GET', '/api/assistant/notes', async ({ res, query }) => {
-    sendJson(res, 200, store.listNotes({ tag: query.get('tag'), sub: query.get('sub') === '1', untagged: query.get('untagged') === '1', q: query.get('q') ?? '', limit: query.get('limit'), offset: query.get('offset') }));
+    sendJson(res, 200, store.listNotes({ tag: query.get('tag'), sub: query.get('sub') === '1', untagged: query.get('untagged') === '1', q: query.get('q') ?? '', limit: query.get('limit'), offset: query.get('offset'), sort: query.get('sort') }));
   });
   route('GET', '/api/assistant/notes/:id', async ({ res, params }) => sendJson(res, 200, store.assistantGetNote(params.id)));
+  route('POST', '/api/assistant/notes/:id/trash', async ({ res, params, body }) => {
+    if (body.confirmed !== true) throw new HttpError(400, 'confirmation_required', 'Ask the user to confirm this specific note before moving it to Trash');
+    const note = store.assistantGetNote(checkId(params.id));
+    if (body.expectedRevision !== note.revision) throw new HttpError(409, 'revision_conflict', 'The note changed. Read it and ask for confirmation again');
+    sendJson(res, 200, store.deleteNote(note.id));
+  });
   route('POST', '/api/assistant/notes', async ({ res, body }) => sendJson(res, 200, store.assistantCreateNote(body)));
   route('POST', '/api/assistant/notes/:id/append', async ({ res, params, body }) => sendJson(res, 200, store.assistantAppend(params.id, body.markdown)));
   route('POST', '/api/assistant/daily/append', async ({ res, body }) => sendJson(res, 200, store.assistantAppendDaily(body)));
@@ -142,6 +157,7 @@ export function createApp({ config, db, log = console }) {
         q: query.get('q') ?? '',
         limit: query.get('limit'),
         offset: query.get('offset'),
+        sort: query.get('sort'),
       }),
     );
   });

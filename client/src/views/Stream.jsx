@@ -11,6 +11,7 @@ import { EditorBar } from './EditorBar.jsx';
 import { TagEditor } from './TagEditor.jsx';
 import { DateMenu, HideMenu, PriorityMenu } from './TaskMenus.jsx';
 import { extractTasks } from '../../../shared/tasks.js';
+import { TaskArchive } from './TaskArchive.jsx';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
 
@@ -46,7 +47,7 @@ function NoteTitle({ session }) {
 
 // One note: its date, tags, status panels and either the live editor or a read-only view. `tag` is the
 // stream it is shown in (null on its own page); `standalone` marks the own-page case.
-export function NoteCard({ session, tag, today, active, onActivate, onChanged, onEditor, focusRequest, standalone }) {
+export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active, onActivate, onChanged, onEditor, focusRequest, standalone }) {
   useSession(session);
   const [menu, setMenu] = useState(false);
   const [problem, setProblem] = useState(null);
@@ -71,6 +72,7 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
   const empty = !session.currentDoc().content?.some((n) => n.content?.length);
 
   const activate = (e) => {
+    if (e.target.closest?.('a.wiki-link')) return;
     // One of a task's round buttons (hide / due / priority): open its menu, without waking the editor.
     const taskButton = e.target.closest?.('[data-task-action]');
     if (taskButton) {
@@ -145,6 +147,7 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
           dangerouslySetInnerHTML={{ __html: empty ? '<p class="placeholder">Empty note. Tap to write.</p>' : html }}
         />
       )}
+      <TaskArchive doc={session.currentDoc()} noteDate={session.date} today={today} tz={tz} onPatch={(taskId, patch) => session.applyTaskPatch(taskId, patch)} onReactivate={(taskId) => session.applyTaskPatch(taskId, { checked: false, dismissedAt: null, completedAt: null })} />
       {taskMenu && (() => {
         const t = extractTasks(session.currentDoc(), session.date).find((x) => x.id === taskMenu.taskId);
         if (!t) return null;
@@ -319,6 +322,7 @@ export function StreamView({ tag, config }) {
           session={s}
           tag={tag}
           today={today}
+          tz={config.tz}
           active={s.id === effectiveActive}
           focusRequest={s.id === effectiveActive ? focusRequest : null}
           onActivate={activate}

@@ -1,0 +1,41 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { launch, withPhone, waitSaved, waitStatus, caret } from './harness.js';
+import { uuid } from '../../shared/ids.js';
+let browser;
+before(async () => { browser = await launch(); });
+after(async () => { await browser.close(); });
+
+test('note tasks move intact with children, preserve logical cursor and IDs, undo once, and recover offline', () => withPhone(browser, async ({ app, page, context }) => {
+  const id = uuid(), first = uuid(), second = uuid(), child = uuid();
+  const task = (taskId, text) => ({ type: 'taskItem', attrs: { id: taskId, checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text, marks: [{ type: 'bold' }] }] }] });
+  const a = task(first, 'First task'), b = task(second, 'Second task');
+  a.content.push({ type: 'taskList', content: [task(child, 'Nested task')] });
+  await app.api('PUT', `/api/notes/${id}`, { baseRevision: 0, kind: 'note', date: '2026-10-05', tags: ['test'], docFormat: 1, doc: { type: 'doc', content: [{ type: 'taskList', content: [a, b] }] } });
+  await page.goto(`${app.url}/#/n/${id}`);
+  const editor = page.locator('.note-text[contenteditable="true"]');
+  await editor.locator('p').filter({ hasText: 'First task' }).tap();
+  await page.keyboard.press('Home'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
+  const original = await caret(page);
+  await page.getByTestId('tb-taskdates').tap();
+  await context.setOffline(true);
+  await page.getByTestId('task-move-down').tap();
+  await page.getByTestId('task-sheet-done').tap();
+  await waitStatus(page, 'offline');
+  const moved = await caret(page);
+  assert.equal(moved.block, original.block); assert.equal(moved.offset, original.offset);
+  const ids = () => editor.locator(':scope > ul > li').evaluateAll((items) => items.map((li) => li.dataset.taskMoveId));
+  assert.deepEqual(await ids(), [second, first]);
+  await page.getByTestId('tb-undo').tap(); assert.deepEqual(await ids(), [first, second]);
+  await page.getByTestId('tb-redo').tap(); assert.deepEqual(await ids(), [second, first]);
+  await context.setOffline(false); await waitSaved(page, 15000);
+  const saved = (await app.api('GET', `/api/notes/${id}`)).json.note.doc.content[0].content;
+  assert.equal(saved[1].content[1].content[0].attrs.id, child);
+  assert.deepEqual(saved[1].content[0].content[0].marks, [{ type: 'bold' }]);
+  await page.reload(); assert.deepEqual(await ids(), [second, first]);
+  // Pointer grip movement uses the same engine operation, without native HTML drag.
+  const firstRow = editor.locator(`[data-task-move-id="${first}"]`);
+  await firstRow.locator(':scope > .note-task-grip').dragTo(editor.locator(`[data-task-move-id="${second}"]`), { targetPosition: { x: 40, y: 5 } });
+  await waitSaved(page); assert.deepEqual(await ids(), [first, second]);
+  assert.equal(await editor.locator(`[data-task-move-id="${child}"]`).count(), 1);
+}));

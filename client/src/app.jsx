@@ -9,6 +9,8 @@ import { TasksView } from './views/Tasks.jsx';
 import { SettingsView } from './views/Settings.jsx';
 import { NoteView } from './views/NotePage.jsx';
 import { NotesView } from './views/Notes.jsx';
+import { PeopleView } from './views/People.jsx';
+import { LinkTarget } from './views/LinkTarget.jsx';
 import { NewNoteView } from './views/NewNote.jsx';
 import { TrashView } from './views/Trash.jsx';
 import { DataView } from './views/Data.jsx';
@@ -88,8 +90,8 @@ const Icon = ({ d }) => (
 const TABS = [
   { id: 'today', label: 'Today', href: '#/', match: (r) => r === '/', icon: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
   { id: 'tasks', label: 'Tasks', href: '#/tasks', match: (r) => r === '/tasks', icon: 'M4 4h16v16H4zM8.5 12.5l2.5 2.5 4.5-5' },
-  { id: 'notes', label: 'Notes', href: '#/notes', match: (r) => r === '/notes', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7' },
-  { id: 'tags', label: 'Tags', href: '#/tags', match: (r) => r === '/tags', icon: 'M3 12V4h8l10 10-8 8zM7.5 8.5h.01' },
+  { id: 'people', label: 'People', href: '#/people', match: (r) => r === '/people', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+  { id: 'notes', label: 'Notes', href: '#/notes', match: (r) => r === '/notes' || r === '/tags', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7' },
 ];
 const showsTabBar = (route) => !route.startsWith('/t/') && !route.startsWith('/n/') && !route.startsWith('/new');
 
@@ -135,11 +137,11 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route === '/tags' ? 'Tags' : 'Today';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route === '/tags' ? 'Tags' : 'Today';
   return (
     <header class="topbar">
       {!onHome && (
-        <a class="icon-btn back" href="#/" aria-label={route.startsWith('/n/') ? 'Back' : 'Back to Today'} onClick={route.startsWith('/n/') ? goBack : undefined}>
+        <a class="icon-btn back" href={route === '/tags' ? '#/notes' : '#/'} aria-label={route.startsWith('/n/') ? 'Back' : route === '/tags' ? 'Back to Notes' : 'Back to Today'} onClick={route.startsWith('/n/') ? goBack : undefined}>
           ‹
         </a>
       )}
@@ -147,6 +149,7 @@ function Header({ route }) {
         {route.startsWith('/t/') ? <TagCrumbs path={route.slice(3)} /> : title}
       </h1>
       <GlobalStatus />
+      <a class="icon-btn" href="#/settings" aria-label="Settings" title="Settings" data-testid="settings-link">⚙</a>
     </header>
   );
 }
@@ -173,6 +176,8 @@ export function App() {
   useEffect(() => {
     sync.init();
     loadConfig();
+    window.addEventListener('focus', loadConfig);
+    return () => window.removeEventListener('focus', loadConfig);
   }, []);
 
   let view;
@@ -193,9 +198,13 @@ export function App() {
   } else if (route === '/tags') {
     view = <HomeView />;
   } else if (route === '/settings') {
-    view = <SettingsView />;
+    view = <SettingsView config={config} onConfigChanged={loadConfig} />;
   } else if (route === '/notes') {
     view = <NotesView />;
+  } else if (route === '/people') {
+    view = <PeopleView />;
+  } else if (route.startsWith('/link/')) {
+    view = <LinkTarget key={route} target={route.slice(6)} />;
   } else if (route === '/new' || route.startsWith('/new?')) {
     view = <NewNoteView route={route} config={config} />;
   } else if (route.startsWith('/n/')) {

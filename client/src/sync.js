@@ -10,7 +10,7 @@ import { api, ApiError, NetworkError } from './api.js';
 import { pendingStore } from './pending.js';
 import { uuid } from '../../shared/ids.js';
 import { DOC_FORMAT, emptyDoc, isEmptyDoc } from '../../shared/doc.js';
-import { updateTask } from '../../shared/tasks.js';
+import { updateTask, removeTask } from '../../shared/tasks.js';
 
 const CAPTURE_DEBOUNCE_MS = 300;
 const CAPTURE_MAX_WAIT_MS = 1000;
@@ -354,8 +354,13 @@ export class Session extends Emitter {
   }
 
   /** Same, for any task change: { checked, due, start, hidden } (null date or hidden: false clears it). */
+  removeTask(taskId) {
+    if (this.provider && this.taskRemover) return this.taskRemover(taskId);
+    return this.editTask(taskId, null);
+  }
+
   editTask(taskId, patch) {
-    const doc = updateTask(this.currentDoc(), taskId, patch);
+    const doc = patch === null ? removeTask(this.currentDoc(), taskId) : updateTask(this.currentDoc(), taskId, patch);
     if (!doc) return false;
     this.dirtySeq++;
     this.capturedSeq = this.dirtySeq;

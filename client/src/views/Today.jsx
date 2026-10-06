@@ -51,7 +51,7 @@ function TasksWidget({ config }) {
 }
 
 // Today's entry of the chosen daily tag, ready to write in (created on the first keystroke, like in a stream).
-function TodayNoteWidget({ today, tags, dailyTag, chooseDailyTag }) {
+function TodayNoteWidget({ config, today, tags, dailyTag, chooseDailyTag }) {
   useSession();
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
   const [editor, setEditor] = useState(null);
@@ -101,7 +101,7 @@ function TodayNoteWidget({ today, tags, dailyTag, chooseDailyTag }) {
       )}
       {session && !session.discarded && (
         <>
-          <NoteCard session={session} tag={dailyTag} today={today} active onChanged={() => setNonce((n) => n + 1)} onEditor={setEditor} />
+          <NoteCard session={session} tag={dailyTag} today={today} tz={config.tz} active onChanged={() => setNonce((n) => n + 1)} onEditor={setEditor} />
           <div class="toolbar-spacer" />
           <EditorBar editor={editor} noteDate={session.date} today={today} />
         </>

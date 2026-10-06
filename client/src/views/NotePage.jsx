@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { api, ApiError } from '../api.js';
+import { api, ApiError, NetworkError } from '../api.js';
 import { sync } from '../sync.js';
 import { go, useSession, useToday } from '../hooks.js';
 import { NoteCard } from './Stream.jsx';
@@ -28,7 +28,8 @@ export function NoteView({ id, config }) {
         sync.adopt(note);
       } catch (err) {
         // A note that exists only on this phone so far (not saved on the server yet) has no server copy.
-        if (!(err instanceof ApiError && err.status === 404 && sync.get(id))) throw err;
+        const recoveredPending = err instanceof NetworkError && sync.get(id)?.hasUnsaved;
+        if (!recoveredPending && !(err instanceof ApiError && err.status === 404 && sync.get(id))) throw err;
       }
       setState({ status: 'ready', error: null });
     } catch (err) {
@@ -75,7 +76,7 @@ export function NoteView({ id, config }) {
       )}
       {state.status === 'ready' && session && !session.discarded && (
         <>
-          <NoteCard session={session} tag={null} today={today} active standalone onChanged={changed} onEditor={setEditor} />
+          <NoteCard session={session} tag={null} today={today} tz={config.tz} active standalone onChanged={changed} onEditor={setEditor} />
           <div class="toolbar-spacer" />
           <EditorBar editor={editor} noteDate={session.date} today={today} />
         </>

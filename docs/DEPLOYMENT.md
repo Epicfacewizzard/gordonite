@@ -56,8 +56,11 @@ startup with `Cannot write to /data ...`. Fix with `sudo chown -R 1000:1000 <dat
 cd personal-hq && git pull && docker build -t personal-hq:0.1.0 .
 ```
 
-then restart the app from the CasaOS dashboard (or `docker restart personal-hq`; if you changed the tag,
-recreate the app). The data folder is untouched. Take a manual backup first (Data & backups → Back up now).
+then recreate the app container using the same CasaOS settings and data-folder mount. A plain restart
+(`docker restart personal-hq`) keeps the old image and does not apply the rebuild. If you manage this
+installation with Compose, run `docker compose -f deploy/casaos-compose.yml up -d --force-recreate`
+after building instead. Keep the existing data-folder mount. Take a manual backup first
+(Data & backups → Back up now).
 
 ## First-run checks
 

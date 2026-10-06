@@ -17,6 +17,7 @@ export function TagEditor({ session, onChanged }) {
   const [all, setAll] = useState([]);
   const [text, setText] = useState('');
   const [error, setError] = useState(null);
+  const [suggesting, setSuggesting] = useState(false);
   const input = useRef(null);
   const saved = session.revision > 0;
   const busy = session.inFlight !== null; // the first save is in flight: wait until it has landed
@@ -85,6 +86,7 @@ export function TagEditor({ session, onChanged }) {
   };
 
   if (tags === null) return error ? <p class="error" role="alert">{error}</p> : null;
+  const suggestions = all.filter((t) => !tags.some((x) => x.path === t.path) && t.path.includes(text.trim().toLowerCase())).slice(0, 6);
 
   return (
     <div class="tag-editor" data-testid="tag-editor">
@@ -102,14 +104,14 @@ export function TagEditor({ session, onChanged }) {
         ))}
         {tags.length === 0 && <li class="muted small">No tags yet</li>}
       </ul>
-      <form onSubmit={add} class="row tag-add">
+      <form onSubmit={add} class="row tag-add" onFocusCapture={() => setSuggesting(true)} onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setSuggesting(false); }}>
         <input
           ref={input}
           type="text"
-          list="tag-suggestions"
           value={text}
           onInput={(e) => setText(e.currentTarget.value)}
-          placeholder="Add a tag or sub-tag, e.g. school/fall26"
+          onKeyDown={(e) => { if (e.key === 'Escape') setSuggesting(false); }}
+          placeholder="Add a tag…"
           aria-label="Add a tag"
           autocapitalize="none"
           autocomplete="off"
@@ -117,9 +119,7 @@ export function TagEditor({ session, onChanged }) {
           disabled={busy}
           data-testid="add-tag-input"
         />
-        <datalist id="tag-suggestions">
-          {all.filter((t) => !tags.some((x) => x.path === t.path)).map((t) => <option key={t.id} value={t.path} />)}
-        </datalist>
+        {suggesting && !busy && suggestions.length > 0 && <ul class="tag-suggestions" aria-label="Suggested tags" data-testid="tag-suggestions">{suggestions.map((t) => <li key={t.id}><button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setText(t.path); setSuggesting(false); input.current?.focus(); }} data-testid="tag-suggestion">{t.path}</button></li>)}</ul>}
         <button type="submit" class="btn" disabled={busy} data-testid="add-tag-button">
           Add
         </button>

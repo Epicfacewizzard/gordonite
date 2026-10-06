@@ -2,6 +2,17 @@
 // They are applied as an attribute on <html>, which the stylesheet reads.
 
 const SPACING_KEY = 'hq-spacing';
+const OPENING_KEY = 'hq-opening-page';
+export const OPENING_PAGES = [['/', 'Today'], ['/notes', 'Notes'], ['/tasks', 'Tasks'], ['/people', 'People']];
+export function getOpeningPage() {
+  try { const value = localStorage.getItem(OPENING_KEY); return OPENING_PAGES.some(([path]) => path === value) ? value : '/'; }
+  catch { return '/'; }
+}
+export function setOpeningPage(value) {
+  if (!OPENING_PAGES.some(([path]) => path === value)) return false;
+  try { localStorage.setItem(OPENING_KEY, value); return true; }
+  catch { return false; }
+}
 
 /** [id, name, what it means] */
 export const SPACINGS = [

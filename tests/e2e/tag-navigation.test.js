@@ -1,0 +1,25 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { launch, withPhone } from './harness.js';
+let browser;
+before(async () => { browser = await launch(); });
+after(async () => { await browser.close(); });
+test('Tags creates tags without notes, parent groups fold, and Settings owns recovery links', () => withPhone(browser, async ({ app, page }) => {
+  await app.api('POST', '/api/tags', { path: 'school/fall26' });
+  await page.goto(`${app.url}/#/tags`);
+  await page.getByTestId('tag-link').waitFor();
+  const summary = page.locator('summary').filter({ hasText: 'school' });
+  await summary.tap();
+  assert.equal(await page.getByTestId('tag-link').isVisible(), false);
+  await summary.tap();
+  assert.equal(await page.getByTestId('tag-link').isVisible(), true);
+  await page.getByLabel('Tag to create').fill('projects/home');
+  await page.getByTestId('open-tag-button').tap();
+  await page.getByTestId('tag-link').filter({ hasText: 'projects/home' }).waitFor();
+  assert.equal(app.notes().length, 0);
+  assert.equal(await page.getByTestId('home-new-note').count(), 0);
+  await page.getByTestId('settings-link').tap();
+  await page.getByTestId('settings').waitFor();
+  assert.equal(await page.getByRole('link', { name: 'Trash', exact: true }).count(), 1);
+  assert.equal(await page.getByRole('link', { name: 'Data & backups', exact: true }).count(), 1);
+}));

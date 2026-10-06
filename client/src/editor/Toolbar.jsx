@@ -58,6 +58,7 @@ export function Toolbar({ editor, onTaskDates }) {
   const run = (fn) => () => ready && fn(editor.chain().focus(undefined, { scrollIntoView: false })).run();
   const active = (name, attrs) => ready && editor.isActive(name, attrs);
   const can = (fn) => ready && fn(editor.can());
+  const item = active('taskItem') ? 'taskItem' : 'listItem';
 
   return (
     <div class="toolbar" role="toolbar" aria-label="Formatting" data-testid="toolbar">
@@ -79,7 +80,9 @@ export function Toolbar({ editor, onTaskDates }) {
       <Btn label="Task" testid="tb-task" disabled={!ready} active={active('taskList')} onClick={run((c) => c.toggleTaskList())}>
         <Icon d={ICONS.task} />
       </Btn>
-      <Btn label="Task dates" testid="tb-taskdates" disabled={!ready || !active('taskItem')} onClick={() => onTaskDates?.()}>
+      <Btn label="Indent list item" testid="tb-indent" disabled={!can((c) => c.sinkListItem(item))} onClick={run((c) => c.sinkListItem(item))}>→</Btn>
+      <Btn label="Outdent list item" testid="tb-outdent" disabled={!can((c) => c.liftListItem(item))} onClick={run((c) => c.liftListItem(item))}>←</Btn>
+      <Btn label="Task details" testid="tb-taskdates" disabled={!ready || !active('taskItem')} onClick={() => onTaskDates?.()}>
         <Icon d={ICONS.calendar} />
       </Btn>
       <span class="tb-gap" />

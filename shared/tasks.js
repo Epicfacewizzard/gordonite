@@ -3,7 +3,8 @@
 // uses extractTasks for the combined list and the client uses updateTask to change one
 // without opening an editor.
 //
-// A task can carry three optional attributes, all picked by hand:
+// Tasks may carry optional scheduling, visibility, priority and lifecycle attributes.
+// Picked dueTime/startTime are local HH:mm; text dates/times are interpreted by taskdates.js.
 //   due    YYYY-MM-DD   when it is due
 //   start  YYYY-MM-DD   it should not show up as "to do" before this day
 //   hidden true         kept out of the combined Tasks list (still in its note)
@@ -12,7 +13,7 @@
 // A date typed in the text ("due fri", see taskdates.js) is used when no date was picked;
 // a picked date always wins.
 import { addDays, formatDateShort } from './dates.js';
-import { parseTaskDates } from './taskdates.js';
+import { parseTaskSchedule } from './taskdates.js';
 
 const inlineText = (node) => {
   if (node.type === 'text') return node.text;
@@ -37,12 +38,18 @@ export const taskText = (item) =>
 export function describeTask(item, noteDate) {
   const a = item.attrs ?? {};
   const text = taskText(item);
-  const typed = parseTaskDates(text, noteDate);
+  const typed = parseTaskSchedule(text, noteDate);
   return {
     text,
     checked: !!a.checked,
-    due: a.due ?? typed.due,
-    start: a.start ?? typed.start,
+    dismissedAt: a.dismissedAt ?? null,
+    completedAt: a.completedAt ?? null,
+    due: a.due ?? typed.due ?? (a.dueTime ? noteDate : null),
+    dueTime: a.dueTime ?? typed.dueTime,
+    dueTimeFrom: a.dueTime ? 'set' : typed.dueTime ? 'text' : null,
+    start: a.start ?? typed.start ?? (a.startTime ? noteDate : null),
+    startTime: a.startTime ?? typed.startTime,
+    startTimeFrom: a.startTime ? 'set' : typed.startTime ? 'text' : null,
     hidden: !!a.hidden,
     hideUntil: a.hideUntil ?? null,
     priority: a.priority ?? null,
@@ -69,7 +76,7 @@ export function extractTasks(doc, noteDate) {
 }
 
 // Attributes that are only stored when they mean something, so untouched tasks stay exactly as before.
-const OPTIONAL = { due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v };
+const OPTIONAL = { dueTime: (v) => !v, startTime: (v) => !v, due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v, dismissedAt: (v) => !v, completedAt: (v) => !v };
 
 function tidyAttrs(attrs) {
   const next = { ...attrs };
@@ -95,7 +102,9 @@ export function updateTask(doc, taskId, patch) {
   const walk = (node) => {
     if (node.type === 'taskItem' && node.attrs?.id === taskId) {
       found = true;
-      node = { ...node, attrs: tidyAttrs({ ...node.attrs, ...patch }) };
+      if (patch.checked === true && (patch.dismissedAt ?? node.attrs.dismissedAt) && patch.dismissedAt !== null) return node;
+      const timestamps = 'checked' in patch && patch.checked !== !!node.attrs.checked ? { completedAt: patch.checked ? new Date().toISOString() : null } : {};
+      node = { ...node, attrs: tidyAttrs({ ...node.attrs, ...timestamps, ...patch }) };
     }
     return node.content ? { ...node, content: node.content.map(walk) } : node;
   };
@@ -104,6 +113,20 @@ export function updateTask(doc, taskId, patch) {
 }
 
 export const setTaskChecked = (doc, taskId, checked) => updateTask(doc, taskId, { checked });
+
+/** Remove one task and its nested contents; prune empty task lists but keep the document editable. */
+export function removeTask(doc, taskId) {
+  let found = false;
+  const walk = (node) => {
+    if (node.type === 'taskItem' && node.attrs?.id === taskId) { found = true; return null; }
+    if (!node.content) return node;
+    const content = node.content.map(walk).filter(Boolean);
+    if (node.type === 'taskList' && !content.length) return null;
+    return { ...node, content: node.type === 'doc' && !content.length ? [{ type: 'paragraph' }] : content };
+  };
+  const next = walk(doc);
+  return found ? next : null;
+}
 
 /**
  * The colour of the strip down a task's left edge, from how soon it is due:
@@ -123,9 +146,12 @@ export const priorityRank = (p) => ({ both: 0, urgent: 1, important: 2 })[p] ?? 
 /** Short words shown on a task that has picked dates, a priority or is hidden, e.g. "urgent · due Fri, Oct 9". */
 export function taskMetaLabel(attrs) {
   const parts = [];
+  if (attrs?.dismissedAt) parts.push('dismissed');
   if (attrs?.priority && PRIORITY_LABEL[attrs.priority]) parts.push(PRIORITY_LABEL[attrs.priority].toLowerCase());
-  if (attrs?.due) parts.push(`due ${formatDateShort(attrs.due)}`);
-  if (attrs?.start) parts.push(`starts ${formatDateShort(attrs.start)}`);
+  if (!attrs?.due && attrs?.dueTime) parts.push(`due at ${attrs.dueTime}`);
+  if (!attrs?.start && attrs?.startTime) parts.push(`starts at ${attrs.startTime}`);
+  if (attrs?.due) parts.push(`due ${formatDateShort(attrs.due)}${attrs.dueTime ? ` at ${attrs.dueTime}` : ''}`);
+  if (attrs?.start) parts.push(`starts ${formatDateShort(attrs.start)}${attrs.startTime ? ` at ${attrs.startTime}` : ''}`);
   if (attrs?.hidden) parts.push('hidden');
   else if (attrs?.hideUntil) parts.push(`hidden until ${formatDateShort(attrs.hideUntil)}`);
   return parts.join(' · ');
