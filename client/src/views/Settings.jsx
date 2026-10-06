@@ -61,6 +61,7 @@ export function SettingsView({ config, onConfigChanged }) {
         <p>A third one, to see how the lines sit together.</p>
       </div>
       <p class="muted small">Tip: Shift+Enter starts a new line inside the same paragraph, with no gap.</p>
+      <p class="muted small" data-testid="app-version">Gordonite · Version {config.version ?? 'unavailable'}</p>
     </div>
   );
 }
