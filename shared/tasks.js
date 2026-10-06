@@ -30,31 +30,37 @@ export const taskText = (item) =>
     .trim();
 
 /**
+ * What one task (a taskItem node as JSON) is right now, with dates typed in its text taken into account:
+ * { text, checked, due, start, hidden, hideUntil, priority, dueFrom, startFrom } where due/start are the effective
+ * dates and dueFrom/startFrom say where each came from: 'set' (picked), 'text' (typed) or null.
+ */
+export function describeTask(item, noteDate) {
+  const a = item.attrs ?? {};
+  const text = taskText(item);
+  const typed = parseTaskDates(text, noteDate);
+  return {
+    text,
+    checked: !!a.checked,
+    due: a.due ?? typed.due,
+    start: a.start ?? typed.start,
+    hidden: !!a.hidden,
+    hideUntil: a.hideUntil ?? null,
+    priority: a.priority ?? null,
+    dueFrom: a.due ? 'set' : typed.due ? 'text' : null,
+    startFrom: a.start ? 'set' : typed.start ? 'text' : null,
+  };
+}
+
+/**
  * Tasks in document order. Tasks without an id or any text are skipped.
- * { id, text, checked, due, start, hidden, dueFrom, startFrom } where due/start are the effective
- * dates and dueFrom/startFrom say where they came from: 'set' (picked), 'text' (typed) or null.
+ * { id, ...describeTask } for each.
  */
 export function extractTasks(doc, noteDate) {
   const out = [];
   const walk = (node) => {
-    if (node.type === 'taskItem') {
-      const text = taskText(node);
-      if (node.attrs?.id && text) {
-        const a = node.attrs;
-        const typed = parseTaskDates(text, noteDate);
-        out.push({
-          id: a.id,
-          text,
-          checked: !!a.checked,
-          due: a.due ?? typed.due,
-          start: a.start ?? typed.start,
-          hidden: !!a.hidden,
-          hideUntil: a.hideUntil ?? null,
-          priority: a.priority ?? null,
-          dueFrom: a.due ? 'set' : typed.due ? 'text' : null,
-          startFrom: a.start ? 'set' : typed.start ? 'text' : null,
-        });
-      }
+    if (node.type === 'taskItem' && node.attrs?.id) {
+      const task = describeTask(node, noteDate);
+      if (task.text) out.push({ id: node.attrs.id, ...task });
     }
     for (const child of node.content ?? []) walk(child);
   };

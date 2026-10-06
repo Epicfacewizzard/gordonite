@@ -9,6 +9,8 @@ import { ConflictPanel } from './parts.jsx';
 import { NoteMenu } from './NoteMenu.jsx';
 import { EditorBar } from './EditorBar.jsx';
 import { TagEditor } from './TagEditor.jsx';
+import { DateMenu, HideMenu, PriorityMenu } from './TaskMenus.jsx';
+import { extractTasks } from '../../../shared/tasks.js';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
 
@@ -48,9 +50,14 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
   useSession(session);
   const [menu, setMenu] = useState(false);
   const [problem, setProblem] = useState(null);
+  const [taskMenu, setTaskMenu] = useState(null); // { kind: 'hide' | 'date' | 'priority', taskId }: a task button's menu
+  const openTaskMenu = useCallback((kind, taskId) => setTaskMenu({ kind, taskId }), []);
   const label = formatDateLabel(session.date, today);
   const weekday = label === 'Today' || label === 'Yesterday' ? formatDateShort(session.date) : null;
-  const html = useMemo(() => (active ? '' : renderDoc(session.currentDoc())), [session.pending, session.serverDoc, session.generation, active]);
+  const html = useMemo(
+    () => (active ? '' : renderDoc(session.currentDoc(), { today, noteDate: session.date })),
+    [session.pending, session.serverDoc, session.generation, active, today],
+  );
   const otherTags = session.tags.filter((t) => t !== tag);
   // The heading is a link to the note's own page, except there or while it is not on the server yet.
   const link = (text) =>
@@ -64,6 +71,13 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
   const empty = !session.currentDoc().content?.some((n) => n.content?.length);
 
   const activate = (e) => {
+    // One of a task's round buttons (hide / due / priority): open its menu, without waking the editor.
+    const taskButton = e.target.closest?.('[data-task-action]');
+    if (taskButton) {
+      e.preventDefault();
+      openTaskMenu(taskButton.dataset.taskAction, taskButton.dataset.taskId);
+      return;
+    }
     const checkbox = e.target.closest?.('input[type="checkbox"]');
     if (checkbox) {
       e.preventDefault(); // the editor performs the (undoable) toggle once mounted
@@ -122,7 +136,7 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
       )}
       {problem && <p class="error inline" role="alert">{problem}</p>}
       {active ? (
-        <NoteEditor key={`${session.id}:${session.generation}`} session={session} focusRequest={focusRequest} onEditor={onEditor} onProblem={setProblem} />
+        <NoteEditor key={`${session.id}:${session.generation}`} session={session} focusRequest={focusRequest} onEditor={onEditor} onProblem={setProblem} today={today} onTaskAction={openTaskMenu} />
       ) : (
         <div
           class={`static note-text${empty ? ' is-empty' : ''}`}
@@ -131,6 +145,15 @@ export function NoteCard({ session, tag, today, active, onActivate, onChanged, o
           dangerouslySetInnerHTML={{ __html: empty ? '<p class="placeholder">Empty note. Tap to write.</p>' : html }}
         />
       )}
+      {taskMenu && (() => {
+        const t = extractTasks(session.currentDoc(), session.date).find((x) => x.id === taskMenu.taskId);
+        if (!t) return null;
+        const close = () => setTaskMenu(null);
+        const pick = (patch) => session.applyTaskPatch(t.id, patch);
+        if (taskMenu.kind === 'date') return <DateMenu today={today} due={t.dueFrom === 'set' ? t.due : null} start={t.startFrom === 'set' ? t.start : null} onPick={pick} onClose={close} />;
+        if (taskMenu.kind === 'hide') return <HideMenu today={today} hidden={t.hidden} hideUntil={t.hideUntil} onPick={pick} onClose={close} />;
+        return <PriorityMenu value={t.priority} onPick={pick} onClose={close} />;
+      })()}
       {menu && (
         <NoteMenu
           session={session}

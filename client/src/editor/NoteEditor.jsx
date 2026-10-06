@@ -62,15 +62,22 @@ function posForTextOffset(doc, n) {
  * element has no Preact children, so re-renders caused by save-status changes never
  * touch the editor DOM, selection, keyboard or undo history.
  */
-export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProblem, focusRequest }) {
+export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProblem, focusRequest, today, onTaskAction }) {
   const host = useRef(null);
   const request = useRef(focusRequest);
+  // The editor is built once per session; the task buttons inside it read the latest of these.
+  const live = useRef({});
+  live.current = { today, onTaskAction };
 
   useEffect(() => {
     let broken = false;
     const editor = new Editor({
       element: host.current,
-      extensions: createExtensions(),
+      extensions: createExtensions({
+        onTaskAction: (kind, taskId) => live.current.onTaskAction?.(kind, taskId),
+        getToday: () => live.current.today,
+        getNoteDate: () => session.date,
+      }),
       content: session.currentDoc(),
       enableContentCheck: true,
       onContentError: () => {
@@ -114,8 +121,11 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
     markEmpty();
     // cleanTaskAttrs drops empty optional task attributes, so tasks without dates are stored exactly as before.
     session.attach(() => cleanTaskAttrs(editor.getJSON()));
+    // While this editor is open, a change to a task (from a button or a menu) goes through it, as one undoable edit.
+    session.taskPatcher = (taskId, patch) => updateTaskById(editor, taskId, patch);
     onEditor?.(editor);
     return () => {
+      session.taskPatcher = null;
       session.detach();
       onEditor?.(null);
       editor.destroy();

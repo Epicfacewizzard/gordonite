@@ -344,6 +344,15 @@ export class Session extends Emitter {
     return this.editTask(taskId, { checked });
   }
 
+  /**
+   * Change a task wherever the note is: through the open editor if there is one (so the editor and the saved copy never
+   * disagree, and it is one undoable edit), otherwise straight through the save session.
+   */
+  applyTaskPatch(taskId, patch) {
+    if (this.provider && this.taskPatcher) return this.taskPatcher(taskId, patch);
+    return this.editTask(taskId, patch);
+  }
+
   /** Same, for any task change: { checked, due, start, hidden } (null date or hidden: false clears it). */
   editTask(taskId, patch) {
     const doc = updateTask(this.currentDoc(), taskId, patch);

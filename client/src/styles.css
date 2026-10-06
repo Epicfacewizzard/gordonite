@@ -1164,3 +1164,53 @@ body:not([data-editing]) .today .toolbar {
 .task-expanded .task-details .field {
   margin: 10px 0;
 }
+
+/* ---------- tasks inside a note: same strip and buttons as the Tasks page ---------- */
+.note-text li[data-checked] {
+  align-items: center;
+  margin: 4px 0;
+  padding: 2px 6px 2px 0;
+  background: var(--surface);
+  border-radius: 10px;
+  border-left: 3px solid var(--task-bar, var(--bar-grey));
+}
+.note-text li[data-checked] > label {
+  margin-left: 2px;
+}
+.note-text li[data-checked]::after {
+  order: 2; /* the date label sits between the text and the buttons */
+}
+.note-text .task-actions {
+  order: 3;
+  display: flex;
+  flex: none;
+  gap: 4px;
+  margin-left: 6px;
+}
+.note-text .task-actions[hidden] {
+  display: none;
+}
+.note-text .round-btn {
+  width: 28px;
+  height: 28px;
+}
+.note-text .round-btn svg {
+  width: 16px;
+  height: 16px;
+}
+/* a pointer to hover with: buttons with nothing set appear when the task is hovered; touch screens show only
+   what is set (the toolbar's calendar button opens every option for the task under the cursor) */
+@media (hover: hover) {
+  .note-text li[data-checked] .round-btn.unset {
+    opacity: 0;
+  }
+  .note-text li[data-checked]:hover .round-btn.unset,
+  .note-text li[data-checked]:focus-within .round-btn.unset {
+    opacity: 1;
+  }
+}
+@media (hover: none) {
+  .note-text .round-btn.unset {
+    display: none;
+  }
+}

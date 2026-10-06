@@ -46,7 +46,17 @@ deliberately not built.
   * **Priority button**: Urgent & Important (filled star), Urgent (half), Important (outline), None. The most pressing
     tasks sort to the top of each section.
   * A date you type in a task (`due fri`) is shown dimmer in the task's text so you can see it was understood.
-  * The coloured strip down a task's left edge is reserved (invisible for now) for something to be decided.
+  * The strip down a task's left edge shows how soon it is due: **red** = due today or overdue, **yellow** = due
+    tomorrow, grey = later or no date. Ticking a task takes its colour away.
+  * The arrow at the right (or the task's text) opens the task out to show its details: where it lives, a link to its
+    note, and all its dates and priority in one place.
+  * A date word at the very end of a task counts as its due date, with or without "due" (`review this tomorrow`,
+    `call mom on sun`). A start date still needs `starts`.
+  * **Inside a note**, tasks look and work the same: the strip, the buttons and a small label with the dates, in the
+    editor and in the read-only view of older notes. Tap a button for its menu; the change is saved into the note
+    (in the editor it is one undoable edit). On a touch screen only buttons that hold something are shown; the
+    toolbar's calendar button opens every option for the task under the cursor. With a mouse, empty buttons appear
+    when you hover the task.
   * **Due, starts, hidden.** Type it in the task (`call dentist due fri`, `essay starts oct 12`, `due in 3 days`,
     `due 2026-11-01`) or pick it: the calendar button in the toolbar (caret in a task), or tap a task on the Tasks
     page. A picked date wins over a typed one. A task before its start date is under *Starts later* and a *hidden*

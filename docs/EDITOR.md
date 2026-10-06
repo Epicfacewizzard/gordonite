@@ -41,6 +41,14 @@ selection, composition, paste and undo is the engine's. The editor-related code 
    no indent control on the toolbar; a hardware keyboard's Tab still works.
 4. **The server validates the document** against a whitelist (`shared/doc.js`) and rejects anything else, so
    a bad client cannot store content the editor cannot show.
+5. **Task buttons and strip** (`client/src/editor/extensions.js`). A task's node view is Tiptap's own, wrapped: after the
+   text it appends a `contenteditable="false"` block of three round buttons (hide, due, priority) and sets a
+   `data-bar` colour from how soon the task is due. ProseMirror is told to ignore that block (`stopEvent`,
+   `ignoreMutation` for its DOM and the row's attributes only; selection changes are never ignored), and the buttons
+   cancel `mousedown` like the toolbar so the cursor stays put. The text, Enter, Backspace and undo are untouched. A tap
+   reports `onTaskAction(kind, taskId)` and the note card opens the menu; the chosen change goes through
+   `updateTaskById` (one ordinary undoable transaction). The same buttons are drawn by `render.js` for read-only notes,
+   where the change goes through the save session instead.
 
 ## Behaviour pinned by tests
 
