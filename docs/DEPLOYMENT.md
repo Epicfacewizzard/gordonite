@@ -3,9 +3,11 @@
 The app is one container: a Node 24 process serving the API and the built web client, with one data
 folder (`/data`) holding the SQLite database and the automatic backups.
 
-> The Dockerfile and compose files in this repository were **not built or run** where they were written
-> (no Docker was available). The application, its production entry point and static serving were tested
-> directly. Treat the first deployment as a test, and check the points in "First-run checks" below.
+The Dockerfile was built on the owner's CasaOS server on 2026-10-06. That installation uses
+port **8082**, image `gordonite:0.1.0`, and `/DATA/AppData/gordonite/data` for persistent storage.
+The generic examples below use different names and port 8080; retain the existing configuration
+when updating an installed app. See [the deployment record](DEPLOYMENT-2026-10-06.md) for the
+owner's exact paths, checks, and rollback procedure.
 
 ## 1. Plain Docker Compose
 
