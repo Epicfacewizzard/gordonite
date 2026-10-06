@@ -8,7 +8,8 @@ export function LinkTarget({ target }) {
     let alive = true;
     api.resolveLink(target).then(({ notes }) => {
       if (!alive) return;
-      if (notes.length === 1) go(`/n/${notes[0].id}`);
+      // The resolver is an intermediate step, not a page to revisit on Back.
+      if (notes.length === 1) go(`/n/${notes[0].id}`, { replace: true });
       else setNotes(notes);
     }).catch((e) => alive && setError(e.message));
     return () => { alive = false; };

@@ -28,8 +28,10 @@ export function useHashRoute() {
   return route;
 }
 
-export const go = (path) => {
-  location.hash = `#${path.split('/').map((s, i) => (i === 0 ? s : encodeURIComponent(s))).join('/')}`;
+export const go = (path, { replace = false } = {}) => {
+  const hash = `#${path.split('/').map((s, i) => (i === 0 ? s : encodeURIComponent(s))).join('/')}`;
+  if (replace) location.replace(hash);
+  else location.hash = hash;
 };
 
 /** Today's date in the home timezone, following the device clock (and crossing midnight). */
