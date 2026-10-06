@@ -12,6 +12,7 @@ import { PriorityStar } from './TaskMenus.jsx';
  * `uid` keeps the field ids unique when several are open at once.
  */
 export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid = 'sheet', onChange, onDone, onDelete, onMove }) {
+  const [moveMessage, setMoveMessage] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [values, setValues] = useState({ dueTime: picked.dueTime ?? null, startTime: picked.startTime ?? null, due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null });
   const phrases = findDatePhrases(text, noteDate);
@@ -78,7 +79,8 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid 
           )}
         </p>
       )}
-      {onMove && <div class="row"><button type="button" class="btn" data-testid="task-move-up" onClick={() => onMove(-1)}>Move up</button><button type="button" class="btn" data-testid="task-move-down" onClick={() => onMove(1)}>Move down</button></div>}
+      {onMove && <div class="row"><button type="button" class="btn" data-testid="task-move-up" onClick={() => setMoveMessage(onMove(-1) ? null : 'Already first at this level.')}>Move up</button><button type="button" class="btn" data-testid="task-move-down" onClick={() => setMoveMessage(onMove(1) ? null : 'Already last at this level.')}>Move down</button></div>}
+      {moveMessage && <p class="small muted" role="status">{moveMessage}</p>}
       {field('due', 'Due')}
       {field('start', 'Starts')}
       {field('hideUntil', 'Hide until')}

@@ -125,7 +125,7 @@ describe('the task row: hide, due and priority buttons', () => {
       assert.equal(attrsOf(app, id, 'hide me').hideUntil, addDays(today(), 3));
 
       // show it again
-      await page.getByTestId('section-hidden').getByText('hide me too').tap(); // it is in the folded Hidden section
+      await page.getByTestId('section-hidden').getByTestId('task-row').filter({ hasText: 'hide me too' }).getByTestId('task-expand').tap(); // only the arrow opens details
       await page.getByTestId('task-sheet-done').tap();
       await page.locator('[data-testid="section-hidden"] [data-testid="task-row"]', { hasText: 'hide me too' }).getByTestId('task-hide').tap();
       await page.getByTestId('menu-show-again').tap();

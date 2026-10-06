@@ -74,3 +74,7 @@ Hover over a history row to reveal its left grip; touch screens show it directly
 Tap the grip for a date input instead: this works with a phone or keyboard and reaches any older date. Future dates are refused. The original home-zone clock time is retained, including seconds; imported tasks with no recorded time use noon. If that clock time does not exist on the chosen day because of a daylight-saving jump, the app explains the problem instead of guessing. Undo reverses the date correction in the open editor. Updates use the same pending-phone save and conflict protection as other note edits.
 
 Desktop drag-and-drop is checked in Chromium; actual S24 touch dragging is not validated. Use the tap-to-pick control on a phone.
+
+## Moving tasks in the note
+
+In an active note editor, drag the left task grip above or below another task in the same list. The whole task, including nested children, moves without changing its task ID, dates, completion status or words. Tap the grip to select that task, then open Task details in the formatting toolbar for Move up/down buttons. Moves are undoable and saved through the ordinary phone-pending/server-save path. This changes note order; dragging in Task history instead changes the recorded completion/dismissal date. Cross-list and cross-note moves are not implemented.

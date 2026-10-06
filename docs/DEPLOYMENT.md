@@ -137,3 +137,7 @@ Allow request bodies up to what you will import (the app itself accepts 100 MB b
 Backups are written to `<data folder>/backups` (or `BACKUP_DIR`). To keep them on a different disk, mount
 another folder at `/backups` and set `BACKUP_DIR=/backups`. How to copy them off the machine and how to
 restore: [BACKUPS.md](BACKUPS.md).
+
+## Selected Obsidian notes
+
+Run `node scripts/import-vault.js <vault-path> http://192.168.1.50:8082` to prepare a transfer; add `--apply` to merge it. The selected folders are 00 Inbox, 05 People, 10 School and 20 CSS. Hidden folders, agent instructions and symlinks are excluded. Stable IDs prevent duplicates. Existing notes are kept; differing source content is preserved as an import version. The server makes a verified pre-import backup, and the script keeps a server export and source Markdown in ignored data/vault-transfer-* locally. Unsupported Markdown is preserved as readable plain text where possible; this is not a complete Obsidian migration. Copy backups outside the home server as described in BACKUPS.md. Private vault contents must never be committed to Git.

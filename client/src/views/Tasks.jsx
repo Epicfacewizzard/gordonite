@@ -4,8 +4,9 @@ import { sync } from '../sync.js';
 import { useToday, useNowTime } from '../hooks.js';
 import { addDays, formatDateShort, formatDateLabel, hasStarted, isOverdue } from '../../../shared/dates.js';
 import { findDatePhrases, parseTaskSchedule } from '../../../shared/taskdates.js';
-import { PRIORITY_LABEL, dueBar, priorityRank } from '../../../shared/tasks.js';
+import { PRIORITY_LABEL, dueBar, priorityRank, extractTasks } from '../../../shared/tasks.js';
 import { TaskDetails } from './TaskSheet.jsx';
+import { TaskTextEditor } from './TaskTextEditor.jsx';
 import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
 
 const keyOf = (t) => `${t.noteId}:${t.taskId}`;
@@ -58,6 +59,14 @@ export function TasksView({ config, compact = false }) {
       return next;
     });
   const [menu, setMenu] = useState(null); // { key, kind: 'date' | 'hide' | 'priority' }: a round button's menu
+  const [editing, setEditing] = useState(null);
+  const finishEditing = () => {
+    const task = tasks?.find((t) => keyOf(t) === editing);
+    const session = task && sync.get(task.noteId);
+    const latest = session && extractTasks(session.provider ? session.provider() : session.currentDoc(), task.date).find((t) => t.id === task.taskId);
+    if (latest) setTasks((list) => list.map((item) => keyOf(item) === editing ? { ...item, ...latest } : item));
+    setEditing(null);
+  };
   // Tasks ticked on this page stay listed (struck through) so a slip can be undone.
   const [touched, setTouched] = useState(() => new Set());
 
@@ -150,10 +159,13 @@ export function TasksView({ config, compact = false }) {
         <label class="task-check">
           {t.dismissedAt ? <span class="dismissed-icon" role="img" aria-label="Dismissed task">⊠</span> : <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} aria-label={t.checked ? 'Completed task' : 'Task'} />}
         </label>
-        <button type="button" class="task-body" onClick={() => toggleExpanded(t)} aria-expanded={isOpen} aria-label={`Details for: ${t.text}`} data-testid="task-open">
-          <span class="task-text">
-            <TaskText text={t.text} date={t.date} />
-          </span>
+        <div class="task-body">
+          {editing === keyOf(t) ? <TaskTextEditor task={t}
+            onText={(text) => setTasks((list) => list.map((item) => keyOf(item) === keyOf(t) ? { ...item, text } : item))}
+            onDone={finishEditing} /> :
+            <button type="button" class="task-text task-text-button" onClick={() => { finishEditing(); setEditing(keyOf(t)); }} aria-label={`Edit task: ${t.text}`} data-testid="task-edit-text">
+              <TaskText text={t.text} date={t.date} />
+            </button>}
           <span class="task-meta">
             {t.dismissedAt && <span class="task-chip" data-testid="chip-dismissed">dismissed · {new Date(t.dismissedAt).toLocaleDateString('en-CA', { timeZone: config.tz })}</span>}
             {t.due && <span class={`task-chip${overdue ? ' overdue' : ''}`} data-testid="chip-due">due {formatDateLabel(t.due, today)}{t.dueTime && ` at ${t.dueTime}`}</span>}
@@ -164,7 +176,7 @@ export function TasksView({ config, compact = false }) {
               {t.tags[0] ?? ''} · {formatDateShort(t.date)}
             </span>
           </span>
-        </button>
+        </div>
         <div class="task-actions">
           <button type="button" class={`round-btn${hiddenNow ? ' on' : ' unset'}`} onClick={() => open('hide')} aria-label={hiddenNow ? 'Hidden: change or show again' : 'Hide for a while'} title="Hide" data-testid="task-hide">
             <Glyph name="eyeOff" />

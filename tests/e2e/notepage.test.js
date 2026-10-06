@@ -78,7 +78,7 @@ describe('a note on its own page', () => {
 
       // From the Tasks page: tap the task, follow the link to its note.
       await page.goto(`${app.url}/#/tasks`);
-      await page.getByTestId('task-open').first().tap();
+      await page.getByTestId('task-expand').first().tap();
       await page.getByTestId('open-task-note').tap();
       await page.waitForSelector('[data-testid="note-page"]');
       assert.equal(await page.evaluate(() => location.hash), `#/n/${id}`);

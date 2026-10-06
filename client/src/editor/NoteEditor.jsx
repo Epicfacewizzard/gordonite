@@ -38,7 +38,14 @@ export function updateTaskById(editor, taskId, patch) {
     .chain()
     .command(({ tr }) => {
       if ('dismissedAt' in patch || 'completedAt' in patch) closeHistory(tr);
-      tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...patch });
+      const { content, ...attrs } = patch;
+      tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...attrs });
+      if (content) {
+        const children = [];
+        found.node.forEach((child) => { if (child.type.name === 'taskList') children.push(child); });
+        tr.replaceWith(found.pos + 1, found.pos + found.node.nodeSize - 1,
+          [...content.map((child) => editor.schema.nodeFromJSON(child)), ...children]);
+      }
       return true;
     })
     .run();

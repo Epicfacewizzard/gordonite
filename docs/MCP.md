@@ -65,3 +65,5 @@ automatically: after a timeout, inspect the note before retrying an append/creat
 
 Test the protocol and actual API integration with `node --test tests/server/mcp.test.js`.
 Stop access by removing the MCP entry and unsetting the server's ASSISTANT_TOKEN.
+
+For an assistant handoff, start with [mcp-bridge.md](../mcp-bridge.md).

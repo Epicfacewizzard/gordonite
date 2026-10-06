@@ -146,7 +146,8 @@ describe('stage 2: inline tasks', () => {
       assert.deepEqual(items.map((i) => i.checked), [false, false, false], 'check is undoable');
       await tap(page, 'tb-redo');
       assert.deepEqual((await structure(page))[0].items.map((i) => i.checked), [false, true, false]);
-      await boxes.nth(1).tap(); // uncheck
+      await page.locator('.task-archive summary').tap();
+      await page.getByRole('button', { name: 'Bring back', exact: true }).tap(); // completed task is restored from history
       assert.deepEqual((await structure(page))[0].items.map((i) => i.checked), [false, false, false]);
       await boxes.nth(2).tap();
       await tap(page, 'tb-undo');
@@ -325,7 +326,7 @@ describe('task dates: due, start, hidden', () => {
       assert.match((await inSection('hidden')).join('|'), /put away/);
 
       // Pick a due date for the undated task: it moves to Upcoming and is saved in its note.
-      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-open').tap();
+      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-expand').tap();
       await page.getByTestId('input-due').fill(addDays(t, 1));
       await waitSaved(page);
       await page.getByTestId('task-sheet-done').tap();
@@ -334,7 +335,7 @@ describe('task dates: due, start, hidden', () => {
       assert.equal(stored()[3].attrs.due, addDays(t, 1), 'saved inside the note');
 
       // Hide it: it leaves Upcoming and appears under Hidden.
-      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-open').tap();
+      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-expand').tap();
       await page.getByTestId('input-hidden').check();
       await waitSaved(page);
       await page.getByTestId('task-sheet-done').tap();
@@ -343,7 +344,7 @@ describe('task dates: due, start, hidden', () => {
       assert.equal(stored()[3].attrs.hidden, true);
 
       // Clearing both puts the stored task back exactly as an ordinary task (no empty attributes).
-      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-open').tap();
+      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-expand').tap();
       await page.getByTestId('input-hidden').uncheck();
       await page.getByTestId('clear-due').tap();
       await waitSaved(page);

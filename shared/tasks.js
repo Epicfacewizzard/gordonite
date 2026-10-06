@@ -104,7 +104,9 @@ export function updateTask(doc, taskId, patch) {
       found = true;
       if (patch.checked === true && (patch.dismissedAt ?? node.attrs.dismissedAt) && patch.dismissedAt !== null) return node;
       const timestamps = 'checked' in patch && patch.checked !== !!node.attrs.checked ? { completedAt: patch.checked ? new Date().toISOString() : null } : {};
-      node = { ...node, attrs: tidyAttrs({ ...node.attrs, ...timestamps, ...patch }) };
+      const { content, ...attrs } = patch;
+      node = { ...node, attrs: tidyAttrs({ ...node.attrs, ...timestamps, ...attrs }) };
+      if (content) node.content = [...content, ...(node.content ?? []).filter((c) => c.type === 'taskList')];
     }
     return node.content ? { ...node, content: node.content.map(walk) } : node;
   };

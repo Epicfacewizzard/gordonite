@@ -727,6 +727,10 @@ details summary {
   border: 0;
   cursor: pointer;
 }
+.task-text-button { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; text-align: left; cursor: text; min-height: 28px; }
+.task-inline-editor { outline: none; cursor: text; overflow-wrap: anywhere; }
+.task-inline-editor p { margin: 0; }
+.task-inline-edit > .link-plain { font-size: .8rem; min-height: 36px; color: var(--accent); }
 .task-meta {
   display: flex;
   flex-wrap: wrap;
@@ -1355,7 +1359,10 @@ body:not([data-editing]) .today .toolbar {
 
 .archive-grip { touch-action: none; user-select: none; }
 .task-archive.is-dragging .archive-grip { opacity: 1; }
-.note-task-grip { flex: 0 0 28px; width: 28px; min-height: 44px; border: 0; padding: 0; background: transparent; color: var(--muted); font-size: 22px; cursor: grab; touch-action: none; user-select: none; }
+/* Keep a gutter for the handle outside the task strip, including on narrow phones. */
+.editor-host .note-text > ul[data-type='taskList'] { margin-left: 28px; }
+.editor-host .note-text li[data-checked] { position: relative; }
+.note-task-grip { position: absolute; left: -31px; top: -4px; width: 28px; min-height: 44px; border: 0; padding: 0; background: transparent; color: var(--muted); font-size: 22px; cursor: grab; touch-action: none; user-select: none; }
 .note-task-grip:active { cursor: grabbing; }
 .note-text li[data-move-drop='before'] { box-shadow: 0 -3px 0 var(--accent); }
 .note-text li[data-move-drop='after'] { box-shadow: 0 3px 0 var(--accent); }

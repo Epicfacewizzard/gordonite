@@ -17,6 +17,10 @@ test('note tasks move intact with children, preserve logical cursor and IDs, und
   await editor.locator('p').filter({ hasText: 'First task' }).tap();
   await page.keyboard.press('Home'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
   const original = await caret(page);
+  const rowBox = await editor.locator(`[data-task-move-id="${first}"]`).boundingBox();
+  const gripBox = await editor.locator(`[data-task-move-id="${first}"] > .note-task-grip`).boundingBox();
+  assert.ok(gripBox.x >= 0, 'phone grip stays inside the viewport');
+  assert.ok(gripBox.x + gripBox.width <= rowBox.x, 'grip sits outside the strip, left of the colored border');
   await page.getByTestId('tb-taskdates').tap();
   await context.setOffline(true);
   await page.getByTestId('task-move-down').tap();
@@ -32,10 +36,16 @@ test('note tasks move intact with children, preserve logical cursor and IDs, und
   const saved = (await app.api('GET', `/api/notes/${id}`)).json.note.doc.content[0].content;
   assert.equal(saved[1].content[1].content[0].attrs.id, child);
   assert.deepEqual(saved[1].content[0].content[0].marks, [{ type: 'bold' }]);
-  await page.reload(); assert.deepEqual(await ids(), [second, first]);
+  await page.reload(); await editor.waitFor(); assert.deepEqual(await ids(), [second, first]);
   // Pointer grip movement uses the same engine operation, without native HTML drag.
   const firstRow = editor.locator(`[data-task-move-id="${first}"]`);
   await firstRow.locator(':scope > .note-task-grip').dragTo(editor.locator(`[data-task-move-id="${second}"]`), { targetPosition: { x: 40, y: 5 } });
   await waitSaved(page); assert.deepEqual(await ids(), [first, second]);
   assert.equal(await editor.locator(`[data-task-move-id="${child}"]`).count(), 1);
+  await editor.locator('p').filter({ hasText: 'First task' }).tap();
+  await page.keyboard.press('End'); await page.keyboard.type(' extra');
+  await page.getByTestId('tb-undo').tap();
+  assert.deepEqual(await ids(), [first, second], 'undoing subsequent typing does not undo the move');
+  assert.equal(await editor.locator('p').filter({ hasText: 'First task' }).textContent(), 'First task');
+  await page.getByTestId('tb-undo').tap(); assert.deepEqual(await ids(), [second, first]);
 }));

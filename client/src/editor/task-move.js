@@ -42,5 +42,7 @@ export function moveTask(editor, id, direction, targetId = null, after = false) 
   if (selection instanceof TextSelection && Number.isFinite(a) && Number.isFinite(h)) tr.setSelection(TextSelection.create(tr.doc, a, h));
   else tr.setSelection(Selection.near(tr.doc.resolve(Math.min(source.pos, tr.doc.content.size))));
   editor.view.dispatch(tr);
+  // Subsequent typing gets its own undo group even when it starts immediately after moving.
+  editor.view.dispatch(closeHistory(editor.state.tr).setMeta('addToHistory', false));
   return true;
 }
