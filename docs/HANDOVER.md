@@ -1,5 +1,7 @@
 # Handover
 
+> Historical snapshot from 2026-10-05. Read [the current root handover](../handover.md) first; deployment, People, links, dates, and MCP details below have since changed.
+
 Written 2026-10-05, for whoever picks this project up next (a person or another AI session). Read this first, then
 [README.md](../README.md) and [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 
