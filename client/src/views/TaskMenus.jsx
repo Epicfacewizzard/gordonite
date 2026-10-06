@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { Sheet } from './parts.jsx';
 import { addDays, formatDateShort } from '../../../shared/dates.js';
 import { PRIORITY_LABEL } from '../../../shared/tasks.js';
+import { ICON_PATHS } from '../editor/taskIcons.js';
 
 // The small menus behind a task's round buttons: when it is due (or starts), how important it is, and
 // hiding it for a while. Each applies its choice straight away and closes.
@@ -20,11 +21,7 @@ export function presets(today) {
   ];
 }
 
-const PATHS = {
-  eyeOff: 'M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.1A10 10 0 0 1 12 5c5 0 9 4 10 7a11 11 0 0 1-3.2 4.3M6.1 6.1A11 11 0 0 0 2 12c1 3 5 7 10 7a10 10 0 0 0 4.1-.9',
-  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M9.5 15l2 2 3.5-3.5',
-  star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
-};
+const PATHS = ICON_PATHS;
 
 export const Glyph = ({ name, size = 18 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

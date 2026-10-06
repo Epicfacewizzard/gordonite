@@ -1,4 +1,5 @@
-// Dates typed into a task's text: "call dentist due fri", "essay starts oct 12", "pay rent due in 3 days".
+// Dates typed into a task's text: "call dentist due fri", "essay starts oct 12", "pay rent due in 3 days",
+// or just a date word at the end: "review this example tomorrow".
 //
 // Nothing rewrites the text. The phrase stays exactly as typed and is read when tasks are listed.
 // Relative words ("fri", "tomorrow") are resolved against the date of the NOTE the task is in, not
@@ -38,6 +39,10 @@ const EXPR = [
 
 const PHRASE = new RegExp(`(?<![\\w-])(?<kw>due|starts?|starting)\\s+(?:on\\s+)?(?:${EXPR})(?![\\w-])`, 'gi');
 
+// A date word at the very end of a task counts as its due date, with or without "due" in front:
+// "review this example tomorrow", "call mom on sun". (Only the due date; a start date needs its keyword.)
+const TRAILING = new RegExp(`(?<![\\w-])(?:(?:by|on)\\s+)?(?:${EXPR})(?:\\s*[.!?])?\\s*$`, 'i');
+
 const dow = (date) => new Date(`${date}T00:00:00Z`).getUTCDay();
 
 function monthDay(noteDate, month, day) {
@@ -71,7 +76,16 @@ export function findDatePhrases(text, noteDate) {
     const date = resolve(m.groups, noteDate);
     if (date) out.push({ kind: m.groups.kw.toLowerCase() === 'due' ? 'due' : 'start', date, index: m.index, length: m[0].length });
   }
-  return out;
+  if (!out.some((p) => p.kind === 'due')) {
+    const m = TRAILING.exec(text);
+    const date = m && resolve(m.groups, noteDate);
+    if (date) {
+      const length = m[0].trimEnd().length;
+      const overlaps = out.some((p) => m.index < p.index + p.length && p.index < m.index + length); // already part of "starts oct 12"
+      if (!overlaps) out.push({ kind: 'due', date, index: m.index, length });
+    }
+  }
+  return out.sort((a, b) => a.index - b.index);
 }
 
 /** { due, start } found in the text (YYYY-MM-DD or null). The first phrase of each kind wins. */

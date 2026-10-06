@@ -1122,3 +1122,45 @@ body:not([data-editing]) .today .toolbar {
     opacity: 1;
   }
 }
+
+/* ---------- task strip colour, expand arrow ---------- */
+:root {
+  --bar-red: var(--danger);
+  --bar-yellow: var(--star);
+  --bar-grey: #6b7280;
+}
+/* the strip down a task's left edge: red = due today or overdue, yellow = due tomorrow, grey = the rest */
+.task-row,
+.note-text li[data-checked] {
+  --task-bar: var(--bar-grey);
+}
+.task-row[data-bar='red'],
+.note-text li[data-bar='red'] {
+  --task-bar: var(--bar-red);
+}
+.task-row[data-bar='yellow'],
+.note-text li[data-bar='yellow'] {
+  --task-bar: var(--bar-yellow);
+}
+.task-row {
+  flex-wrap: wrap;
+}
+.task-row .task-body {
+  flex: 1 1 0;
+}
+.round-btn.chevron {
+  background: transparent;
+}
+.round-btn.chevron svg {
+  transition: transform 0.15s;
+}
+.round-btn.chevron.open svg {
+  transform: rotate(180deg);
+}
+.task-expanded {
+  flex: 0 0 100%;
+  padding: 0 12px 10px 52px;
+}
+.task-expanded .task-details .field {
+  margin: 10px 0;
+}

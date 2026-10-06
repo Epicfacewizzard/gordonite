@@ -404,7 +404,15 @@ describe('task dates', () => {
       ['start exercising', { due: null, start: null }],
       ['due may', { due: null, start: null }], // a month alone is not a date
       ['due feb 30', { due: null, start: null }],
-      ['undue fri', { due: null, start: null }],
+      ['undue stuff', { due: null, start: null }], // "due" must be a word of its own
+      // a date word at the very end of the task counts as its due date, with or without "due"
+      ['Review this example tomorrow', { due: '2026-10-06', start: null }],
+      ['call mom on sun', { due: '2026-10-11', start: null }],
+      ['email prof by fri.', { due: '2026-10-09', start: null }],
+      ['read on oct 12', { due: '2026-10-12', start: null }],
+      ['plan oct 12 trip', { due: null, start: null }], // only at the very end
+      ['essay starts oct 12', { due: null, start: '2026-10-12' }], // a start phrase is not also a due date
+      ['sawfri', { due: null, start: null }],
     ];
     for (const [text, want] of cases) assert.deepEqual(p(text, NOTE), want, text);
   });
@@ -907,5 +915,17 @@ describe('task priority, hide-until and date phrase positions', () => {
     } finally {
       await t.close();
     }
+  });
+});
+
+describe('the strip colour', () => {
+  test('red = due today or overdue, yellow = due tomorrow, none (grey) = later, no date, or done', async () => {
+    const { dueBar } = await import('../../shared/tasks.js');
+    const today = '2026-10-05';
+    assert.deepEqual(
+      ['2026-09-30', '2026-10-05', '2026-10-06', '2026-10-07', '2027-01-01', null].map((d) => dueBar(d, false, today)),
+      ['red', 'red', 'yellow', 'none', 'none', 'none'],
+    );
+    assert.equal(dueBar('2026-10-05', true, today), 'none', 'a ticked task loses its colour');
   });
 });

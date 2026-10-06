@@ -364,7 +364,7 @@ describe('task dates: due, start, hidden', () => {
       assert.equal(await page.getByTestId('tb-taskdates').getAttribute('aria-disabled'), null);
 
       await tap(page, 'tb-taskdates');
-      assert.match(await page.getByTestId('field-due').innerText(), /from “due” in the text/, 'typed phrase is understood');
+      assert.match(await page.getByTestId('field-due').innerText(), /from “due tomorrow” in the text/, 'typed phrase is understood');
       const picked = addDays(today(), 4);
       await page.getByTestId('input-due').fill(picked);
       await page.getByTestId('task-sheet-done').tap();

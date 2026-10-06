@@ -11,7 +11,7 @@
 //   priority  'both' | 'urgent' | 'important'   (none = no attribute)
 // A date typed in the text ("due fri", see taskdates.js) is used when no date was picked;
 // a picked date always wins.
-import { formatDateShort } from './dates.js';
+import { addDays, formatDateShort } from './dates.js';
 import { parseTaskDates } from './taskdates.js';
 
 const inlineText = (node) => {
@@ -98,6 +98,17 @@ export function updateTask(doc, taskId, patch) {
 }
 
 export const setTaskChecked = (doc, taskId, checked) => updateTask(doc, taskId, { checked });
+
+/**
+ * The colour of the strip down a task's left edge, from how soon it is due:
+ * 'red' = due today or overdue, 'yellow' = due tomorrow, 'none' = later, no date, or done (shown grey).
+ */
+export function dueBar(due, checked, today) {
+  if (checked || !due || !today) return 'none';
+  if (due <= today) return 'red';
+  if (due === addDays(today, 1)) return 'yellow';
+  return 'none';
+}
 
 export const PRIORITY_LABEL = { both: 'Urgent & Important', urgent: 'Urgent', important: 'Important' };
 // Sort order: most pressing first, no priority last.

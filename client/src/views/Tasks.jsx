@@ -4,8 +4,8 @@ import { sync } from '../sync.js';
 import { useToday } from '../hooks.js';
 import { addDays, formatDateShort } from '../../../shared/dates.js';
 import { findDatePhrases, parseTaskDates } from '../../../shared/taskdates.js';
-import { PRIORITY_LABEL, priorityRank } from '../../../shared/tasks.js';
-import { TaskSheet } from './TaskSheet.jsx';
+import { PRIORITY_LABEL, dueBar, priorityRank } from '../../../shared/tasks.js';
+import { TaskDetails } from './TaskSheet.jsx';
 import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
 
 const keyOf = (t) => `${t.noteId}:${t.taskId}`;
@@ -48,7 +48,13 @@ export function TasksView({ config, compact = false }) {
   const [tasks, setTasks] = useState(null);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState({ done: false, hidden: false, later: false });
-  const [sheet, setSheet] = useState(null); // the task being edited in the details sheet
+  const [expanded, setExpanded] = useState(() => new Set()); // tasks opened out to show their details
+  const toggleExpanded = (t) =>
+    setExpanded((s) => {
+      const next = new Set(s);
+      if (!next.delete(keyOf(t))) next.add(keyOf(t));
+      return next;
+    });
   const [menu, setMenu] = useState(null); // { key, kind: 'date' | 'hide' | 'priority' }: a round button's menu
   // Tasks ticked on this page stay listed (struck through) so a slip can be undone.
   const [touched, setTouched] = useState(() => new Set());
@@ -133,12 +139,13 @@ export function TasksView({ config, compact = false }) {
     const overdue = t.due && !t.checked && t.due < today;
     const hiddenNow = isHiddenNow(t, today);
     const open = (kind) => setMenu({ key: keyOf(t), kind });
+    const isOpen = expanded.has(keyOf(t));
     return (
-      <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}`} data-testid="task-row" data-priority={t.priority ?? ''}>
+      <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}${isOpen ? ' expanded' : ''}`} data-testid="task-row" data-priority={t.priority ?? ''} data-bar={dueBar(t.due, t.checked, today)}>
         <label class="task-check">
           <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} aria-label={t.checked ? 'Completed task' : 'Task'} />
         </label>
-        <button type="button" class="task-body" onClick={() => setSheet(t)} aria-label={`Details for: ${t.text}`} data-testid="task-open">
+        <button type="button" class="task-body" onClick={() => toggleExpanded(t)} aria-expanded={isOpen} aria-label={`Details for: ${t.text}`} data-testid="task-open">
           <span class="task-text">
             <TaskText text={t.text} date={t.date} />
           </span>
@@ -169,7 +176,25 @@ export function TasksView({ config, compact = false }) {
           >
             <PriorityStar value={t.priority} />
           </button>
+          <button type="button" class={`round-btn chevron${isOpen ? ' open' : ''}`} onClick={() => toggleExpanded(t)} aria-expanded={isOpen} aria-label={isOpen ? 'Close details' : 'Open details'} title="Details" data-testid="task-expand">
+            <Glyph name="chevron" />
+          </button>
         </div>
+        {isOpen && (
+          <div class="task-expanded" data-testid="task-details">
+            <TaskDetails
+              uid={keyOf(t)}
+              text={t.text}
+              noteDate={t.date}
+              noteId={t.noteId}
+              where={`${t.tags[0] ?? 'No tag'} · ${formatDateShort(t.date)}`}
+              today={today}
+              picked={{ due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority }}
+              onChange={(patch) => apply(t, patch)}
+              onDone={() => toggleExpanded(t)}
+            />
+          </div>
+        )}
       </li>
     );
   };
@@ -257,17 +282,6 @@ export function TasksView({ config, compact = false }) {
         if (menu.kind === 'hide') return <HideMenu today={today} hidden={t.hidden} hideUntil={t.hideUntil} onPick={onPick} onClose={close} />;
         return <PriorityMenu value={t.priority} onPick={onPick} onClose={close} />;
       })()}
-      {sheet && (
-        <TaskSheet
-          text={sheet.text}
-          noteDate={sheet.date}
-          noteId={sheet.noteId}
-          today={today}
-          picked={{ due: sheet.dueFrom === 'set' ? sheet.due : null, start: sheet.startFrom === 'set' ? sheet.start : null, hidden: sheet.hidden, hideUntil: sheet.hideUntil, priority: sheet.priority }}
-          onChange={(patch) => apply(sheet, patch)}
-          onClose={() => setSheet(null)}
-        />
-      )}
     </div>
   );
 }
