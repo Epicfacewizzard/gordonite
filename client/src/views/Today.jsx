@@ -5,10 +5,12 @@ import { useSession, useToday } from '../hooks.js';
 import { NoteCard } from './Stream.jsx';
 import { EditorBar } from './EditorBar.jsx';
 import { TasksView } from './Tasks.jsx';
+import { getDashboard } from '../prefs.js';
 
-// The Today screen is a stack of independent sections ("widgets"). Each is a component that gets the same
+// The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
 // context (today's date, config, tags, the chosen daily tag) and draws its own part. To add one, write the
-// component and add it to WIDGETS below; nothing else on the screen needs to change.
+// component, add it to WIDGETS below and to DASHBOARD_WIDGETS in prefs.js (which Settings uses to show, hide and
+// reorder them on this device).
 
 const longDate = (today) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(`${today}T00:00:00Z`));
@@ -51,7 +53,7 @@ function TasksWidget({ config }) {
 }
 
 // Today's entry of the chosen daily tag, ready to write in (created on the first keystroke, like in a stream).
-function TodayNoteWidget({ config, today, tags, dailyTag, chooseDailyTag }) {
+function TodayNoteWidget({ config, today, dailyTag }) {
   useSession();
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
   const [editor, setEditor] = useState(null);
@@ -81,7 +83,6 @@ function TodayNoteWidget({ config, today, tags, dailyTag, chooseDailyTag }) {
   }, [dailyTag, today, nonce]);
 
   const session = state.id ? sync.get(state.id) : null;
-  const options = [...new Set([dailyTag, ...tags.filter((t) => t.daily).map((t) => t.path)])].filter(Boolean).sort();
 
   return (
     <section class="widget" data-testid="widget-note">
@@ -96,7 +97,7 @@ function TodayNoteWidget({ config, today, tags, dailyTag, chooseDailyTag }) {
       )}
       {state.status === 'off' && (
         <p class="muted" data-testid="note-off">
-          “{dailyTag}” has no entry for today (its daily entry is switched off). Pick another tag below.
+          “{dailyTag}” has no entry for today (its daily entry is switched off). Pick another tag in Settings.
         </p>
       )}
       {session && !session.discarded && (
@@ -107,67 +108,48 @@ function TodayNoteWidget({ config, today, tags, dailyTag, chooseDailyTag }) {
         </>
       )}
       {dailyTag && (
-        <label class="today-source small muted">
-          Today’s note comes from{' '}
-          <select value={dailyTag} onChange={(e) => chooseDailyTag(e.currentTarget.value)} aria-label="Tag for today's note" data-testid="daily-tag-select">
-            {options.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
+        <p class="today-source small muted" data-testid="daily-tag-from">
+          Comes from “{dailyTag}” · <a href="#/settings">change in Settings</a>
+        </p>
       )}
     </section>
   );
 }
 
-// [id, component], top to bottom
-const WIDGETS = [
+// id → component. The order and which are shown come from getDashboard() (Settings).
+const WIDGETS = new Map([
   ['nav', NavWidget],
   ['pinned', PinnedWidget],
   ['tasks', TasksWidget],
   ['note', TodayNoteWidget],
-];
+]);
 
 export function TodayView({ config }) {
   const today = useToday(config.tz);
   const [tags, setTags] = useState([]);
   const [dailyTag, setDailyTag] = useState(config.dailyTag ?? 'daily-jots');
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     api.tags().then((r) => setTags(r.tags)).catch(() => {});
     api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
   }, []);
 
-  // Optimistic: switch at once, put it back if the server refuses.
-  const chooseDailyTag = async (next) => {
-    const before = dailyTag;
-    setDailyTag(next);
-    try {
-      await api.setSettings({ dailyTag: next });
-      setError(null);
-    } catch (e) {
-      setDailyTag(before);
-      setError(e.message);
-    }
-  };
-
-  const context = { config, today, tags, dailyTag, chooseDailyTag };
+  const context = { config, today, tags, dailyTag };
+  const shown = getDashboard().filter((w) => w.shown);
   return (
     <div class="today" data-testid="today">
       <h2 class="today-date" data-testid="today-date">
         {longDate(today)}
       </h2>
-      {error && (
-        <p class="error" role="alert">
-          {error}
+      {shown.map(({ id }) => {
+        const Widget = WIDGETS.get(id);
+        return Widget && <Widget key={id} {...context} />;
+      })}
+      {shown.length === 0 && (
+        <p class="muted" data-testid="dashboard-empty">
+          Nothing is shown here. Choose widgets in <a href="#/settings">Settings</a>.
         </p>
       )}
-      {WIDGETS.map(([id, Widget]) => (
-        <Widget key={id} {...context} />
-      ))}
     </div>
   );
 }

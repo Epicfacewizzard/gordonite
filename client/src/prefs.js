@@ -3,7 +3,26 @@
 
 const SPACING_KEY = 'hq-spacing';
 const OPENING_KEY = 'hq-opening-page';
-export const OPENING_PAGES = [['/', 'Today'], ['/notes', 'Notes'], ['/tasks', 'Tasks'], ['/people', 'People']];
+export const OPENING_PAGES = [['/', 'Dashboard'], ['/notes', 'Notes'], ['/tasks', 'Tasks'], ['/people', 'People']];
+
+// The dashboard's widgets: which are shown and in what order, kept on this device like the other display prefs.
+// [id, name], top to bottom as first shown. A widget added later appears at the end until it is moved.
+const DASHBOARD_KEY = 'hq-dashboard';
+export const DASHBOARD_WIDGETS = [['nav', 'New note button'], ['pinned', 'Starred tags'], ['tasks', 'Tasks'], ['note', 'Today’s note']];
+/** [{ id, name, shown }] in the saved order. */
+export function getDashboard() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(DASHBOARD_KEY)) ?? {}; } catch { /* storage unavailable or damaged: use the defaults */ }
+  const order = Array.isArray(saved.order) ? saved.order : [];
+  const hidden = Array.isArray(saved.hidden) ? saved.hidden : [];
+  const known = new Map(DASHBOARD_WIDGETS);
+  const ids = [...order.filter((id) => known.has(id)), ...DASHBOARD_WIDGETS.map(([id]) => id).filter((id) => !order.includes(id))];
+  return [...new Set(ids)].map((id) => ({ id, name: known.get(id), shown: !hidden.includes(id) }));
+}
+export function setDashboard(list) {
+  try { localStorage.setItem(DASHBOARD_KEY, JSON.stringify({ order: list.map((w) => w.id), hidden: list.filter((w) => !w.shown).map((w) => w.id) })); return true; }
+  catch { return false; }
+}
 export function getOpeningPage() {
   try { const value = localStorage.getItem(OPENING_KEY); return OPENING_PAGES.some(([path]) => path === value) ? value : '/'; }
   catch { return '/'; }

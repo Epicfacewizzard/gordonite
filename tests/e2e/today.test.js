@@ -27,7 +27,7 @@ const seedTasks = async (app, items, { tags = ['school'], date = today() } = {})
   return id;
 };
 
-describe('the Today screen', () => {
+describe('the Dashboard (the Today screen)', () => {
   test('opens on today: the date, what is overdue / due / coming up, a few undated tasks, and a note to write in', () =>
     withPhone(browser, async ({ page, app }) => {
       const t = today();
@@ -43,7 +43,7 @@ describe('the Today screen', () => {
 
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('today').waitFor();
-      assert.equal(await page.getByTestId('title').innerText(), 'Today');
+      assert.equal(await page.getByTestId('title').innerText(), 'Dashboard');
       assert.match(await page.getByTestId('today-date').innerText(), /^[A-Z][a-z]+, [A-Z][a-z]+ \d{1,2}$/, 'a long date such as "Monday, October 5"');
 
       const inSection = (id) => page.getByTestId(`section-${id}`).getByTestId('task-row').allInnerTexts();
@@ -84,7 +84,7 @@ describe('the Today screen', () => {
       await page.goto(`${app.url}/#/`);
       await todayNote(page).waitFor();
       assert.equal(app.notes().length, 0, 'nothing is created by opening Today');
-      assert.equal(await page.getByTestId('daily-tag-select').inputValue(), 'daily-jots', 'the default');
+      assert.match(await page.getByTestId('daily-tag-from').innerText(), /daily-jots/, 'the default');
 
       await todayNote(page).tap();
       await page.keyboard.type('Wrote this from Today');
@@ -102,16 +102,20 @@ describe('the Today screen', () => {
       await page.waitForSelector('[data-testid="stream"] .note-text[contenteditable="true"]');
       assert.equal(await page.locator('[data-testid="stream"] .note-text[contenteditable="true"]').textContent(), 'Wrote this from Today');
 
-      // switch the tag Today writes in; it is remembered on the server, so it survives a reload
+      // switch the tag the dashboard writes in (now a setting); it is remembered on the server, so it survives a reload
       await app.api('POST', '/api/tags', { path: 'work-log' });
-      await page.goto(`${app.url}/#/`);
+      await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('daily-tag-select').waitFor();
+      assert.equal(await page.getByTestId('daily-tag-select').inputValue(), 'daily-jots');
       await page.getByTestId('daily-tag-select').selectOption('work-log');
-      await page.waitForFunction(() => document.querySelectorAll('[data-testid="widget-note"] [data-testid="note"]').length === 1);
-      await page.waitForFunction(() => document.querySelector('[data-testid="widget-note"] .note-text')?.textContent === '');
+      await page.getByTestId('daily-tag-message').getByText('Saved.').waitFor();
+      await page.goto(`${app.url}/#/`);
+      await todayNote(page).waitFor();
+      assert.match(await page.getByTestId('daily-tag-from').innerText(), /work-log/);
+      assert.equal(await todayNote(page).textContent(), '', 'work-log has no entry for today yet');
       await page.reload();
       await todayNote(page).waitFor();
-      assert.equal(await page.getByTestId('daily-tag-select').inputValue(), 'work-log');
+      assert.match(await page.getByTestId('daily-tag-from').innerText(), /work-log/);
       assert.equal(await todayNote(page).textContent(), '', 'work-log has no entry for today yet');
 
       // a tag whose daily entry is switched off has nothing to write in
@@ -136,6 +140,36 @@ describe('the Today screen', () => {
     }));
 });
 
+describe('dashboard widgets', () => {
+  test('Settings shows, hides and reorders the widgets on this device, and the choice survives a reload', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('widget-note').waitFor();
+      const order = () => page.locator('.today > section.widget, .today > nav.today-nav').evaluateAll((els) => els.map((el) => el.dataset.testid ?? 'nav'));
+      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['nav', 'widget-tasks', 'widget-note'], 'the default order');
+
+      await page.goto(`${app.url}/#/settings`);
+      await page.getByTestId('widget-prefs').waitFor();
+      await page.getByTestId('widget-down-tasks').tap(); // tasks below the note
+      await page.getByTestId('widget-toggle-nav').tap(); // hide the New note button
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('widget-note').waitFor();
+      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-note', 'widget-tasks']);
+      assert.equal(await page.getByTestId('today-new-note').count(), 0);
+
+      await page.reload();
+      await page.getByTestId('widget-note').waitFor();
+      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-note', 'widget-tasks'], 'kept after a reload');
+
+      // hide everything: the dashboard says so and points to Settings
+      await page.goto(`${app.url}/#/settings`);
+      for (const id of ['pinned', 'tasks', 'note']) await page.getByTestId(`widget-toggle-${id}`).tap();
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('dashboard-empty').waitFor();
+      assert.deepEqual(page.errors, []);
+    }));
+});
+
 describe('the bottom tab bar', () => {
   const current = (page) => page.locator('[data-testid="tabbar"] a[aria-current="page"]').allInnerTexts();
 
@@ -143,9 +177,9 @@ describe('the bottom tab bar', () => {
     withPhone(browser, async ({ page, app }) => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('tabbar').waitFor();
-      assert.deepEqual(await current(page), ['Today']);
+      assert.deepEqual(await current(page), ['Dashboard']);
 
-      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['people', '#/people', 'People'], ['notes', '#/notes', 'Notes'], ['today', '#/', 'Today']]) {
+      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['people', '#/people', 'People'], ['notes', '#/notes', 'Notes'], ['today', '#/', 'Dashboard']]) {
         await page.getByTestId(`tab-${tab}`).tap();
         await page.waitForFunction((h) => location.hash === h || (h === '#/' && (location.hash === '' || location.hash === '#/')), hash);
         await page.waitForFunction((l) => document.querySelector('[data-testid="tabbar"] a[aria-current="page"]')?.innerText === l, label);

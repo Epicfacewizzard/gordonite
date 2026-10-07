@@ -1367,3 +1367,10 @@ body:not([data-editing]) .today .toolbar {
 .note-text li[data-move-drop='before'] { box-shadow: 0 -3px 0 var(--accent); }
 .note-text li[data-move-drop='after'] { box-shadow: 0 3px 0 var(--accent); }
 @media (hover: hover) { .note-task-grip { opacity: 0; } .note-text li:hover > .note-task-grip, .note-task-grip:focus-visible { opacity: 1; } }
+
+/* Settings: dashboard widgets (show/hide and order) */
+.widget-prefs { list-style: none; margin: 0 0 var(--gap, 1rem); padding: 0; }
+.widget-prefs li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid var(--line, rgba(128, 128, 128, 0.25)); }
+.widget-prefs label { flex: 1; }
+.widget-move { display: flex; gap: 0.25rem; }
+.widget-move .btn { min-width: 2.5rem; }

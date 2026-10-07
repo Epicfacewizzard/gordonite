@@ -88,7 +88,7 @@ const Icon = ({ d }) => (
 // The main places, always one tap away. Hidden inside a stream or a note (they have their own toolbar) and
 // while typing (the keyboard needs the room).
 const TABS = [
-  { id: 'today', label: 'Today', href: '#/', match: (r) => r === '/', icon: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
+  { id: 'today', label: 'Dashboard', href: '#/', match: (r) => r === '/', icon: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
   { id: 'tasks', label: 'Tasks', href: '#/tasks', match: (r) => r === '/tasks', icon: 'M4 4h16v16H4zM8.5 12.5l2.5 2.5 4.5-5' },
   { id: 'people', label: 'People', href: '#/people', match: (r) => r === '/people', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
   { id: 'notes', label: 'Notes', href: '#/notes', match: (r) => r === '/notes' || r === '/tags', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7' },
@@ -137,11 +137,11 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route === '/tags' ? 'Tags' : 'Today';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route === '/tags' ? 'Tags' : 'Dashboard';
   return (
     <header class="topbar">
       {!onHome && (
-        <a class="icon-btn back" href={route === '/tags' ? '#/notes' : '#/'} aria-label={route.startsWith('/n/') ? 'Back' : route === '/tags' ? 'Back to Notes' : 'Back to Today'} onClick={route.startsWith('/n/') ? goBack : undefined}>
+        <a class="icon-btn back" href={route === '/tags' ? '#/notes' : '#/'} aria-label={route.startsWith('/n/') ? 'Back' : route === '/tags' ? 'Back to Notes' : 'Back to Dashboard'} onClick={route.startsWith('/n/') ? goBack : undefined}>
           ‹
         </a>
       )}

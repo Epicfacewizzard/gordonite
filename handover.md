@@ -110,7 +110,7 @@ Owner's requested future directions (do not implement automatically from this do
 
 1. Personal app login and stable HTTPS, preserving pending edits through session expiry/logout.
 2. Separate Personal, School, and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text remains in its source document.
-3. Today eventually becomes a customizable Dashboard with widgets varying by date/context. Build desired features first; dashboard/mood tracking design is not settled.
+3. Today is now the Dashboard: widgets can be shown, hidden and reordered per device in Settings (2026-10-07). More widgets (mood, goals, calendar) still need design before they are built.
 
 Natural dates/times are implemented; read `docs/NATURAL-DATES.md`. Relative phrases use the **note date**, not the date of conversion; `next Friday` means the upcoming Friday. Picked dates/times override typed values. No alarms, notifications, recurrence, or automatic emails exist.
 
