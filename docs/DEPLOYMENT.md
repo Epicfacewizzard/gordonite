@@ -161,3 +161,14 @@ Compose service without changing its settings, and checks health, the new mood r
 assistant key is still set. Nothing secret is stored or printed. See `DEPLOYMENT-2026-10-06.md` for the manual steps
 it automates and for rollback. A database upgrade (like schema v5) cannot be undone by the old image: restore the
 backup taken at the start as well.
+
+### Updating from the server's own terminal (nothing to copy)
+
+If you are logged in to the server (SSH or the CasaOS terminal), the repository is public, so the server can fetch the
+code itself. Type this one line (it is the same update, run from a fresh clone of GitHub's latest `main`):
+
+```bash
+cd ~/gordonite/releases && rm -rf boot && git clone -q https://github.com/Epicfacewizzard/gordonite.git boot && bash boot/deploy/casaos-update.sh
+```
+
+It asks for the sudo password once and prints numbered steps (`== 1/7 ...`), so a failure shows which step it was.

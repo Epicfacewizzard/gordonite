@@ -1,23 +1,36 @@
 #!/usr/bin/env bash
-# Runs ON THE CASAOS SERVER (sent there by scripts/deploy-casaos.ps1). Usage: casaos-update.sh <short-commit> <sha256-of-tar>
-# Same steps as the 2026-10-06 deployment: verify the archive, take a verified backup, tag the running image for
-# rollback, build the new image, recreate the existing Compose service (its settings are not changed), then check health.
+# Runs ON THE CASAOS SERVER. Two ways to start it:
+#   1. From a fresh clone of the repository on the server (nothing to copy, nothing to paste):
+#        cd ~/gordonite/releases && rm -rf boot && git clone -q https://github.com/Epicfacewizzard/gordonite.git boot && bash boot/deploy/casaos-update.sh
+#      The release is the commit that clone is at (the latest on main).
+#   2. From scripts/deploy-casaos.ps1 on a computer: casaos-update.sh <short-commit> <sha256-of-tar> (a git archive was copied first).
+# Same steps as the 2026-10-06 deployment: take a verified backup, tag the running image for rollback, build the new
+# image, recreate the existing Compose service (its settings are not changed), then check health.
 set -euo pipefail
 
-REV="${1:?short commit}"
-WANT_SHA="${2:?sha256 of the archive}"
 ROOT=/home/gordon/gordonite
-TAR="$ROOT/releases/gordonite-$REV.tar"
-DIR="$ROOT/releases/$REV"
 COMPOSE="$ROOT/deploy/gordonite-casaos.yml"
 URL=http://127.0.0.1:8082
 
 step() { printf '\n== %s\n' "$*"; }
 
-step "1/7 Checking the archive"
-GOT_SHA="$(sha256sum "$TAR" | cut -d' ' -f1)"
-[ "$GOT_SHA" = "$WANT_SHA" ] || { echo "Archive hash does not match (got $GOT_SHA). Nothing was changed."; exit 1; }
-echo "hash ok"
+if [ $# -ge 2 ]; then
+  REV="$1"; WANT_SHA="$2"
+  TAR="$ROOT/releases/gordonite-$REV.tar"
+  DIR="$ROOT/releases/$REV"
+  step "1/7 Checking the archive"
+  GOT_SHA="$(sha256sum "$TAR" | cut -d' ' -f1)"
+  [ "$GOT_SHA" = "$WANT_SHA" ] || { echo "Archive hash does not match (got $GOT_SHA). Nothing was changed."; exit 1; }
+  echo "hash ok"
+  MODE=tar
+else
+  SRC="$(cd "$(dirname "$0")/.." && pwd)"
+  REV="$(git -C "$SRC" rev-parse --short HEAD)"
+  DIR="$ROOT/releases/$REV"
+  step "1/7 Using the code cloned from GitHub: commit $REV"
+  git -C "$SRC" log --oneline -1
+  MODE=git
+fi
 [ -f "$COMPOSE" ] || { echo "Compose file not found: $COMPOSE. Nothing was changed."; exit 1; }
 
 step "2/7 Sudo (enter the server password if asked)"
@@ -31,7 +44,8 @@ KEY_BEFORE="$(has_key)"
 echo "assistant key set on the running container: $([ "$KEY_BEFORE" -ge 1 ] && echo yes || echo no)"
 
 step "4/7 Unpacking the release and tagging the running image for rollback"
-rm -rf "$DIR" && mkdir -p "$DIR" && tar -xf "$TAR" -C "$DIR"
+rm -rf "$DIR" && mkdir -p "$DIR"
+if [ "$MODE" = tar ]; then tar -xf "$TAR" -C "$DIR"; else git -C "$SRC" archive HEAD | tar -x -C "$DIR"; fi
 sudo docker image tag gordonite:0.1.0 "gordonite:rollback-before-$REV"
 echo "rollback image: gordonite:rollback-before-$REV"
 
