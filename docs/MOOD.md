@@ -8,8 +8,10 @@ A dashboard widget for logging how you feel. It is not part of your notes: entri
 - **Five faces** (1 very low to 5 great). One tap logs an entry with the current time. Log as often as you like.
 - An optional **note** (one line, up to 280 characters): type it first, then tap a face. The field clears after a tap.
 - **Today's entries** with the time, face and note, each with a delete (×).
-- A **7 or 30 day chart**: one bar per day, height and colour show the day's average (red low, green high; a thin grey bar means nothing was logged).
-- A **streak** (days in a row with at least one entry; today not logged yet does not break it) and "N of the last 7/30 days logged".
+- A small **7-day table**: one cell per day (weekday letter on top), tinted red to green and showing the face closest to that day's average; a dot means nothing was logged. Hover or long-press a cell for the exact average.
+- A **streak** (days in a row with at least one entry; today not logged yet does not break it) and "N of the last 7 days".
+
+The widget is a compact band across the top of the dashboard (faces and note on one side, the table on the other; stacked on a phone).
 
 Show, hide and reorder the widget in Settings → Dashboard.
 

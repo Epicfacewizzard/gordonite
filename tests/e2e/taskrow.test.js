@@ -141,18 +141,24 @@ describe('the task row: hide, due and priority buttons', () => {
       assert.deepEqual(page.errors, []);
     }));
 
-  test('a date typed in the text is shown dimmer; the Today screen has the same buttons', () =>
+  test('a date typed in the text is shown dimmer; the dashboard (overdue only) has the same buttons', () =>
     withPhone(browser, async ({ page, app }) => {
-      await seed(app, ['send the deck due fri', 'plain task']);
-      await page.goto(`${app.url}/#/`);
+      await seed(app, ['send the deck due fri', 'plain task', 'old thing due 2020-01-01']);
+      await page.goto(`${app.url}/#/tasks`);
       await rowOf(page, 'send the deck').waitFor();
       assert.equal(await rowOf(page, 'send the deck').locator('.typed-date').innerText(), 'due fri');
       assert.equal(await rowOf(page, 'plain task').locator('.typed-date').count(), 0);
-      assert.equal(await rowOf(page, 'plain task').getByTestId('task-date').count(), 1, 'the buttons are on Today too');
+      assert.equal(await rowOf(page, 'plain task').getByTestId('task-date').count(), 1);
       await rowOf(page, 'plain task').getByTestId('task-priority').tap();
       await page.getByTestId('priority-urgent').tap();
       await waitSaved(page);
       assert.equal(await rowOf(page, 'plain task').getAttribute('data-priority'), 'urgent');
+
+      // the dashboard shows only what is overdue, with the same buttons
+      await page.goto(`${app.url}/#/`);
+      await rowOf(page, 'old thing').waitFor();
+      assert.equal(await rowOf(page, 'old thing').getByTestId('task-date').count(), 1, 'the buttons are on the dashboard too');
+      assert.equal(await page.getByTestId('task-row').count(), 1, 'only the overdue one is there');
     }));
 });
 

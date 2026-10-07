@@ -28,7 +28,7 @@ const seedTasks = async (app, items, { tags = ['school'], date = today() } = {})
 };
 
 describe('the Dashboard (the Today screen)', () => {
-  test('opens on today: the date, what is overdue / due / coming up, a few undated tasks, and a note to write in', () =>
+  test('opens on the dashboard: the date, only what is overdue on the right, and a note to write in', () =>
     withPhone(browser, async ({ page, app }) => {
       const t = today();
       const taskNote = await seedTasks(app, [
@@ -49,20 +49,17 @@ describe('the Dashboard (the Today screen)', () => {
       const inSection = (id) => page.getByTestId(`section-${id}`).getByTestId('task-row').allInnerTexts();
       await page.getByTestId('section-overdue').waitFor();
       assert.match((await inSection('overdue')).join('|'), /late one/);
-      assert.match((await inSection('today')).join('|'), /due now/);
-      assert.match((await inSection('upcoming')).join('|'), /this week/);
       const body = await page.getByTestId('widget-tasks').innerText();
-      assert.doesNotMatch(body, /far away/, 'beyond a week is left for the Tasks page');
-      assert.doesNotMatch(body, /not yet|put away/, 'later and hidden tasks stay out of the way');
-      assert.equal((await inSection('anytime')).length, 5, 'only a few undated ones');
-      assert.match(body, /2 more with no date/);
-      assert.match(await page.getByTestId('task-count').innerText(), /11 open tasks/, 'all open tasks, including the ones not shown here');
+      assert.doesNotMatch(body, /due now|this week|far away|not yet|put away|undated/, 'the dashboard column shows only what is overdue');
+      assert.equal(await page.getByTestId('section-today').count(), 0);
+      assert.equal(await page.getByTestId('section-anytime').count(), 0);
+      assert.match(await page.getByTestId('task-count').innerText(), /1 overdue · 11 open/, 'all open tasks are still counted');
 
       // ticking works right here and is saved into its own note
-      await page.locator('[data-testid="task-row"]', { hasText: 'due now' }).locator('input').tap();
+      await page.locator('[data-testid="task-row"]', { hasText: 'late one' }).locator('input').tap();
       await waitSaved(page);
       const stored = JSON.parse(app.notes().find((n) => n.id === taskNote).doc).content[0].content;
-      assert.equal(stored.find((x) => x.content[0].content[0].text === 'due now').attrs.checked, true);
+      assert.equal(stored.find((x) => x.content[0].content[0].text === 'late one').attrs.checked, true);
 
       // navigation
       await page.getByTestId('all-tasks').tap();
@@ -141,32 +138,52 @@ describe('the Dashboard (the Today screen)', () => {
 });
 
 describe('dashboard widgets', () => {
-  test('Settings shows, hides and reorders the widgets on this device, and the choice survives a reload', () =>
+  const regionOf = (page) => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-region]')].map((r) => [r.dataset.region, [...r.children].map((c) => c.dataset.testid ?? 'nav')])));
+
+  test('mood sits on top, the note in the centre, overdue tasks on the right; Settings hides and reorders them', () =>
     withPhone(browser, async ({ page, app }) => {
+      const tag = (await app.api('POST', '/api/tags', { path: 'school/fall26' })).json.tag;
+      await app.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: true });
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      const order = () => page.locator('.today > section.widget, .today > nav.today-nav').evaluateAll((els) => els.map((el) => el.dataset.testid ?? 'nav'));
-      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['nav', 'widget-tasks', 'widget-mood', 'widget-note'], 'the default order');
+      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], left: ['nav', 'widget-pinned'], center: ['widget-note'], right: ['widget-tasks'] });
 
       await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('widget-prefs').waitFor();
-      await page.getByTestId('widget-down-tasks').tap(); // tasks below the mood widget
-      await page.getByTestId('widget-toggle-nav').tap(); // hide the New note button
+      await page.getByTestId('widget-up-pinned').tap(); // starred tags above the New note button
+      await page.getByTestId('widget-toggle-mood').tap(); // hide mood
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-mood', 'widget-tasks', 'widget-note']);
-      assert.equal(await page.getByTestId('today-new-note').count(), 0);
+      assert.deepEqual(await regionOf(page), { left: ['widget-pinned', 'nav'], center: ['widget-note'], right: ['widget-tasks'] });
 
       await page.reload();
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-mood', 'widget-tasks', 'widget-note'], 'kept after a reload');
+      assert.deepEqual(await regionOf(page), { left: ['widget-pinned', 'nav'], center: ['widget-note'], right: ['widget-tasks'] }, 'kept after a reload');
 
       // hide everything: the dashboard says so and points to Settings
       await page.goto(`${app.url}/#/settings`);
-      for (const id of ['pinned', 'tasks', 'mood', 'note']) await page.getByTestId(`widget-toggle-${id}`).tap();
+      for (const id of ['nav', 'pinned', 'tasks', 'note']) await page.getByTestId(`widget-toggle-${id}`).tap();
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('dashboard-empty').waitFor();
       assert.deepEqual(page.errors, []);
+    }));
+
+  test('on a wide screen the mood band is on top and the note sits between the left and right columns; on a phone they stack', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('widget-note').waitFor();
+      const box = async (id) => (await page.getByTestId(id).boundingBox());
+      // phone width: one column, in the order top, left, centre, right
+      const [mood, nav, note, tasks] = [await box('widget-mood'), await box('today-new-note'), await box('widget-note'), await box('widget-tasks')];
+      assert.ok(mood.y < nav.y && nav.y < note.y && note.y < tasks.y, 'stacked in order on a phone');
+
+      await page.setViewportSize({ width: 1200, height: 800 });
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length === 3);
+      const [m, n, c, t] = [await box('widget-mood'), await box('today-new-note'), await box('widget-note'), await box('widget-tasks')];
+      assert.ok(m.y + m.height <= c.y + 1, 'mood is above the columns');
+      assert.ok(n.x + n.width <= c.x + 1, 'New note is left of the note');
+      assert.ok(c.x + c.width <= t.x + 1, 'tasks are right of the note');
+      assert.ok(c.width > n.width && c.width > t.width, 'the note column is the widest');
     }));
 });
 

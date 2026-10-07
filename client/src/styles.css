@@ -1375,19 +1375,33 @@ body:not([data-editing]) .today .toolbar {
 .widget-move { display: flex; gap: 0.25rem; }
 .widget-move .btn { min-width: 2.5rem; }
 
-/* Mood widget */
-.mood-faces { display: flex; gap: 0.4rem; margin: 0.4rem 0; }
-.mood-face { flex: 1; font-size: 1.6rem; line-height: 1; padding: 0.55rem 0; border: 1px solid var(--line); border-radius: 0.6rem; background: transparent; cursor: pointer; }
+/* Mood widget: a compact band (faces + note on one side, a 7-day table on the other) */
+.mood { margin-bottom: 8px; }
+.mood-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.mood-head .section { margin: 0 0 4px; }
+.mood-body { display: grid; gap: 8px 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 560px) { .mood-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; } }
+.mood-faces { display: flex; gap: 0.3rem; margin-bottom: 0.3rem; }
+.mood-face { flex: 1; font-size: 1.3rem; line-height: 1; padding: 0.4rem 0; border: 1px solid var(--line); border-radius: 0.5rem; background: transparent; cursor: pointer; }
 .mood-face:active { transform: scale(0.96); }
 .mood-note { width: 100%; box-sizing: border-box; }
-.mood-range { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.6rem; }
-.mood-range .btn { padding: 0.15rem 0.6rem; min-height: 0; white-space: nowrap; }
-.mood-range .btn[aria-pressed="true"] { font-weight: 600; text-decoration: underline; }
-.mood-chart { display: flex; align-items: flex-end; gap: 2px; height: 4rem; margin-top: 0.4rem; }
-.mood-bar { flex: 1; min-width: 3px; border-radius: 2px; }
-.mood-bar.empty { height: 3px; background: var(--line); }
-.mood-axis { display: flex; justify-content: space-between; }
-.mood-entries { list-style: none; margin: 0.4rem 0 0; padding: 0; }
-.mood-entries li { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
+.mood-table { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; text-align: center; }
+.mood-table th { font-size: 0.7rem; font-weight: 500; color: var(--muted); }
+.mood-table th.today { color: var(--text); font-weight: 700; }
+.mood-table td { height: 2rem; border-radius: 0.4rem; border: 1px solid var(--line); font-size: 1.05rem; }
+.mood-entries { list-style: none; margin: 0.3rem 0 0; padding: 0; font-size: 0.9rem; }
+.mood-entries li { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
 .mood-entries .mood-text { flex: 1; overflow-wrap: anywhere; }
-.mood-entries .btn { padding: 0 0.5rem; }
+.mood-entries .btn { padding: 0 0.5rem; min-height: 0; }
+
+/* Dashboard layout: a band on top, then left / center / right columns (stacked on a phone) */
+.page.wide { max-width: 72rem; }
+.dashboard-grid { display: grid; gap: 12px 24px; grid-template-columns: minmax(0, 1fr); }
+.dash-region > .widget:last-child { margin-bottom: 0; }
+@media (min-width: 860px) {
+  .dashboard-grid { grid-template-columns: minmax(0, 0.7fr) minmax(0, 2fr) minmax(0, 1.3fr); grid-template-areas: "top top top" "left center right"; align-items: start; }
+  .dash-top { grid-area: top; }
+  .dash-left { grid-area: left; }
+  .dash-center { grid-area: center; }
+  .dash-right { grid-area: right; }
+}

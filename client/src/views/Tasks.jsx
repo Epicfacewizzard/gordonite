@@ -40,12 +40,13 @@ function bucketOf(t, today, touched, now) {
   return 'anytime';
 }
 
+// `overdueOnly` (with `compact`) is the dashboard's right-hand column: just what is overdue.
 // `compact` is the version on the Today screen: only what needs attention now (overdue, today, the next week,
 // a few undated ones), no folded sections, and a link on to the full list.
 const COMPACT_UNDATED = 5;
 const COMPACT_DAYS = 7;
 
-export function TasksView({ config, compact = false }) {
+export function TasksView({ config, compact = false, overdueOnly = false }) {
   const today = useToday(config.tz);
   const now = useNowTime(config.tz);
   const [tasks, setTasks] = useState(null);
@@ -252,7 +253,7 @@ export function TasksView({ config, compact = false }) {
       )}
       {tasks && (
         <p class="muted" data-testid="task-count">
-          {openCount} open {openCount === 1 ? 'task' : 'tasks'}
+          {overdueOnly ? `${buckets.overdue.length} overdue · ${openCount} open` : `${openCount} open ${openCount === 1 ? 'task' : 'tasks'}`}
           {compact && (
             <>
               {' · '}
@@ -263,16 +264,21 @@ export function TasksView({ config, compact = false }) {
           )}
         </p>
       )}
-      {tasks && openCount === 0 && !error && (
+      {tasks && overdueOnly && buckets.overdue.length === 0 && !error && (
+        <p class="muted center" data-testid="nothing-overdue">
+          Nothing overdue.
+        </p>
+      )}
+      {tasks && !overdueOnly && openCount === 0 && !error && (
         <p class="muted center">
           {compact ? 'Nothing is due. Open All tasks to see everything.' : 'Nothing to do. Turn a line into a task with the toolbar’s task button while writing a note.'}
         </p>
       )}
       {section('overdue', 'Overdue', buckets.overdue)}
-      {section('today', 'Due today', buckets.today)}
-      {section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
-      {compact && section('anytime', 'No date', undatedShown)}
-      {compact && undatedMore > 0 && (
+      {!overdueOnly && section('today', 'Due today', buckets.today)}
+      {!overdueOnly && section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
+      {compact && !overdueOnly && section('anytime', 'No date', undatedShown)}
+      {compact && !overdueOnly && undatedMore > 0 && (
         <p class="muted small">
           <a href="#/tasks">{undatedMore} more with no date</a>
         </p>

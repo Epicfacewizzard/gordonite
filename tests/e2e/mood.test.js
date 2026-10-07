@@ -12,7 +12,7 @@ test('tap a face to log a mood, several a day, with an optional note; see today,
   withPhone(browser, async ({ page, app }) => {
     await page.goto(`${app.url}/#/`);
     await page.getByTestId('widget-mood').waitFor();
-    assert.match(await page.getByTestId('mood-summary').innerText(), /0 of the last 7 days logged/);
+    assert.match(await page.getByTestId('mood-summary').innerText(), /0 of the last 7 days/);
     assert.equal(await page.getByTestId('mood-entries').count(), 0, 'nothing today yet');
 
     await page.getByTestId('mood-note').fill('slept badly');
@@ -26,11 +26,10 @@ test('tap a face to log a mood, several a day, with an optional note; see today,
     assert.deepEqual(entries(app).map((e) => [e.score, e.note]), [[2, 'slept badly'], [5, null]]);
 
     // chart and streak
-    assert.match(await page.getByTestId('mood-summary').innerText(), /1-day streak · 1 of the last 7 days logged/);
-    assert.equal(await page.getByTestId('mood-bar').count(), 7);
-    assert.equal(await page.getByTestId('mood-bar').last().getAttribute('title').then((t) => /average 3\.5 \(2 entries\)/.test(t)), true, 'today averages the two entries');
-    await page.getByTestId('mood-range-30').tap();
-    await page.waitForFunction(() => document.querySelectorAll('[data-testid="mood-bar"]').length === 30);
+    assert.match(await page.getByTestId('mood-summary').innerText(), /1-day streak · 1 of the last 7 days/);
+    assert.equal(await page.getByTestId('mood-cell').count(), 7, 'a small table: one cell per day of the last week');
+    assert.match(await page.getByTestId('mood-cell').last().getAttribute('title'), /average 3\.5 \(2 entries\)/, 'today averages the two entries');
+    assert.equal(await page.getByTestId('mood-cell').first().getAttribute('title').then((t) => /nothing logged/.test(t)), true);
 
     // it is all still there after a reload
     await page.reload();

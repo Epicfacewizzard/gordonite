@@ -48,7 +48,7 @@ function PinnedWidget({ tags }) {
 function TasksWidget({ config }) {
   return (
     <section class="widget" data-testid="widget-tasks">
-      <TasksView config={config} compact />
+      <TasksView config={config} compact overdueOnly />
     </section>
   );
 }
@@ -117,14 +117,17 @@ function TodayNoteWidget({ config, today, dailyTag }) {
   );
 }
 
-// id → component. The order and which are shown come from getDashboard() (Settings).
+// id → [component, region]. Which widgets are shown, and their order inside a region, come from getDashboard()
+// (Settings). Regions: a band across the top, then left, center and right columns. On a phone they stack in
+// that order. The center holds today's note; the right column only shows what is overdue.
 const WIDGETS = new Map([
-  ['nav', NavWidget],
-  ['pinned', PinnedWidget],
-  ['tasks', TasksWidget],
-  ['mood', MoodWidget],
-  ['note', TodayNoteWidget],
+  ['nav', [NavWidget, 'left']],
+  ['pinned', [PinnedWidget, 'left']],
+  ['tasks', [TasksWidget, 'right']],
+  ['mood', [MoodWidget, 'top']],
+  ['note', [TodayNoteWidget, 'center']],
 ]);
+const REGIONS = ['top', 'left', 'center', 'right'];
 
 export function TodayView({ config }) {
   const today = useToday(config.tz);
@@ -143,10 +146,21 @@ export function TodayView({ config }) {
       <h2 class="today-date" data-testid="today-date">
         {longDate(today)}
       </h2>
-      {shown.map(({ id }) => {
-        const Widget = WIDGETS.get(id);
-        return Widget && <Widget key={id} {...context} />;
-      })}
+      <div class="dashboard-grid">
+        {REGIONS.map((region) => {
+          const here = shown.filter(({ id }) => WIDGETS.get(id)?.[1] === region);
+          return (
+            here.length > 0 && (
+              <div key={region} class={`dash-region dash-${region}`} data-region={region}>
+                {here.map(({ id }) => {
+                  const Widget = WIDGETS.get(id)[0];
+                  return <Widget key={id} {...context} />;
+                })}
+              </div>
+            )
+          );
+        })}
+      </div>
       {shown.length === 0 && (
         <p class="muted" data-testid="dashboard-empty">
           Nothing is shown here. Choose widgets in <a href="#/settings">Settings</a>.

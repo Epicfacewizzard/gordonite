@@ -225,7 +225,7 @@ export function App() {
   return (
     <>
       <Header route={route} />
-      <main class={`page${tabbar ? ' has-tabbar' : ''}`}>{view}</main>
+      <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' ? ' wide' : ''}`}>{view}</main>
       {tabbar && <TabBar route={route} />}
     </>
   );
