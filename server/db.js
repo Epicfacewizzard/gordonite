@@ -71,6 +71,20 @@ const MIGRATIONS = [
   ALTER TABLE notes ADD COLUMN title TEXT;
   ALTER TABLE tags ADD COLUMN daily INTEGER NOT NULL DEFAULT 1;
   `,
+  // v5: mood entries (a 1-5 score, an optional short note, several a day). Not notes: kept in a small table of
+  // their own. `day` is the home-timezone date of logged_at when it was saved. Deleting is soft (deleted_at).
+  `
+  CREATE TABLE mood_entries (
+    id TEXT PRIMARY KEY,
+    score INTEGER NOT NULL CHECK (score BETWEEN 1 AND 5),
+    note TEXT,
+    day TEXT NOT NULL,
+    logged_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    deleted_at TEXT
+  );
+  CREATE INDEX mood_entries_day ON mood_entries (day, logged_at) WHERE deleted_at IS NULL;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

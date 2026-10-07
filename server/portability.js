@@ -61,6 +61,9 @@ export function exportAll(db, cfg) {
     settings: db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get() ? { dailyTag: db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get().value } : {},
     tags,
     notes,
+    moods: db
+      .prepare('SELECT id, score, note, day, logged_at AS loggedAt, created_at AS createdAt, deleted_at AS deletedAt FROM mood_entries ORDER BY logged_at, id')
+      .all(),
   };
 }
 
@@ -103,6 +106,14 @@ function validateExport(data) {
     seenPaths.add(t.path);
     tagIds.set(t.id, t);
   }
+  if (data.moods !== undefined) {
+    if (!Array.isArray(data.moods)) throw bad('moods must be an array');
+    for (const m of data.moods) {
+      checkId(m?.id, 'mood id');
+      if (!Number.isInteger(m.score) || m.score < 1 || m.score > 5) throw bad(`mood ${m.id}: bad score`);
+      if (!isValidDateString(m.day) || Number.isNaN(Date.parse(m.loggedAt))) throw bad(`mood ${m.id}: bad day or time`);
+    }
+  }
   const noteIds = new Set();
   const slots = new Set();
   for (const n of data.notes) {
@@ -144,6 +155,7 @@ export function importAll(db, cfg, data, mode) {
     notesKeptBothVersions: 0,
     membershipsDropped: [],
     tagsCreated: 0,
+    moodsAdded: 0,
   };
 
   const insertNote = db.prepare(
@@ -168,6 +180,14 @@ export function importAll(db, cfg, data, mode) {
     addVersions(n);
   };
 
+  const addMoods = () => {
+    const insert = db.prepare('INSERT OR IGNORE INTO mood_entries (id, score, note, day, logged_at, created_at, deleted_at) VALUES (?,?,?,?,?,?,?)');
+    for (const m of data.moods ?? []) {
+      const res = insert.run(m.id, m.score, typeof m.note === 'string' ? m.note.slice(0, 280) : null, m.day, new Date(m.loggedAt).toISOString(), m.createdAt ?? new Date().toISOString(), m.deletedAt ?? null);
+      report.moodsAdded += Number(res.changes);
+    }
+  };
+
   tx(db, () => {
     const tagIdFor = new Map(); // import tag id -> local tag id
 
@@ -182,7 +202,7 @@ export function importAll(db, cfg, data, mode) {
     }
 
     if (mode === 'replace') {
-      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags;');
+      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries;');
       for (const t of data.tags) {
         db.prepare('INSERT INTO tags (id, path, created_at, favorite, daily) VALUES (?,?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0, t.daily === false ? 0 : 1);
         tagIdFor.set(t.id, t.id);
@@ -192,6 +212,7 @@ export function importAll(db, cfg, data, mode) {
         addNote(n, (tid) => tagIdFor.get(tid), n.tags);
         report.notesCreated++;
       }
+      addMoods();
       return;
     }
 
@@ -247,6 +268,7 @@ export function importAll(db, cfg, data, mode) {
       addNote(n, (tid) => tagIdFor.get(tid), links);
       report.notesCreated++;
     }
+    addMoods();
   });
   const savedTz = db.prepare("SELECT value FROM meta WHERE key = 'home_tz'").get()?.value;
   if (savedTz && isValidTimeZone(savedTz)) cfg.tz = savedTz;

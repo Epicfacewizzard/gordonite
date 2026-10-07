@@ -1374,3 +1374,20 @@ body:not([data-editing]) .today .toolbar {
 .widget-prefs label { flex: 1; }
 .widget-move { display: flex; gap: 0.25rem; }
 .widget-move .btn { min-width: 2.5rem; }
+
+/* Mood widget */
+.mood-faces { display: flex; gap: 0.4rem; margin: 0.4rem 0; }
+.mood-face { flex: 1; font-size: 1.6rem; line-height: 1; padding: 0.55rem 0; border: 1px solid var(--line); border-radius: 0.6rem; background: transparent; cursor: pointer; }
+.mood-face:active { transform: scale(0.96); }
+.mood-note { width: 100%; box-sizing: border-box; }
+.mood-range { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.6rem; }
+.mood-range .btn { padding: 0.15rem 0.6rem; min-height: 0; white-space: nowrap; }
+.mood-range .btn[aria-pressed="true"] { font-weight: 600; text-decoration: underline; }
+.mood-chart { display: flex; align-items: flex-end; gap: 2px; height: 4rem; margin-top: 0.4rem; }
+.mood-bar { flex: 1; min-width: 3px; border-radius: 2px; }
+.mood-bar.empty { height: 3px; background: var(--line); }
+.mood-axis { display: flex; justify-content: space-between; }
+.mood-entries { list-style: none; margin: 0.4rem 0 0; padding: 0; }
+.mood-entries li { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
+.mood-entries .mood-text { flex: 1; overflow-wrap: anywhere; }
+.mood-entries .btn { padding: 0 0.5rem; }

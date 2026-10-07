@@ -6,6 +6,7 @@ import { NoteCard } from './Stream.jsx';
 import { EditorBar } from './EditorBar.jsx';
 import { TasksView } from './Tasks.jsx';
 import { getDashboard } from '../prefs.js';
+import { MoodWidget } from './Mood.jsx';
 
 // The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
 // context (today's date, config, tags, the chosen daily tag) and draws its own part. To add one, write the
@@ -121,6 +122,7 @@ const WIDGETS = new Map([
   ['nav', NavWidget],
   ['pinned', PinnedWidget],
   ['tasks', TasksWidget],
+  ['mood', MoodWidget],
   ['note', TodayNoteWidget],
 ]);
 

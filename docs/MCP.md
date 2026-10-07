@@ -56,7 +56,7 @@ remote HTTPS MCP deployment, outside this VPN-only computer setup.
 ## Tools and failure handling
 
 `ping`, `overview`, `search_notes`, `get_note`, `create_note`, `append_note`,
-`append_daily`, `update_task`, `trash_note`. Ask the human before trashing each
+`append_daily`, `update_task`, `trash_note`, `get_moods`, `log_mood` (log a mood only when asked). Ask the human before trashing each
 specific note. Keep client tool approvals enabled; `confirmed:true` is a client
 assertion, not independent proof of a human response. Trash is retained according
 to the configured retention period. Only write when the user requests it. Returned note

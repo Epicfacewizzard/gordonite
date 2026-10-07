@@ -17,7 +17,7 @@ test('MCP stdio handshake, tool discovery, authenticated writes/readback, histor
   try {
     c = await connect(token);
     const tools = (await c.listTools()).tools;
-    assert.equal(tools.length, 9);
+    assert.equal(tools.length, 11);
     assert.ok(!tools.some(t => /delete|replace/.test(t.name)));
     const call = async (name, args = {}) => {
       const r = await c.callTool({ name, arguments: args });
@@ -25,6 +25,12 @@ test('MCP stdio handshake, tool discovery, authenticated writes/readback, histor
       return JSON.parse(r.content[0].text);
     };
     assert.equal((await call('ping')).ok, true);
+    await call('log_mood', { score: 4, note: 'logged through MCP' });
+    const moods = await call('get_moods', { days: 3 });
+    assert.equal(moods.moods.length, 1);
+    assert.equal(moods.moods[0].score, 4);
+    assert.equal(moods.streak, 1);
+    assert.equal((await c.callTool({ name: 'log_mood', arguments: { score: 9 } })).isError, true, 'out-of-range score refused');
     const made = await call('create_note', { title: 'MCP test', markdown: '**Keep** this\n\n- [ ] test task', tags: ['mcp-test'] });
     const noteId = made.note?.id ?? made.id;
     assert.ok(noteId, JSON.stringify(made));

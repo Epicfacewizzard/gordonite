@@ -146,24 +146,24 @@ describe('dashboard widgets', () => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
       const order = () => page.locator('.today > section.widget, .today > nav.today-nav').evaluateAll((els) => els.map((el) => el.dataset.testid ?? 'nav'));
-      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['nav', 'widget-tasks', 'widget-note'], 'the default order');
+      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['nav', 'widget-tasks', 'widget-mood', 'widget-note'], 'the default order');
 
       await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('widget-prefs').waitFor();
-      await page.getByTestId('widget-down-tasks').tap(); // tasks below the note
+      await page.getByTestId('widget-down-tasks').tap(); // tasks below the mood widget
       await page.getByTestId('widget-toggle-nav').tap(); // hide the New note button
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-note', 'widget-tasks']);
+      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-mood', 'widget-tasks', 'widget-note']);
       assert.equal(await page.getByTestId('today-new-note').count(), 0);
 
       await page.reload();
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-note', 'widget-tasks'], 'kept after a reload');
+      assert.deepEqual((await order()).filter((x) => x !== 'widget-pinned'), ['widget-mood', 'widget-tasks', 'widget-note'], 'kept after a reload');
 
       // hide everything: the dashboard says so and points to Settings
       await page.goto(`${app.url}/#/settings`);
-      for (const id of ['pinned', 'tasks', 'note']) await page.getByTestId(`widget-toggle-${id}`).tap();
+      for (const id of ['pinned', 'tasks', 'mood', 'note']) await page.getByTestId(`widget-toggle-${id}`).tap();
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('dashboard-empty').waitFor();
       assert.deepEqual(page.errors, []);

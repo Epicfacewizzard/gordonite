@@ -7,8 +7,9 @@ import crypto from 'node:crypto';
 import { Store, HttpError, checkId } from './store.js';
 import { createBackup, backupPath, backupStatus } from './backup.js';
 import { exportAll, exportMarkdownZip, importAll } from './portability.js';
+import { addMood, listMoods, deleteMood } from './moods.js';
 import { DOC_FORMAT } from '../shared/doc.js';
-import { dateInTz } from '../shared/dates.js';
+import { dateInTz, addDays } from '../shared/dates.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -112,6 +113,13 @@ export function createApp({ config, db, log = console }) {
 
   // ----- assistant (needs the ASSISTANT_TOKEN key; see docs/ASSISTANT.md) -----
   route('GET', '/api/assistant/ping', async ({ res }) => sendJson(res, 200, { ok: true, today: dateInTz(new Date(), config.tz), tz: config.tz }));
+  route('GET', '/api/assistant/moods', async ({ res, query }) => {
+    // ?days=N (default 14) counts back from today; ?from= and ?to= give exact days
+    const days = Math.min(Math.max(Number(query.get('days')) || 14, 1), 400);
+    const to = query.get('to') || dateInTz(new Date(), config.tz);
+    sendJson(res, 200, listMoods(db, config, { from: query.get('from') || addDays(to, -(days - 1)), to }));
+  });
+  route('POST', '/api/assistant/moods', async ({ res, body }) => sendJson(res, 200, addMood(db, config, body)));
   route('GET', '/api/assistant/overview', async ({ res }) => sendJson(res, 200, store.assistantOverview()));
   route('GET', '/api/assistant/notes', async ({ res, query }) => {
     sendJson(res, 200, store.listNotes({ tag: query.get('tag'), sub: query.get('sub') === '1', untagged: query.get('untagged') === '1', q: query.get('q') ?? '', limit: query.get('limit'), offset: query.get('offset'), sort: query.get('sort') }));
@@ -129,6 +137,11 @@ export function createApp({ config, db, log = console }) {
   route('POST', '/api/assistant/notes/:id/tasks/:taskId', async ({ res, params, body }) => {
     sendJson(res, 200, store.assistantUpdateTask(params.id, params.taskId, body));
   });
+
+  // ----- mood entries (see docs/MOOD.md) -----
+  route('GET', '/api/moods', async ({ res, query }) => sendJson(res, 200, listMoods(db, config, { from: query.get('from'), to: query.get('to') })));
+  route('PUT', '/api/moods/:id', async ({ res, params, body }) => sendJson(res, 200, addMood(db, config, body, params.id)));
+  route('DELETE', '/api/moods/:id', async ({ res, params }) => sendJson(res, 200, deleteMood(db, params.id)));
 
   // ----- tags & streams -----
   route('GET', '/api/tags', async ({ res }) => sendJson(res, 200, { tags: store.listTags() }));

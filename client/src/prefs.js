@@ -8,7 +8,7 @@ export const OPENING_PAGES = [['/', 'Dashboard'], ['/notes', 'Notes'], ['/tasks'
 // The dashboard's widgets: which are shown and in what order, kept on this device like the other display prefs.
 // [id, name], top to bottom as first shown. A widget added later appears at the end until it is moved.
 const DASHBOARD_KEY = 'hq-dashboard';
-export const DASHBOARD_WIDGETS = [['nav', 'New note button'], ['pinned', 'Starred tags'], ['tasks', 'Tasks'], ['note', 'Today’s note']];
+export const DASHBOARD_WIDGETS = [['nav', 'New note button'], ['pinned', 'Starred tags'], ['tasks', 'Tasks'], ['mood', 'Mood'], ['note', 'Today’s note']];
 /** [{ id, name, shown }] in the saved order. */
 export function getDashboard() {
   let saved = {};

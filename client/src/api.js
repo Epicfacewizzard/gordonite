@@ -61,6 +61,9 @@ export const api = {
   setFavorite: (tagId, favorite) => request('PUT', `/api/tags/${enc(tagId)}/favorite`, { favorite }),
   setSettings: (settings) => request('PUT', '/api/settings', settings),
   tasks: () => request('GET', '/api/tasks'),
+  moods: (from, to) => request('GET', `/api/moods${from ? `?from=${from}&to=${to}` : ''}`),
+  saveMood: (id, body) => request('PUT', `/api/moods/${enc(id)}`, body),
+  deleteMood: (id) => request('DELETE', `/api/moods/${enc(id)}`),
   notes: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));
     return request('GET', `/api/notes?${qs}`);

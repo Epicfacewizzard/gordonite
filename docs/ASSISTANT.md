@@ -33,6 +33,8 @@ Send `Authorization: Bearer <key>` and, for POST, `Content-Type: application/jso
 | `POST /api/assistant/notes/:id/append` `{ markdown }` | Add to the end of a note |
 | `POST /api/assistant/daily/append` `{ markdown, tag? }` | Add to today's entry (the tag Today shows, unless you name one) |
 | `POST /api/assistant/notes/:id/tasks/:taskId` `{ checked?, due?, start?, hidden? }` | Tick, date or hide one task |
+| `GET /api/assistant/moods?days=14` | Recent mood entries (1-5, note, time) with the streak (see MOOD.md) |
+| `POST /api/assistant/moods` `{ score, note?, at? }` | Log a mood entry |
 
 Example:
 
