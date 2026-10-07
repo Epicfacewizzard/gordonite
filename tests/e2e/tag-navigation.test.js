@@ -7,12 +7,14 @@ after(async () => { await browser.close(); });
 test('Tags creates tags without notes, parent groups fold, and Settings owns recovery links', () => withPhone(browser, async ({ app, page }) => {
   await app.api('POST', '/api/tags', { path: 'school/fall26' });
   await page.goto(`${app.url}/#/tags`);
-  await page.getByTestId('tag-link').waitFor();
+  await page.getByTestId('tag-link').waitFor({ state: 'attached' });
   const summary = page.locator('summary').filter({ hasText: 'school' });
+  assert.equal(await page.getByTestId('tag-link').isVisible(), false, 'parents start collapsed');
+  await summary.tap();
+  assert.equal(await page.getByTestId('tag-link').isVisible(), true);
   await summary.tap();
   assert.equal(await page.getByTestId('tag-link').isVisible(), false);
   await summary.tap();
-  assert.equal(await page.getByTestId('tag-link').isVisible(), true);
   await page.getByLabel('Tag to create').fill('projects/home');
   await page.getByTestId('open-tag-button').tap();
   await page.getByTestId('tag-link').filter({ hasText: 'projects/home' }).waitFor();

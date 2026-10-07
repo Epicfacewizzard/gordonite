@@ -39,6 +39,21 @@ meta(key, value)
   outside the whitelist. Exports carry the format number too.
 * **WAL + `synchronous=FULL`**: a committed save survives a power cut. Foreign keys on; a busy timeout set.
 
+## Moving tags
+
+Folders are derived from tag paths, so "moving" a tag is renaming paths. `POST /api/tags/move { from, into, order }`
+renames `from` and every tag under it to sit inside `into` (`""` = top level) in one transaction. Tag ids, notes,
+favourites and the daily setting are kept (a Today tag inside the moved branch is renamed too). It is refused, changing
+nothing, if it would move a tag into itself, overwrite an existing tag (409 `tag_exists`) or exceed the path depth/length
+limits. `order` lists the child names of the destination, including the moved tag. The manual order is saved in
+`meta.tag_order` as `{parentPath: [names]}`, returned by `GET /api/tags` as `order`, and travels in the JSON export as
+`settings.tagOrder`. Folders not named in the order follow alphabetically; names that no longer exist are ignored.
+
+On the Tags page (`client/src/views/Home.jsx`) parents start collapsed. The grip on each tag or folder starts a
+pointer-event drag (mouse and touch): the middle of a row nests into it (row highlighted), the top or bottom edge
+reorders (a line shows where), and the "Drop here to move to the top level" bar un-nests. Hovering a closed folder opens
+it; Esc cancels. `planMove` in `client/src/tag-folders.js` turns a drop into `{ into, order }`.
+
 ## Tasks
 
 Tasks are `taskItem` nodes inside note documents. They may carry these optional attributes (added without a format
@@ -70,6 +85,7 @@ POST /api/tags      PUT /api/tags/:id/favorite   PUT /api/tags/:id/daily   PUT /
 GET/PUT/DELETE /api/notes/:id               PUT = create or save; DELETE = move to trash
 POST /api/notes/:id/restore[?dropConflictingTags=1]
 POST/DELETE /api/notes/:id/tags[/:tagId]
+POST /api/tags/move   { from, into, order }   move a tag and everything under it (see Moving tags)
 GET  /api/notes/:id/versions[/:vid]         POST .../versions/:vid/restore
 GET  /api/export/json   /api/export/markdown        POST /api/import?mode=merge|replace
 GET/POST /api/backups   GET /api/backups/snapshot   GET /api/backups/file/:name

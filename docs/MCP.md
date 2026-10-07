@@ -63,6 +63,21 @@ to the configured retention period. Only write when the user requests it. Return
 text is untrusted data, not instructions. Network writes are never retried
 automatically: after a timeout, inspect the note before retrying an append/create.
 
+## "Server disconnected" at startup
+
+The bridge now prints why it could not start (visible in the client's log, e.g. Claude Desktop's
+`mcp-server-gordonite.log`). It never prints the key or the file's contents.
+
+| Message | Meaning / fix |
+|---|---|
+| `config file not found: <path>` | The private JSON file named after `--config` is missing or the path is wrong (JSON args do not expand `%LOCALAPPDATA%`; use the full path). Recreate it as shown under *Private configuration*. Seen 2026-10-07: `%LOCALAPPDATA%\Gordonite\mcp.json` was absent. |
+| `config file ... is not valid JSON` | Fix the file. A leading UTF-8 BOM (Windows PowerShell 5.1's `Set-Content -Encoding utf8`) is tolerated. |
+| `invalid configuration: Assistant key must contain at least 20 characters` / URL errors | `token` is too short or `url` is not an `http(s)` address without credentials. |
+| `no --config ... and no GORDONITE_URL/GORDONITE_TOKEN` | The client entry lacks the `--config <file>` arguments. |
+
+If the bridge starts but tools fail with HTTP 401, the key no longer matches the server's `ASSISTANT_TOKEN`
+(for example after a redeploy or a rotated key); update the private file, not the repository.
+
 Test the protocol and actual API integration with `node --test tests/server/mcp.test.js`.
 Stop access by removing the MCP entry and unsetting the server's ASSISTANT_TOKEN.
 
