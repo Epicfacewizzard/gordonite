@@ -4,10 +4,20 @@
 # It asks for the server password (two or three times: copy, log in, sudo). Nothing secret is stored or printed.
 param(
   [string]$Server = 'gordon@192.168.1.50',
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$Inspect   # read-only: show what the server has (images, containers, which Compose file) and change nothing
 )
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
+
+if ($Inspect) {
+  Write-Host "Looking at $Server (read-only; password prompts: copy, login, sudo)..."
+  scp "deploy/casaos-inspect.sh" "$Server`:/home/gordon/gordonite/releases/"
+  if ($LASTEXITCODE -ne 0) { throw 'Copy failed.' }
+  $inspect = '/home/gordon/gordonite/releases/casaos-inspect.sh'
+  ssh -t $Server ('sed -i ''s/\r$//'' {0} && bash {0}' -f $inspect)
+  exit $LASTEXITCODE
+}
 
 if (git status --porcelain) { throw 'There are uncommitted changes. The release is built from the last commit, so commit (or stash) first.' }
 git fetch -q
