@@ -45,13 +45,41 @@ export function createBridge({ url, token }) {
   return server;
 }
 
-if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+// Read the private configuration. Every failure says which step failed, and none of them prints the key or the
+// file's contents (a client shows this text in its log, e.g. Claude Desktop's mcp-server-gordonite.log).
+function readConfig(argv, env) {
+  const at = argv.indexOf('--config');
+  if (at < 0) {
+    if (!env.GORDONITE_URL && !env.GORDONITE_TOKEN) throw new Error('no --config <file> and no GORDONITE_URL/GORDONITE_TOKEN set. Add "--config", "<full path to the private JSON file>" to the client entry.');
+    return { url: env.GORDONITE_URL, token: env.GORDONITE_TOKEN };
+  }
+  const file = argv[at + 1];
+  if (!file || file.startsWith('--')) throw new Error('--config needs the path of the private JSON file after it');
+  let text;
   try {
-    const configFile = process.argv[process.argv.indexOf('--config') + 1];
-    const config = process.argv.includes('--config') ? JSON.parse(fs.readFileSync(configFile, 'utf8')) : { url: process.env.GORDONITE_URL, token: process.env.GORDONITE_TOKEN };
-    await createBridge(config).connect(new StdioServerTransport());
+    text = fs.readFileSync(file, 'utf8');
+  } catch (err) {
+    throw new Error(err.code === 'ENOENT' ? `config file not found: ${file}. Use the full path (JSON arguments do not expand %LOCALAPPDATA%) and create the file as described in docs/MCP.md.` : `config file could not be read: ${file} (${err.code ?? 'error'})`);
+  }
+  try {
+    return JSON.parse(text.replace(/^﻿/, '')); // a UTF-8 BOM (Windows PowerShell's default) is fine
   } catch {
-    console.error('Gordonite MCP could not start. Supply --config <private JSON file> containing url and token, or GORDONITE_URL/GORDONITE_TOKEN.');
+    throw new Error(`config file ${file} is not valid JSON. Expected {"url":"http://...","token":"..."}`);
+  }
+}
+
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+  let bridge;
+  try {
+    const config = readConfig(process.argv, process.env);
+    try {
+      bridge = createBridge(config ?? {});
+    } catch (err) {
+      throw new Error(`invalid configuration: ${err.message}`);
+    }
+    await bridge.connect(new StdioServerTransport());
+  } catch (err) {
+    console.error(`Gordonite MCP could not start: ${err.message}`);
     process.exitCode = 1;
   }
 }
