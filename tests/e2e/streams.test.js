@@ -1,7 +1,7 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { launch, withPhone, open, editor, waitSaved, tap, structure, caret, seedNote, paragraphDoc } from './harness.js';
-import { addDays } from '../../shared/dates.js';
+import { launch, withPhone, open, editor, waitSaved, tap, structure, caret, seedNote, paragraphDoc, TZ } from './harness.js';
+import { addDays, dateInTz } from '../../shared/dates.js';
 
 let browser;
 before(async () => (browser = await launch()));
@@ -80,7 +80,7 @@ describe('stage 3: tags and daily streams', () => {
 
   test('tags: cannot remove the last tag; a clash with another note that day is explained', () =>
     withPhone(browser, async ({ page, app }) => {
-      await seedNote(app, { tags: ['b-tag'], date: '2026-10-05', doc: paragraphDoc('b today') });
+      await seedNote(app, { tags: ['b-tag'], date: dateInTz(new Date(), TZ), doc: paragraphDoc('b today') }); // today, so that a-tag's note for today clashes with it
       await open(page, 'a-tag');
       await editor(page).tap();
       await type(page, 'a today');
