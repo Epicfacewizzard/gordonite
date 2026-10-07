@@ -17,8 +17,8 @@ test('MCP stdio handshake, tool discovery, authenticated writes/readback, histor
   try {
     c = await connect(token);
     const tools = (await c.listTools()).tools;
-    assert.equal(tools.length, 11);
-    assert.ok(!tools.some(t => /delete|replace/.test(t.name)));
+    assert.equal(tools.length, 13);
+    assert.ok(!tools.some(t => /delete|purge/.test(t.name)), 'no permanent delete or purge tool');
     const call = async (name, args = {}) => {
       const r = await c.callTool({ name, arguments: args });
       assert.ok(!r.isError, JSON.stringify(r));
@@ -39,6 +39,14 @@ test('MCP stdio handshake, tool discovery, authenticated writes/readback, histor
     await call('append_note', { noteId, markdown: 'Appended through MCP' });
     assert.match(JSON.stringify(await call('get_note', { noteId })), /Appended through MCP/);
     assert.ok(app.db.prepare('SELECT COUNT(*) n FROM note_versions WHERE note_id=?').get(noteId).n > 0);
+    const read = await call('get_note', { noteId });
+    await call('replace_text', { noteId, expectedRevision: read.revision, find: 'Appended through MCP', replace: 'Edited through MCP' });
+    assert.match(JSON.stringify(await call('get_note', { noteId })), /Edited through MCP/);
+    const stale = await c.callTool({ name: 'replace_text', arguments: { noteId, expectedRevision: read.revision, find: 'Edited', replace: 'X' } });
+    assert.equal(stale.isError, true, 'a stale revision is refused');
+    assert.match(stale.content[0].text, /changed since you read it/, 'the reason reaches the assistant');
+    const fresh = await call('get_note', { noteId });
+    assert.equal((await c.callTool({ name: 'replace_section', arguments: { noteId, expectedRevision: fresh.revision, heading: 'Nothing', markdown: 'x' } })).isError, true, 'unknown heading refused');
     assert.ok((await call('search_notes', { tag: 'mcp-test' })).notes.length > 0);
     assert.equal((await c.callTool({ name: 'trash_note', arguments: { noteId, expectedRevision: 1, confirmed: true } })).isError, true, 'stale revision refused');
     const headers = { authorization: `Bearer ${token}` };

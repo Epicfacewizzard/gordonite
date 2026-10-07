@@ -133,6 +133,8 @@ export function createApp({ config, db, log = console }) {
   });
   route('POST', '/api/assistant/notes', async ({ res, body }) => sendJson(res, 200, store.assistantCreateNote(body)));
   route('POST', '/api/assistant/notes/:id/append', async ({ res, params, body }) => sendJson(res, 200, store.assistantAppend(params.id, body.markdown)));
+  route('POST', '/api/assistant/notes/:id/replace-text', async ({ res, params, body }) => sendJson(res, 200, store.assistantReplaceText(params.id, body)));
+  route('POST', '/api/assistant/notes/:id/replace-section', async ({ res, params, body }) => sendJson(res, 200, store.assistantReplaceSection(params.id, body)));
   route('POST', '/api/assistant/daily/append', async ({ res, body }) => sendJson(res, 200, store.assistantAppendDaily(body)));
   route('POST', '/api/assistant/notes/:id/tasks/:taskId', async ({ res, params, body }) => {
     sendJson(res, 200, store.assistantUpdateTask(params.id, params.taskId, body));

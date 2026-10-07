@@ -803,6 +803,80 @@ describe('assistant access', () => {
     assert.equal((await as('POST', `/notes/${id}/append`, { markdown: '' })).status, 400);
   });
 
+  test('replace-text changes exact text, keeps bold and task ids, needs the revision it read, and keeps the old text in History', async () => {
+    const md = '# Plan\n\nWe agreed on the **old plan** today.\n\n- [ ] Send the deck due 2026-12-01\n\nold plan again';
+    const { id } = (await as('POST', '/notes', { markdown: md, date: '2026-10-05' })).json;
+    const read = async () => (await as('GET', `/notes/${id}`)).json;
+    const edit = (body) => as('POST', `/notes/${id}/replace-text`, body);
+    const before = await read();
+    const taskId = before.tasks[0].id;
+
+    assert.equal((await edit({ find: 'old plan', replace: 'x', expectedRevision: before.revision })).status, 409, 'two matches need more context');
+    assert.equal((await edit({ find: 'old plan', replace: 'x' })).status, 400, 'the revision is required');
+    assert.equal((await edit({ find: 'old plan', replace: 'x', expectedRevision: before.revision + 5 })).status, 409, 'a stale revision is refused');
+    assert.equal((await edit({ find: 'nope', replace: 'x', expectedRevision: before.revision })).status, 404);
+    assert.equal((await edit({ find: '', replace: 'x', expectedRevision: before.revision })).status, 400);
+    assert.equal((await read()).revision, before.revision, 'nothing changed by the refusals');
+
+    // spans plain and bold text; the replacement takes the first character's formatting (plain)
+    let r = await edit({ find: 'the old plan', replace: 'the new plan', expectedRevision: before.revision });
+    assert.deepEqual([r.status, r.json.replaced, r.json.revision], [200, 1, before.revision + 1]);
+    assert.match((await read()).markdown, /We agreed on the new plan today\./);
+
+    // inside a bold run it stays bold; inside a task it keeps the id and the date
+    r = await edit({ find: 'old plan again', replace: 'later', expectedRevision: r.json.revision });
+    assert.equal(r.status, 200);
+    r = await edit({ find: 'Send the deck', replace: 'Email the deck', expectedRevision: r.json.revision });
+    const after = await read();
+    assert.equal(r.status, 200);
+    assert.deepEqual(after.tasks.map((x) => [x.id, x.text, x.due]), [[taskId, 'Email the deck due 2026-12-01', '2026-12-01']]);
+    assert.match(after.markdown, /\nlater$/m);
+    assert.ok((await t.api('GET', `/api/notes/${id}/versions`)).json.versions.length >= 1, 'the old text is in History');
+
+    const bold = (await as('POST', '/notes', { markdown: 'Keep **bold words** here' })).json;
+    const b = await as('POST', `/notes/${bold.id}/replace-text`, { find: 'bold words', replace: 'new words', expectedRevision: bold.revision });
+    assert.equal(b.status, 200);
+    assert.match((await as('GET', `/notes/${bold.id}`)).json.markdown, /Keep \*\*new words\*\* here/);
+
+    const many = (await as('POST', '/notes', { markdown: 'a cat\n\n- a cat\n\na cat' })).json;
+    const m = await as('POST', `/notes/${many.id}/replace-text`, { find: 'cat', replace: 'dog', all: true, expectedRevision: many.revision });
+    assert.deepEqual([m.status, m.json.replaced], [200, 3]);
+    assert.doesNotMatch((await as('GET', `/notes/${many.id}`)).json.markdown, /cat/);
+    const gone = await as('POST', `/notes/${many.id}/replace-text`, { find: 'a dog', replace: '', all: true, expectedRevision: m.json.revision });
+    assert.equal(gone.status, 200, 'an empty replacement removes the text');
+  });
+
+  test('replace-section rewrites the body under a heading, keeps the rest and its tasks, and can remove a section', async () => {
+    const md = '# Title\n\nintro\n\n## Changes\nold body\n\n### Detail\nold detail\n\n## Next\nnext body\n\n- [ ] keep me due 2026-12-01';
+    const { id } = (await as('POST', '/notes', { markdown: md })).json;
+    const read = async () => (await as('GET', `/notes/${id}`)).json;
+    const edit = (body) => as('POST', `/notes/${id}/replace-section`, body);
+    const before = await read();
+    const taskId = before.tasks[0].id;
+
+    assert.equal((await edit({ heading: 'Changes', markdown: 'x' })).status, 400, 'the revision is required');
+    assert.equal((await edit({ heading: 'Nope', markdown: 'x', expectedRevision: before.revision })).status, 404);
+    assert.equal((await edit({ heading: 'Changes', markdown: '', expectedRevision: before.revision })).status, 400, 'blanking needs includeHeading');
+
+    let r = await edit({ heading: '## changes', markdown: 'fresh body\n\n- [ ] new item', expectedRevision: before.revision });
+    assert.equal(r.status, 200);
+    let note = await read();
+    assert.match(note.markdown, /## Changes\n\nfresh body\n\n- \[ \] new item\n\n## Next\n\nnext body/);
+    assert.doesNotMatch(note.markdown, /old body|old detail|### Detail/, 'the sub-heading and its text were part of the section');
+    assert.match(note.markdown, /^# Title\n\nintro\n\n## Changes/);
+    assert.equal(note.tasks.find((x) => x.text.startsWith('keep me')).id, taskId, 'tasks outside the section are untouched');
+
+    r = await edit({ heading: 'Changes', markdown: '', includeHeading: true, expectedRevision: r.json.revision });
+    assert.equal(r.status, 200);
+    note = await read();
+    assert.doesNotMatch(note.markdown, /Changes|fresh body/);
+    assert.match(note.markdown, /intro\n\n## Next/);
+    assert.ok((await t.api('GET', `/api/notes/${id}/versions`)).json.versions.length >= 1);
+
+    const twin = (await as('POST', '/notes', { markdown: '## Same\none\n\n## Same\ntwo' })).json;
+    assert.equal((await as('POST', `/notes/${twin.id}/replace-section`, { heading: 'Same', markdown: 'x', expectedRevision: twin.revision })).status, 409);
+  });
+
   test("daily/append: writes into today's entry of the Today tag, creating it once", async () => {
     const today = dateInTz(new Date(), t.config.tz);
     const a = (await as('POST', '/daily/append', { markdown: 'Morning thought' })).json;

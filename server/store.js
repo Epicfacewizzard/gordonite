@@ -272,6 +272,91 @@ export class Store {
     return { id, revision: res.revision };
   }
 
+  // Edits to text that is already there. Both need the revision the assistant last read, so they cannot overwrite a
+  // newer version, and both keep the previous text as a version (⋯ → History to restore).
+  #reviewed(note, expectedRevision) {
+    if (!Number.isInteger(expectedRevision)) throw new HttpError(400, 'bad_revision', '"expectedRevision" must be the revision you last read');
+    if (expectedRevision !== note.revision) throw new HttpError(409, 'revision_conflict', 'The note changed since you read it. Read it again and retry');
+  }
+
+  // Replace exact text inside a paragraph, heading or list item (plain text: no ** or \ from the Markdown view).
+  // The replacement takes the bold/italic of the first character it replaces. Task ids, dates and ticks are untouched.
+  assistantReplaceText(id, { find, replace, all, expectedRevision }) {
+    const note = this.#liveNote(id);
+    this.#reviewed(note, expectedRevision);
+    if (typeof find !== 'string' || !find) throw new HttpError(400, 'bad_find', '"find" must be some text');
+    if (typeof replace !== 'string') throw new HttpError(400, 'bad_replace', '"replace" must be text (use "" to remove the found text)');
+    if (find.length > 5_000 || replace.length > 100_000) throw new HttpError(400, 'too_long', '"find" or "replace" is too long');
+    const doc = structuredClone(note.doc);
+    const blocks = [];
+    const collect = (node) => {
+      if (node.type === 'paragraph' || node.type === 'heading') blocks.push(node);
+      else for (const child of node.content ?? []) collect(child);
+    };
+    collect(doc);
+    const hits = [];
+    for (const block of blocks) {
+      const chars = [];
+      for (const n of block.content ?? []) {
+        if (n.type === 'hardBreak') chars.push({ ch: '\n', hard: true });
+        else for (const ch of n.text) chars.push({ ch, marks: n.marks });
+      }
+      const text = chars.map((c) => c.ch).join('');
+      const at = [];
+      for (let i = text.indexOf(find); i >= 0; i = text.indexOf(find, i + find.length)) at.push(i);
+      if (at.length) hits.push({ block, chars, at });
+    }
+    const count = hits.reduce((n, h) => n + h.at.length, 0);
+    if (count === 0) throw new HttpError(404, 'text_not_found', 'That text is not in the note. "find" is matched against plain text inside one paragraph, heading or list item, without Markdown symbols');
+    if (count > 1 && all !== true) throw new HttpError(409, 'ambiguous', `Found ${count} matches. Use more surrounding text to pick one, or set all:true to change every match`, { matches: count });
+    for (const { block, chars, at } of hits) {
+      const out = [];
+      let from = 0;
+      for (const start of at) {
+        out.push(...chars.slice(from, start));
+        const marks = chars[start].marks;
+        for (const ch of replace) out.push(ch === '\n' ? { ch, hard: true } : { ch, marks });
+        from = start + find.length;
+      }
+      out.push(...chars.slice(from));
+      const content = [];
+      for (const c of out) {
+        const last = content.at(-1);
+        if (c.hard) content.push({ type: 'hardBreak' });
+        else if (last?.type === 'text' && JSON.stringify(last.marks ?? null) === JSON.stringify(c.marks ?? null)) last.text += c.ch;
+        else content.push({ type: 'text', text: c.ch, ...(c.marks?.length ? { marks: c.marks } : {}) });
+      }
+      if (content.length) block.content = content;
+      else delete block.content;
+    }
+    const res = this.saveNote(id, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
+    return { id, revision: res.revision, replaced: count };
+  }
+
+  // Replace the body under a heading (up to the next heading of the same or a higher level) with new Markdown.
+  // The heading itself stays unless includeHeading is true, in which case the Markdown replaces it too ("" removes the
+  // whole section). Tasks inside the replaced part are new tasks; tasks outside it are untouched.
+  assistantReplaceSection(id, { heading, markdown, includeHeading, expectedRevision }) {
+    const note = this.#liveNote(id);
+    this.#reviewed(note, expectedRevision);
+    if (typeof heading !== 'string' || !heading.replace(/^#+\s*/, '').trim()) throw new HttpError(400, 'bad_heading', '"heading" must be the heading text');
+    if (typeof markdown !== 'string' || markdown.length > 500_000) throw new HttpError(400, 'bad_markdown', '"markdown" must be text');
+    if (!markdown.trim() && includeHeading !== true) throw new HttpError(400, 'bad_markdown', 'Empty "markdown" would only blank the section: set includeHeading:true to remove it entirely');
+    const want = heading.replace(/^#+\s*/, '').trim().toLowerCase();
+    const top = note.doc.content ?? [];
+    const matches = top.flatMap((n, i) => (n.type === 'heading' && plainText({ type: 'doc', content: [n] }).trim().toLowerCase() === want ? [i] : []));
+    if (matches.length === 0) throw new HttpError(404, 'heading_not_found', 'No heading with that text. Use the heading text as shown, without the # marks');
+    if (matches.length > 1) throw new HttpError(409, 'ambiguous', `${matches.length} headings have that text`, { matches: matches.length });
+    const start = matches[0];
+    const level = top[start].attrs.level;
+    let end = top.findIndex((n, i) => i > start && n.type === 'heading' && n.attrs.level <= level);
+    if (end < 0) end = top.length;
+    const blocks = markdown.trim() ? markdownToDoc(markdown).content : [];
+    const content = [...top.slice(0, includeHeading ? start : start + 1), ...blocks, ...top.slice(end)];
+    const res = this.saveNote(id, { baseRevision: note.revision, doc: { ...note.doc, content: content.length ? content : [{ type: 'paragraph' }] }, docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
+    return { id, revision: res.revision };
+  }
+
   // Add to today's entry in a tag (the Today screen's tag by default), creating it if it is not there yet.
   assistantAppendDaily({ markdown, tag }) {
     const path = normalizeTag(tag ?? this.getSettings().dailyTag);
