@@ -1,4 +1,5 @@
-// Explicit one-way import of the previously selected vault folders. Never writes to the vault.
+// Explicit one-way import of the vault's top-level folders (minus SKIP below). Never writes to the vault.
+// Dry run by default; add --apply to merge into the server.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -26,7 +27,7 @@ const stableId = (value) => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20)}`;
 };
 const comparable = (doc) => JSON.stringify(doc, (key, value) => key === 'id' || value === null || value === false ? undefined : value);
-const tags = new Map(), notes = [], report = { scanned: 0, unchanged: 0, new: 0, changedPreservedAsVersions: 0 };
+const tags = new Map(), notes = [], report = { scanned: 0, unchanged: 0, new: 0, changedPreservedAsVersions: 0, byFolder: {} };
 const now = new Date().toISOString();
 const walk = (folder) => {
   for (const file of fs.readdirSync(folder, { withFileTypes: true })) {
@@ -46,7 +47,9 @@ const walk = (folder) => {
     if (invalid) throw new Error(`Invalid document at ${relative}: ${invalid}`);
     report.scanned++;
     if (existing && [existing.doc, ...(existing.versions ?? []).map((v) => v.doc)].some((d) => comparable(d) === comparable(doc))) { report.unchanged++; continue; }
-    const tag = normalizeTag(path.posix.dirname(relative));
+    // Folder names become tag paths; characters tags cannot hold (parentheses, &, ...) are dropped, the folder structure stays.
+    const tag = normalizeTag(path.posix.dirname(relative).split('/').map((s) => s.replace(/[^\p{L}\p{N}_.\s-]/gu, '').trim()).join('/'));
+    report.byFolder[relative.split('/')[0]] = (report.byFolder[relative.split('/')[0]] ?? 0) + 1;
     if (!tag) throw new Error(`Unsupported folder tag: ${relative}`);
     if (!tags.has(tag)) tags.set(tag, { id: stableId(`gordonite-vault-tag:${tag}`), path: tag, createdAt: now, daily: false, favorite: false });
     const original = path.join(stage, 'originals', relative);
@@ -55,7 +58,11 @@ const walk = (folder) => {
     report[existing ? 'changedPreservedAsVersions' : 'new']++;
   }
 };
-for (const folder of ['00 Inbox', '05 People', '10 School', '20 CSS']) walk(path.join(vault, folder));
+// Every top-level vault folder except hidden ones and those the owner left out. Root-level files are not imported.
+const SKIP = new Set(['99 System']);
+const folders = fs.readdirSync(vault, { withFileTypes: true }).filter((f) => f.isDirectory() && !f.isSymbolicLink() && !f.name.startsWith('.') && !SKIP.has(f.name)).map((f) => f.name).sort();
+report.folders = folders;
+for (const folder of folders) walk(path.join(vault, folder));
 const payload = { format: 'hq-export', formatVersion: 1, exportedAt: now, homeTimeZone: old.homeTimeZone, tags: [...tags.values()], notes };
 fs.writeFileSync(path.join(stage, 'import.json'), JSON.stringify(payload));
 if (flag === '--apply' && notes.length) report.import = await request('/api/import?mode=merge', payload);
