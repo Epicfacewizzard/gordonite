@@ -1367,3 +1367,19 @@ body:not([data-editing]) .today .toolbar {
 .note-text li[data-move-drop='before'] { box-shadow: 0 -3px 0 var(--accent); }
 .note-text li[data-move-drop='after'] { box-shadow: 0 3px 0 var(--accent); }
 @media (hover: hover) { .note-task-grip { opacity: 0; } .note-text li:hover > .note-task-grip, .note-task-grip:focus-visible { opacity: 1; } }
+
+/* ---------- moving tags (drag the grip) ---------- */
+.drag-handle { flex: none; width: 32px; min-height: 44px; border: 0; background: none; color: var(--muted); font-size: 1rem; letter-spacing: -3px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tag-branch summary { display: flex; align-items: center; }
+.tag-branch summary .folder-title { flex: 1; min-width: 0; }
+[data-drop] { position: relative; }
+.home.dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+.drag-source { opacity: .4; }
+.drop-into { background: var(--sel); outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.drop-before::before, .drop-after::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--accent); pointer-events: none; z-index: 2; }
+.drop-before::before { top: -2px; }
+.drop-after::after { bottom: -2px; }
+.tag-root-drop { position: sticky; bottom: 8px; z-index: 3; background: var(--surface); margin-top: 12px; padding: 14px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; color: var(--muted); }
+.tag-root-drop.drop-into { border-style: solid; color: var(--text); }
+.drag-ghost { position: fixed; z-index: 50; padding: 6px 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 4px 14px rgb(0 0 0 / .25); pointer-events: none; font-weight: 600; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

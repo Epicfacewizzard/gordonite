@@ -1,6 +1,6 @@
 import { tx } from './db.js';
 import { uuid } from '../shared/ids.js';
-import { normalizeTag } from '../shared/tags.js';
+import { normalizeTag, MAX_DEPTH } from '../shared/tags.js';
 import { dateInTz, isValidDateString, isValidTime, timeInTz, hasStarted, isOverdue, isValidTimeZone } from '../shared/dates.js';
 import { DOC_FORMAT, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
 import { extractTasks, updateTask } from '../shared/tasks.js';
@@ -161,6 +161,64 @@ export class Store {
     const path = normalizeTag(rawPath);
     if (!path) throw new HttpError(400, 'bad_tag', 'Tag names use letters, numbers, - _ . and / for sub-tags');
     return tx(this.db, () => this.#ensureTag(path));
+  }
+
+  // The order folders are shown in, saved as {parentPath: [childName, ...]} ('' is the top level). Folders are derived
+  // from tag paths, so the order lives in the meta table. Names that no longer exist are ignored when it is read.
+  getTagOrder() {
+    const raw = this.db.prepare("SELECT value FROM meta WHERE key = 'tag_order'").get()?.value;
+    try {
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  // Move a tag, with everything under it, to be a child of `into` ('' = top level) and set the order of that
+  // parent's children (`order` lists the child names, including the moved one). Tag ids, notes and favourites stay
+  // as they are; only paths change. Refuses to overwrite an existing tag or to move a tag into itself.
+  moveTag({ from, into, order }) {
+    const source = normalizeTag(from);
+    const parent = into === '' || into == null ? '' : normalizeTag(into);
+    if (!source || parent === null) throw new HttpError(400, 'bad_tag', 'Choose a valid tag to move and a valid place to put it');
+    if (parent === source || parent.startsWith(source + '/')) throw new HttpError(400, 'bad_move', 'A tag cannot be moved into itself');
+    const leaf = source.split('/').at(-1);
+    const target = parent ? `${parent}/${leaf}` : leaf;
+    const oldParent = source.includes('/') ? source.slice(0, source.lastIndexOf('/')) : '';
+    if (order !== undefined && (!Array.isArray(order) || order.length > 500 || order.some((n) => typeof n !== 'string' || n.includes('/') || normalizeTag(n) !== n) || !order.includes(leaf))) {
+      throw new HttpError(400, 'bad_order', '"order" must list the names inside the destination, including the moved tag');
+    }
+    return tx(this.db, () => {
+      const like = source.replace(/[\\%_]/g, (c) => '\\' + c) + '/%';
+      const moving = this.db.prepare("SELECT id, path FROM tags WHERE path = ? OR path LIKE ? ESCAPE '\\'").all(source, like);
+      if (moving.length === 0) throw new HttpError(404, 'not_found', 'Tag not found');
+      if (target !== source) {
+        const renamed = moving.map((t) => ({ id: t.id, path: target + t.path.slice(source.length) }));
+        if (renamed.some((t) => !normalizeTag(t.path) || t.path.split('/').length > MAX_DEPTH)) {
+          throw new HttpError(400, 'too_deep', 'That would make the tag path too long or too deep');
+        }
+        const taken = this.db.prepare('SELECT path FROM tags WHERE path = ?');
+        for (const t of renamed) {
+          if (taken.get(t.path)) throw new HttpError(409, 'tag_exists', `A tag named ${t.path} already exists`);
+        }
+        const set = this.db.prepare('UPDATE tags SET path = ? WHERE id = ?');
+        for (const t of renamed) set.run(t.path, t.id);
+        const daily = this.db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get()?.value;
+        if (daily && (daily === source || daily.startsWith(source + '/'))) {
+          this.db.prepare("UPDATE meta SET value = ? WHERE key = 'daily_tag'").run(target + daily.slice(source.length));
+        }
+      }
+      const next = {};
+      for (const [key, list] of Object.entries(this.getTagOrder())) {
+        const inside = key === source || key.startsWith(source + '/');
+        next[inside ? target + key.slice(source.length) : key] = key === oldParent ? list.filter((n) => n !== leaf) : list;
+      }
+      if (order !== undefined) next[parent] = order;
+      else if (next[parent]) next[parent] = [...next[parent].filter((n) => n !== leaf), leaf];
+      this.db.prepare("INSERT INTO meta (key, value) VALUES ('tag_order', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(next));
+      return { from: source, path: target };
+    });
   }
 
   // ---------- for the assistant ----------

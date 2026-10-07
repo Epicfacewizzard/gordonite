@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased — Tags page: collapsed parents and drag to move
+
+The Tags page now opens with every parent collapsed. Dragging a tag by its grip puts it inside another tag (the target is highlighted), takes it back out (top-level bar or between tags at another level), or reorders it among siblings (a line shows the position). Moving renames the tag path of the tag and its children; notes, ids and favourites are unchanged. Manual order is stored in settings (`tag_order`) and exported/imported with settings. No schema migration. Validation: server and browser tests (`tests/server/tag-move.test.js`, `tests/e2e/tag-move.test.js`). Known limit: dragging uses a grip and needs a pointer or finger (no keyboard-only move yet). Not yet deployed.
+
 ## 0.1.0 — 2026-10-06
 
 Settings now displays “Gordonite · Version 0.1.0” at the bottom, using the version returned by the server configuration API. This is the application release version, not an individual Git commit number. Keep it aligned with `APP_VERSION` in the server when numbering future releases. A missing version displays “unavailable”.

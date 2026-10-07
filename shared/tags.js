@@ -2,7 +2,7 @@
 // a parent tag does not include its children.
 const SEGMENT = /^[\p{L}\p{N}_.-]+$/u;
 const MAX_LEN = 100;
-const MAX_DEPTH = 6;
+export const MAX_DEPTH = 6;
 
 export function normalizeTag(input) {
   if (typeof input !== 'string') return null;

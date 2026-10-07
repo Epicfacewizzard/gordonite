@@ -29,6 +29,7 @@ export function NotesView() {
   const [tag, setTag] = useState(() => savedFilter().tag || '');
   const [sub, setSub] = useState(() => savedFilter().sub ?? true);
   const [tags, setTags] = useState([]);
+  const [tagOrder, setTagOrder] = useState({});
   const [list, setList] = useState({ status: 'loading', notes: [], hasMore: false, error: null });
   const run = useRef(0);
   useEffect(() => {
@@ -37,7 +38,7 @@ export function NotesView() {
   const choose = (path) => { setTag(path); setSub(true); };
 
   useEffect(() => {
-    api.tags().then((r) => setTags(r.tags)).catch(() => {});
+    api.tags().then((r) => { setTags(r.tags); setTagOrder(r.order ?? {}); }).catch(() => {});
   }, []);
 
   const params = (offset) => ({ q: q.trim(), tag: tag && tag !== '__untagged' ? tag : '', sub: tag && tag !== '__untagged' ? sub : false, untagged: tag === '__untagged', limit: PAGE, offset });
@@ -79,7 +80,7 @@ export function NotesView() {
         <h2>Folders</h2>
         <button type="button" class="folder-select" aria-current={tag === '' ? 'true' : undefined} onClick={() => choose('')}>All notes</button>
         <button type="button" class="folder-select" aria-current={tag === '__untagged' ? 'true' : undefined} onClick={() => choose('__untagged')}>No tag</button>
-        <ul>{tagFolders(tags).map((folder) => <FolderBranch key={folder.path} folder={folder} selected={tag} choose={choose} />)}</ul>
+        <ul>{tagFolders(tags, tagOrder).map((folder) => <FolderBranch key={folder.path} folder={folder} selected={tag} choose={choose} />)}</ul>
         <p class="small muted">Folders follow your tags. A note can appear in more than one folder.</p>
       </nav>
       <section class="notes-results" aria-label="Notes in selected folder" aria-busy={list.status === 'loading'}>

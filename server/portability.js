@@ -13,6 +13,19 @@ export const EXPORT_FORMAT_VERSION = 1;
 
 // ---------- full-fidelity JSON export ----------
 
+function exportSettings(db) {
+  const meta = (key) => db.prepare('SELECT value FROM meta WHERE key = ?').get(key)?.value;
+  const settings = {};
+  if (meta('daily_tag')) settings.dailyTag = meta('daily_tag');
+  try {
+    const order = meta('tag_order') ? JSON.parse(meta('tag_order')) : null;
+    if (order && Object.keys(order).length) settings.tagOrder = order;
+  } catch {
+    /* an unreadable order is dropped; tags are shown alphabetically */
+  }
+  return settings;
+}
+
 export function exportAll(db, cfg) {
   const tags = db
     .prepare('SELECT id, path, created_at AS createdAt, favorite, daily FROM tags ORDER BY path')
@@ -58,7 +71,7 @@ export function exportAll(db, cfg) {
     formatVersion: EXPORT_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
     homeTimeZone: cfg.tz,
-    settings: db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get() ? { dailyTag: db.prepare("SELECT value FROM meta WHERE key = 'daily_tag'").get().value } : {},
+    settings: exportSettings(db),
     tags,
     notes,
   };
@@ -176,6 +189,14 @@ export function importAll(db, cfg, data, mode) {
     if (dailyTag) {
       const set = db.prepare("INSERT INTO meta (key, value) VALUES ('daily_tag', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING'));
       set.run(dailyTag);
+    }
+    const tagOrder = data.settings?.tagOrder;
+    if (tagOrder && typeof tagOrder === 'object' && !Array.isArray(tagOrder)) {
+      const clean = {};
+      for (const [parent, names] of Object.entries(tagOrder)) {
+        if (Array.isArray(names) && (parent === '' || normalizeTag(parent) === parent)) clean[parent] = names.filter((n) => typeof n === 'string' && n && !n.includes('/')).slice(0, 500);
+      }
+      db.prepare("INSERT INTO meta (key, value) VALUES ('tag_order', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING')).run(JSON.stringify(clean));
     }
     if (typeof data.homeTimeZone === 'string' && isValidTimeZone(data.homeTimeZone)) {
       db.prepare("INSERT INTO meta (key, value) VALUES ('home_tz', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING')).run(data.homeTimeZone);

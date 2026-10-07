@@ -21,7 +21,8 @@ describe('stage 3: tags and daily streams', () => {
       await seedNote(app, { tags: ['daily-jots'], date: '2026-10-01', doc: paragraphDoc('older') });
       await seedNote(app, { tags: ['school/fall26'], date: '2026-10-02', doc: paragraphDoc('class notes') });
       await page.goto(`${app.url}/#/tags`);
-      await page.waitForSelector('[data-testid="tag-list"] a');
+      await page.waitForSelector('[data-testid="tag-list"] a', { state: 'attached' });
+      await page.locator('summary').filter({ hasText: 'school' }).tap();
       const names = await page.locator('[data-testid="tag-link"] .tag-name').allTextContents();
       assert.deepEqual(names, ['daily-jots', 'school/fall26']);
       await page.locator('[data-testid="tag-link"]', { hasText: 'school/fall26' }).tap();

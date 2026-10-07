@@ -59,6 +59,7 @@ export const api = {
   createTag: (path) => request('POST', '/api/tags', { path }),
   setDaily: (tagId, daily) => request('PUT', `/api/tags/${enc(tagId)}/daily`, { daily }),
   setFavorite: (tagId, favorite) => request('PUT', `/api/tags/${enc(tagId)}/favorite`, { favorite }),
+  moveTag: (from, into, order) => request('POST', '/api/tags/move', { from, into, order }),
   setSettings: (settings) => request('PUT', '/api/settings', settings),
   tasks: () => request('GET', '/api/tasks'),
   notes: (params = {}) => {
