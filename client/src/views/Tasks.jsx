@@ -6,6 +6,7 @@ import { addDays, formatDateShort, formatDateLabel, hasStarted, isOverdue } from
 import { findDatePhrases, parseTaskSchedule } from '../../../shared/taskdates.js';
 import { PRIORITY_LABEL, dueBar, priorityRank, extractTasks } from '../../../shared/tasks.js';
 import { TaskDetails } from './TaskSheet.jsx';
+import { getShiftDismiss } from '../prefs.js';
 import { TaskTextEditor } from './TaskTextEditor.jsx';
 import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
 
@@ -166,7 +167,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
     return (
       <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}${isOpen ? ' expanded' : ''}`} data-testid="task-row" data-priority={t.priority ?? ''} data-bar={dueBar(t.due, t.checked, today)}>
         <label class="task-check">
-          {t.dismissedAt ? <span class="dismissed-icon" role="img" aria-label="Dismissed task">⊠</span> : <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} aria-label={t.checked ? 'Completed task' : 'Task'} />}
+          {t.dismissedAt ? <span class="dismissed-icon" role="img" aria-label="Dismissed task">⊠</span> : <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} onClick={(e) => { if (e.shiftKey && !t.checked && getShiftDismiss()) { e.preventDefault(); apply(t, { dismissedAt: new Date().toISOString() }); } }} title={t.checked ? undefined : 'Shift-click to dismiss'} aria-label={t.checked ? 'Completed task' : 'Task'} />}
         </label>
         <div class="task-body">
           {editing === keyOf(t) ? <TaskTextEditor task={t}

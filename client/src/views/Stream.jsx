@@ -12,6 +12,7 @@ import { TagEditor } from './TagEditor.jsx';
 import { DateMenu, HideMenu, PriorityMenu } from './TaskMenus.jsx';
 import { extractTasks } from '../../../shared/tasks.js';
 import { TaskArchive } from './TaskArchive.jsx';
+import { getShiftDismiss } from '../prefs.js';
 
 const isEditingNow = () => !!document.activeElement?.closest?.('.note-text');
 
@@ -83,7 +84,12 @@ export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active,
     const checkbox = e.target.closest?.('input[type="checkbox"]');
     if (checkbox) {
       e.preventDefault(); // the editor performs the (undoable) toggle once mounted
-      onActivate(session.id, { taskId: e.target.closest('li')?.dataset.taskId });
+      const taskId = e.target.closest('li')?.dataset.taskId;
+      if (e.shiftKey && taskId && getShiftDismiss()) {
+        session.applyTaskPatch(taskId, { dismissedAt: new Date().toISOString() }); // Shift-click dismisses instead
+        return;
+      }
+      onActivate(session.id, { taskId });
     } else {
       // Remember where in the text the tap landed (not the screen position: the layout can shift
       // when the previously active editor closes).

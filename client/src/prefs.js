@@ -105,3 +105,14 @@ export function setDashboardTasks(value) {
   try { localStorage.setItem(DASH_TASKS_KEY, value); return true; }
   catch { return false; }
 }
+
+// Shift-click on a task's checkbox dismisses the task instead of ticking it. On unless switched off here. Per device.
+const SHIFT_DISMISS_KEY = 'hq-shift-dismiss';
+export function getShiftDismiss() {
+  try { return localStorage.getItem(SHIFT_DISMISS_KEY) !== '0'; }
+  catch { return true; }
+}
+export function setShiftDismiss(on) {
+  try { localStorage.setItem(SHIFT_DISMISS_KEY, on ? '1' : '0'); return true; }
+  catch { return false; }
+}

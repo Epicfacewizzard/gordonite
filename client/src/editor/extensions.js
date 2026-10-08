@@ -9,6 +9,8 @@ import { WikiLinks } from './wiki-links.js';
 import { TaskVisibility } from './task-visibility.js';
 import { moveTask } from './task-move.js';
 import { Selection } from '@tiptap/pm/state';
+import { closeHistory } from '@tiptap/pm/history';
+import { getShiftDismiss } from '../prefs.js';
 
 // The editing engine is Tiptap (ProseMirror). Nearly everything below is stock
 // behaviour: Enter/Backspace/Delete in paragraphs and lists, input rules, paste,
@@ -95,7 +97,21 @@ const TaskItemWithDates = TaskItem.extend({
       completedBullet.setAttribute('role', 'img');
       completedBullet.setAttribute('aria-label', 'Completed task');
       checkbox?.parentElement.append(completedBullet);
-      checkbox?.parentElement.addEventListener('click', (e) => { if (node.attrs.checked || node.attrs.dismissedAt) e.preventDefault(); });
+      checkbox?.parentElement.addEventListener('click', (e) => {
+        // Shift-click dismisses instead of ticking (one undoable step, the same change the task details sheet makes).
+        if (e.shiftKey && e.target === checkbox && !node.attrs.checked && !node.attrs.dismissedAt && getShiftDismiss()) {
+          e.preventDefault();
+          const pos = props.getPos();
+          if (typeof pos === 'number') {
+            const tr = props.editor.state.tr;
+            closeHistory(tr);
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, dismissedAt: new Date().toISOString() });
+            props.editor.view.dispatch(tr);
+          }
+          return;
+        }
+        if (node.attrs.checked || node.attrs.dismissedAt) e.preventDefault();
+      });
 
       const refresh = () => {
         const dismissed = !!node.attrs.dismissedAt;

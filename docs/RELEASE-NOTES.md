@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.3.2 — 2026-10-07 — Shift-click a task's checkbox to dismiss it (version raised; not yet deployed)
+
+Version **0.3.2** (a small addition: third number). Holding **Shift** while clicking a task's checkbox now **dismisses** the task instead of ticking it. It works on the Tasks page, in the dashboard's Tasks box, in a note being edited, and in the read-only view of a note in a stream. Dismissing is the same reversible change the task details sheet makes ("Dismiss task"): the task leaves the open list, stays in its note's history, and can be brought back from there or from the Dismissed section of the Tasks page; in an open note it is one undo step. A plain click still ticks. Switch it off per device in Settings → Dashboard → "Tasks on this device" (`hq-shift-dismiss`). It needs a keyboard, so on a phone dismissing is still done from the task's details. Hovering a checkbox on the Tasks page says "Shift-click to dismiss". No server or database change. Checks: new `tests/e2e/shift-dismiss.test.js`.
+
 ## 0.3.1 — 2026-10-07 — Dashboard Tasks box: overdue and due today by default, adjustable (deployed to CasaOS)
 
 **Deployed** from commit `abca4aa` (pushed to GitHub `main` first) to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1`, over the home network. The server's `/api/health` reports version 0.3.1 and the home page loads. The script ran the unit tests (100/100) and took a verified backup of the live data before changing anything (listed under Data & backups); the previous image is tagged `gordonite:rollback-before-abca4aa`. No database change, so rolling back means retagging that image as `gordonite:0.1.0` and recreating the service. Tasks box, dashboard layout, mood and tag-choice settings are kept per device in each browser.
