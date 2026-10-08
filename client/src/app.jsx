@@ -217,7 +217,7 @@ export function App() {
   } else if (route === '/data') {
     view = <DataView config={config} />;
   } else {
-    view = <TodayView config={config} />;
+    view = <TodayView config={config} onConfigChanged={loadConfig} />;
   }
 
   useTypingMarks();

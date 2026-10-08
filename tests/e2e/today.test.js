@@ -137,28 +137,77 @@ describe('the Dashboard (the Today screen)', () => {
     }));
 });
 
+describe('choosing where the dashboard note comes from', () => {
+  const choice = (page, tag) => page.locator(`[data-testid="daily-tag-choice"][data-tag="${tag}"]`);
+
+  test('starred tags are one-tap choices under the note; the choice is saved for every device', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const star = async (path, daily = true) => {
+        const tag = (await app.api('POST', '/api/tags', { path })).json.tag;
+        await app.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: true });
+        if (!daily) await app.api('PUT', `/api/tags/${tag.id}/daily`, { daily: false });
+      };
+      await app.api('POST', '/api/tags', { path: 'not-starred' });
+      await star('work-log');
+      await star('school/fall26');
+      await star('topic-only', false);
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('daily-tag-from').waitFor();
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="daily-tag-choice"]').length === 4);
+      assert.deepEqual(await page.getByTestId('daily-tag-choice').evaluateAll((els) => els.map((e) => e.dataset.tag)), ['daily-jots', 'school/fall26', 'topic-only', 'work-log'], 'the current tag and the starred ones, not the others');
+      assert.equal(await choice(page, 'daily-jots').getAttribute('aria-checked'), 'true');
+      assert.equal(await choice(page, 'topic-only').isDisabled(), true, 'a tag with its daily entry off cannot be picked');
+
+      await choice(page, 'work-log').tap();
+      await page.waitForFunction(() => document.querySelector('[data-testid="daily-tag-choice"][data-tag="work-log"]')?.getAttribute('aria-checked') === 'true');
+      assert.equal((await app.api('GET', '/api/config')).json.dailyTag, 'work-log', 'saved on the server');
+      assert.equal(await choice(page, 'daily-jots').getAttribute('aria-checked'), 'false', 'the tag just left stays offered for this visit, so there is a way back');
+
+      // writing now goes into the chosen tag, and the choice survives a reload
+      await todayNote(page).waitFor();
+      await todayNote(page).tap();
+      await page.keyboard.type('Picked from the dashboard');
+      await waitSaved(page);
+      const [note] = app.notes();
+      assert.deepEqual(app.db.prepare('SELECT t.path FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ?').all(note.id).map((r) => r.path), ['work-log']);
+      await page.reload();
+      await page.getByTestId('daily-tag-from').waitFor();
+      await page.waitForFunction(() => document.querySelector('[data-testid="daily-tag-choice"][data-tag="work-log"]')?.getAttribute('aria-checked') === 'true');
+      assert.deepEqual(await page.getByTestId('daily-tag-choice').evaluateAll((els) => els.map((e) => e.dataset.tag)), ['school/fall26', 'topic-only', 'work-log'], 'after a reload only the current and starred tags are offered');
+      assert.deepEqual(page.errors, []);
+    }));
+
+  test('with nothing starred only the current tag shows, with no extra words; Settings still has every tag', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('daily-tag-from').waitFor();
+      assert.equal(await page.getByTestId('daily-tag-choice').count(), 1, 'only the current tag');
+      assert.equal((await page.getByTestId('daily-tag-from').innerText()).trim(), 'daily-jots', 'just the tag, no label or hint');
+    }));
+});
+
 describe('dashboard widgets', () => {
   const regionOf = (page) => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-region]')].map((r) => [r.dataset.region, [...r.children].map((c) => c.dataset.testid ?? 'nav')])));
 
-  test('mood sits on top, the note in the centre, overdue tasks on the right; Settings hides and reorders them', () =>
+  test('the note is in the centre, mood above overdue tasks on the right; Settings hides and reorders them', () =>
     withPhone(browser, async ({ page, app }) => {
       const tag = (await app.api('POST', '/api/tags', { path: 'school/fall26' })).json.tag;
       await app.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: true });
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], left: ['nav', 'widget-pinned'], center: ['widget-note'], right: ['widget-tasks'] });
+      assert.deepEqual(await regionOf(page), { left: ['widget-pinned'], center: ['widget-note'], right: ['nav', 'widget-mood', 'widget-tasks'] });
 
       await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('widget-prefs').waitFor();
-      await page.getByTestId('widget-up-pinned').tap(); // starred tags above the New note button
+      await page.getByTestId('widget-down-nav').tap(); // New note button below mood
       await page.getByTestId('widget-toggle-mood').tap(); // hide mood
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { left: ['widget-pinned', 'nav'], center: ['widget-note'], right: ['widget-tasks'] });
+      assert.deepEqual(await regionOf(page), { left: ['widget-pinned'], center: ['widget-note'], right: ['nav', 'widget-tasks'] });
 
       await page.reload();
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { left: ['widget-pinned', 'nav'], center: ['widget-note'], right: ['widget-tasks'] }, 'kept after a reload');
+      assert.deepEqual(await regionOf(page), { left: ['widget-pinned'], center: ['widget-note'], right: ['nav', 'widget-tasks'] }, 'kept after a reload');
 
       // hide everything: the dashboard says so and points to Settings
       await page.goto(`${app.url}/#/settings`);
@@ -168,22 +217,55 @@ describe('dashboard widgets', () => {
       assert.deepEqual(page.errors, []);
     }));
 
-  test('on a wide screen the mood band is on top and the note sits between the left and right columns; on a phone they stack', () =>
+  test('on a wide screen the note sits left of a right column of New note, mood and tasks; on a phone they stack', () =>
     withPhone(browser, async ({ page, app }) => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
       const box = async (id) => (await page.getByTestId(id).boundingBox());
-      // phone width: one column, in the order top, left, centre, right
-      const [mood, nav, note, tasks] = [await box('widget-mood'), await box('today-new-note'), await box('widget-note'), await box('widget-tasks')];
-      assert.ok(mood.y < nav.y && nav.y < note.y && note.y < tasks.y, 'stacked in order on a phone');
+      // phone width: one column, in the order centre, then the right column (New note, mood, tasks)
+      const [nav, note, mood, tasks] = [await box('today-new-note'), await box('widget-note'), await box('widget-mood'), await box('widget-tasks')];
+      assert.ok(note.y < nav.y && nav.y < mood.y && mood.y < tasks.y, 'stacked in order on a phone');
 
       await page.setViewportSize({ width: 1200, height: 800 });
-      await page.waitForFunction(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length === 3);
-      const [m, n, c, t] = [await box('widget-mood'), await box('today-new-note'), await box('widget-note'), await box('widget-tasks')];
-      assert.ok(m.y + m.height <= c.y + 1, 'mood is above the columns');
-      assert.ok(n.x + n.width <= c.x + 1, 'New note is left of the note');
-      assert.ok(c.x + c.width <= t.x + 1, 'tasks are right of the note');
-      assert.ok(c.width > n.width && c.width > t.width, 'the note column is the widest');
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length === 2); // the left column is empty (nothing starred), so it takes no room
+      const [n, c, m, t] = [await box('today-new-note'), await box('widget-note'), await box('widget-mood'), await box('widget-tasks')];
+      assert.ok(c.x + c.width <= n.x + 1 && c.x + c.width <= m.x + 1 && c.x + c.width <= t.x + 1, 'New note, mood and tasks are right of the note');
+      assert.ok(n.y + n.height <= m.y + 1 && m.y + m.height <= t.y + 1, 'New note, then mood, then tasks, top to bottom');
+      assert.ok(n.width < 160 && n.height < 44, 'the New note button is small, not the full column');
+      assert.ok(c.width > t.width, 'the note column is the widest');
+    }));
+
+  test('a widget can be moved to another column in Settings; a column nobody uses leaves no gap; Reset puts everything back', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await page.setViewportSize({ width: 1200, height: 800 });
+      await page.goto(`${app.url}/#/settings`);
+      await page.getByTestId('widget-prefs').waitFor();
+      await page.getByTestId('widget-region-mood').selectOption('left'); // side to side
+      await page.getByTestId('widget-region-pinned').selectOption('right');
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('widget-note').waitFor();
+      assert.deepEqual(await regionOf(page), { left: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-tasks'] }, 'the mood moved to the left column (starred tags, with nothing starred, show nothing)');
+
+      // put the mood across the top: the left column is empty, so only two columns remain
+      await page.goto(`${app.url}/#/settings`);
+      await page.getByTestId('widget-region-mood').selectOption('top');
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('widget-note').waitFor();
+      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-tasks'] });
+      assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length), 2, 'no space is kept for the empty column');
+      const [mood, note] = [await page.getByTestId('widget-mood').boundingBox(), await page.getByTestId('widget-note').boundingBox()];
+      assert.ok(mood.y + mood.height <= note.y + 1, 'the top band is above the columns');
+
+      await page.reload();
+      await page.getByTestId('widget-note').waitFor();
+      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-tasks'] }, 'kept after a reload');
+
+      await page.goto(`${app.url}/#/settings`);
+      await page.getByTestId('widget-reset').tap();
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('widget-note').waitFor();
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['nav', 'widget-mood', 'widget-tasks'] }, 'back to the starting layout');
+      assert.deepEqual(page.errors, []);
     }));
 });
 

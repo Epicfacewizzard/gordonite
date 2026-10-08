@@ -71,7 +71,7 @@ bump: older documents simply do not have them, and empty ones are never stored):
 
 ## Today screen and settings
 
-`#/` is the Today screen (`client/src/views/Today.jsx`): a list of sections (`WIDGETS`), each a component given the same
+`#/` is the Today screen (`client/src/views/Today.jsx`): a list of sections (`WIDGETS`; each can be placed in any column from Settings, see `getDashboard` in `client/src/prefs.js`), each a component given the same
 context (today's date in `HOME_TZ`, config, tags, the chosen daily tag). It reuses `TasksView` in `compact` mode and
 the stream's `NoteCard` for today's entry, so ticking, saving and conflicts behave exactly as elsewhere. The one setting
 so far, which tag's daily entry Today shows, lives in the `meta` table (`daily_tag`, default `daily-jots`), is returned by

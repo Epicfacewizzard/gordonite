@@ -11,7 +11,7 @@ import { addMood, listMoods, deleteMood } from './moods.js';
 import { DOC_FORMAT } from '../shared/doc.js';
 import { dateInTz, addDays } from '../shared/dates.js';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

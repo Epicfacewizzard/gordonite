@@ -1011,7 +1011,10 @@ input.note-title-input[type='text']:focus {
   margin: 0 0 8px;
 }
 .today-nav .btn {
-  flex: 1;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: 1rem;
 }
 .widget {
   margin: 0 0 12px;
@@ -1023,6 +1026,11 @@ input.note-title-input[type='text']:focus {
   flex-wrap: wrap;
   margin-top: 8px;
 }
+.today-source-chips { margin: 0; }
+.today-source .chip { padding: 0; }
+.today-source .chip button { min-height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 999px; font-size: inherit; cursor: pointer; }
+.today-source .chip button[aria-checked='true'] { background: var(--sel); border-color: var(--accent); font-weight: 600; }
+.today-source .chip button:disabled { opacity: 0.45; cursor: not-allowed; }
 .today-source select {
   min-height: 36px;
   border: 1px solid var(--line);
@@ -1380,7 +1388,7 @@ body:not([data-editing]) .today .toolbar {
 .mood-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .mood-head .section { margin: 0 0 4px; }
 .mood-body { display: grid; gap: 8px 16px; grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 560px) { .mood-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; } }
+@media (min-width: 560px) { .dash-top .mood-body:not(.solo) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; } }
 .mood-faces { display: flex; gap: 0.3rem; margin-bottom: 0.3rem; }
 .mood-face { flex: 1; font-size: 1.3rem; line-height: 1; padding: 0.4rem 0; border: 1px solid var(--line); border-radius: 0.5rem; background: transparent; cursor: pointer; }
 .mood-face:active { transform: scale(0.96); }
@@ -1399,7 +1407,7 @@ body:not([data-editing]) .today .toolbar {
 .dashboard-grid { display: grid; gap: 12px 24px; grid-template-columns: minmax(0, 1fr); }
 .dash-region > .widget:last-child { margin-bottom: 0; }
 @media (min-width: 860px) {
-  .dashboard-grid { grid-template-columns: minmax(0, 0.7fr) minmax(0, 2fr) minmax(0, 1.3fr); grid-template-areas: "top top top" "left center right"; align-items: start; }
+  .dashboard-grid { grid-template-columns: var(--dash-cols, minmax(0, 0.7fr) minmax(0, 2fr) minmax(0, 1.3fr)); grid-template-areas: var(--dash-areas, "top top top" "left center right"); align-items: start; }
   .dash-top { grid-area: top; }
   .dash-left { grid-area: left; }
   .dash-center { grid-area: center; }
@@ -1421,3 +1429,11 @@ body:not([data-editing]) .today .toolbar {
 .tag-root-drop { position: sticky; bottom: 8px; z-index: 3; background: var(--surface); margin-top: 12px; padding: 14px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; color: var(--muted); }
 .tag-root-drop.drop-into { border-style: solid; color: var(--text); }
 .drag-ghost { position: fixed; z-index: 50; padding: 6px 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 4px 14px rgb(0 0 0 / .25); pointer-events: none; font-weight: 600; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mood-body.solo { grid-template-columns: minmax(0, 1fr); }
+.mood-face[aria-pressed='true'] { background: var(--sel); border-color: var(--accent); }
+.mood-log { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
+.mood-log .mood-note { flex: 1; min-width: 0; }
+.widget-group { margin: 0 0 0.5rem; }
+.widget-group-name { margin: 0.6rem 0 0.1rem; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.widget-move select { min-height: 44px; max-width: 9.5rem; }
+.widget-reset { margin: 0.5rem 0 0; }

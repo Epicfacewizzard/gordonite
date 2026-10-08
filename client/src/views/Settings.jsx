@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard } from '../prefs.js';
+import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard, resetDashboard, DASHBOARD_REGIONS, MOOD_OPTIONS, getMoodPrefs, setMoodPref } from '../prefs.js';
 import { api } from '../api.js';
 
 /** Settings that belong to this device. Line spacing for now; the preview uses the same rules as a real note. */
@@ -14,6 +14,11 @@ export function SettingsView({ config, onConfigChanged }) {
   const [dailyTags, setDailyTags] = useState([]);
   const [dailyMessage, setDailyMessage] = useState('');
   const [widgets, setWidgets] = useState(getDashboard);
+  const [moodPrefs, setMoodPrefs] = useState(getMoodPrefs);
+  const changeMoodPref = (id, value) => {
+    if (setMoodPref(id, value)) setMoodPrefs((p) => ({ ...p, [id]: value }));
+    else setDailyMessage('This browser could not save the mood choices.');
+  };
   useEffect(() => {
     api.tags().then((r) => setDailyTags(r.tags.filter((t) => t.daily).map((t) => t.path))).catch(() => {});
     api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
@@ -30,10 +35,23 @@ export function SettingsView({ config, onConfigChanged }) {
     setWidgets(next);
     if (!setDashboard(next)) setDailyMessage('This browser could not save the widget choices.');
   };
+  // Up and down move a widget past its neighbour in the same column; the column menu moves it side to side
+  // (to the bottom of the column it lands in).
+  const neighbour = (index, by) => {
+    let j = index + by;
+    while (widgets[j] && widgets[j].region !== widgets[index].region) j += by;
+    return widgets[j] ? j : -1;
+  };
   const moveWidget = (index, by) => {
+    const j = neighbour(index, by);
+    if (j < 0) return;
     const next = [...widgets];
-    [next[index], next[index + by]] = [next[index + by], next[index]];
+    [next[index], next[j]] = [next[j], next[index]];
     changeWidgets(next);
+  };
+  const moveToColumn = (id, region) => {
+    const w = widgets.find((x) => x.id === id);
+    changeWidgets([...widgets.filter((x) => x.id !== id), { ...w, region }]);
   };
   const zones = [...new Set([config.tz, ...Intl.supportedValuesOf('timeZone')])];
   const saveTimezone = async (e) => {
@@ -56,15 +74,41 @@ export function SettingsView({ config, onConfigChanged }) {
       <p class="muted small">Today’s note on the dashboard is the entry for today in this tag. Shared across your devices.</p>
       <label>Today’s note comes from <select value={dailyTag} onChange={(e) => chooseDailyTag(e.currentTarget.value)} data-testid="daily-tag-select">{dailyOptions.map((path) => <option key={path} value={path}>{path}</option>)}</select></label>
       <p role="status" data-testid="daily-tag-message">{dailyMessage}</p>
-      <p class="muted small">Widgets on this device: choose which to show and move them up or down.</p>
-      <ul class="widget-prefs" data-testid="widget-prefs">
-        {widgets.map((w, i) => (
-          <li key={w.id}>
-            <label><input type="checkbox" checked={w.shown} data-testid={`widget-toggle-${w.id}`} onChange={() => changeWidgets(widgets.map((x) => (x.id === w.id ? { ...x, shown: !x.shown } : x)))} /> {w.name}</label>
-            <span class="widget-move">
-              <button type="button" class="btn" disabled={i === 0} aria-label={`Move ${w.name} up`} data-testid={`widget-up-${w.id}`} onClick={() => moveWidget(i, -1)}>↑</button>
-              <button type="button" class="btn" disabled={i === widgets.length - 1} aria-label={`Move ${w.name} down`} data-testid={`widget-down-${w.id}`} onClick={() => moveWidget(i, 1)}>↓</button>
-            </span>
+      <p class="muted small">Widgets on this device: choose which to show, which column each sits in, and their order within a column. On a phone the columns stack top to bottom in the order shown here.</p>
+      <div data-testid="widget-prefs">
+        {DASHBOARD_REGIONS.map(([region, regionName]) => {
+          const here = widgets.map((w, i) => ({ ...w, i })).filter((w) => w.region === region);
+          if (here.length === 0) return null;
+          return (
+            <section key={region} class="widget-group" data-testid={`widget-group-${region}`}>
+              <h3 class="widget-group-name">{regionName}</h3>
+              <ul class="widget-prefs">
+                {here.map((w) => (
+                  <li key={w.id}>
+                    <label><input type="checkbox" checked={w.shown} data-testid={`widget-toggle-${w.id}`} onChange={() => changeWidgets(widgets.map((x) => (x.id === w.id ? { ...x, shown: !x.shown } : x)))} /> {w.name}</label>
+                    <span class="widget-move">
+                      <select value={w.region} aria-label={`Column for ${w.name}`} data-testid={`widget-region-${w.id}`} onChange={(e) => moveToColumn(w.id, e.currentTarget.value)}>
+                        {DASHBOARD_REGIONS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                      </select>
+                      <button type="button" class="btn" disabled={neighbour(w.i, -1) < 0} aria-label={`Move ${w.name} up`} data-testid={`widget-up-${w.id}`} onClick={() => moveWidget(w.i, -1)}>↑</button>
+                      <button type="button" class="btn" disabled={neighbour(w.i, 1) < 0} aria-label={`Move ${w.name} down`} data-testid={`widget-down-${w.id}`} onClick={() => moveWidget(w.i, 1)}>↓</button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+      <p class="widget-reset">
+        <button type="button" class="btn" data-testid="widget-reset" onClick={() => { if (resetDashboard()) setWidgets(getDashboard()); else setDailyMessage('This browser could not reset the layout.'); }}>Reset dashboard layout</button>
+        <span class="muted small"> Puts every widget back where it started.</span>
+      </p>
+      <p class="muted small">Mood band on this device:</p>
+      <ul class="widget-prefs" data-testid="mood-prefs">
+        {MOOD_OPTIONS.map(([id, name, about]) => (
+          <li key={id}>
+            <label><input type="checkbox" checked={moodPrefs[id]} data-testid={`mood-pref-${id}`} onChange={(e) => changeMoodPref(id, e.currentTarget.checked)} /> {name}<span class="muted small"> {about}</span></label>
           </li>
         ))}
       </ul>

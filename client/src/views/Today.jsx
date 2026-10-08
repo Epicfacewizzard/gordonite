@@ -54,8 +54,10 @@ function TasksWidget({ config }) {
 }
 
 // Today's entry of the chosen daily tag, ready to write in (created on the first keystroke, like in a stream).
-function TodayNoteWidget({ config, today, dailyTag }) {
+// Under it, the tag it comes from can be changed in one tap: the current tag and every starred tag are offered.
+function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTag }) {
   useSession();
+  const [pickError, setPickError] = useState('');
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
   const [editor, setEditor] = useState(null);
   const [nonce, setNonce] = useState(0);
@@ -84,6 +86,20 @@ function TodayNoteWidget({ config, today, dailyTag }) {
   }, [dailyTag, today, nonce]);
 
   const session = state.id ? sync.get(state.id) : null;
+  // The current tag, every starred tag, and any tag used since this page was opened (so there is always a way back).
+  // Alphabetical, so the choices do not jump around when one is picked. A starred tag whose daily entry is switched
+  // off cannot be written in, so it is shown but cannot be picked.
+  const choices = [...new Set([dailyTag, ...visited, ...tags.filter((t) => t.favorite).map((t) => t.path)])].filter(Boolean).sort();
+  const unusable = (path) => path !== dailyTag && tags.find((t) => t.path === path)?.daily === false;
+  const pick = async (path) => {
+    if (path === dailyTag || unusable(path)) return;
+    setPickError('');
+    try {
+      await chooseDailyTag(path);
+    } catch (err) {
+      setPickError(err.message);
+    }
+  };
 
   return (
     <section class="widget" data-testid="widget-note">
@@ -98,7 +114,7 @@ function TodayNoteWidget({ config, today, dailyTag }) {
       )}
       {state.status === 'off' && (
         <p class="muted" data-testid="note-off">
-          “{dailyTag}” has no entry for today (its daily entry is switched off). Pick another tag in Settings.
+          “{dailyTag}” has no entry for today (its daily entry is switched off). Pick another tag below.
         </p>
       )}
       {session && !session.discarded && (
@@ -109,52 +125,93 @@ function TodayNoteWidget({ config, today, dailyTag }) {
         </>
       )}
       {dailyTag && (
-        <p class="today-source small muted" data-testid="daily-tag-from">
-          Comes from “{dailyTag}” · <a href="#/settings">change in Settings</a>
-        </p>
+        <div class="today-source small" data-testid="daily-tag-from">
+          <ul class="chips today-source-chips" role="radiogroup" aria-label="Which tag today’s note comes from">
+            {choices.map((path) => (
+              <li key={path} class="chip">
+                <button type="button" role="radio" aria-checked={path === dailyTag} disabled={unusable(path)} title={unusable(path) ? 'Its daily entry is switched off' : undefined} data-testid="daily-tag-choice" data-tag={path} onClick={() => pick(path)}>
+                  {path}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {pickError && <span class="error" role="alert">{pickError}</span>}
+        </div>
       )}
     </section>
   );
 }
 
-// id → [component, region]. Which widgets are shown, and their order inside a region, come from getDashboard()
-// (Settings). Regions: a band across the top, then left, center and right columns. On a phone they stack in
-// that order. The center holds today's note; the right column only shows what is overdue.
+// id → component. Which widgets are shown, which column each sits in and their order inside it all come from
+// getDashboard() (Settings → Dashboard), so every widget can be moved to any column. Columns: an optional band across
+// the top, then up to three side by side (left, middle, right). On a phone they stack in that order.
 const WIDGETS = new Map([
-  ['nav', [NavWidget, 'left']],
-  ['pinned', [PinnedWidget, 'left']],
-  ['tasks', [TasksWidget, 'right']],
-  ['mood', [MoodWidget, 'top']],
-  ['note', [TodayNoteWidget, 'center']],
+  ['nav', NavWidget],
+  ['pinned', PinnedWidget],
+  ['tasks', TasksWidget],
+  ['mood', MoodWidget],
+  ['note', TodayNoteWidget],
 ]);
-const REGIONS = ['top', 'left', 'center', 'right'];
+const COLUMNS = ['left', 'center', 'right'];
+// How much room a widget wants (a column gets the largest of what is in it). Change a number to change the balance.
+const WIDTH = { note: 2, tasks: 1.3, mood: 1.3, pinned: 0.8, nav: 0.8 };
 
-export function TodayView({ config }) {
+// The CSS for the columns that are actually in use, so an empty column leaves no gap.
+function gridFor(shown) {
+  const used = COLUMNS.filter((c) => shown.some((w) => w.region === c));
+  const top = shown.some((w) => w.region === 'top');
+  const weight = (c) => Math.max(...shown.filter((w) => w.region === c).map((w) => WIDTH[w.id] ?? 1));
+  const columns = used.length ? used.map((c) => `minmax(0, ${weight(c)}fr)`).join(' ') : 'minmax(0, 1fr)';
+  const span = Math.max(used.length, 1);
+  const rows = [top && `"${Array(span).fill('top').join(' ')}"`, used.length && `"${used.join(' ')}"`].filter(Boolean);
+  return { '--dash-cols': columns, '--dash-areas': rows.join(' ') };
+}
+
+export function TodayView({ config, onConfigChanged }) {
   const today = useToday(config.tz);
   const [tags, setTags] = useState([]);
   const [dailyTag, setDailyTag] = useState(config.dailyTag ?? 'daily-jots');
+  const [visited, setVisited] = useState([]); // tags the note has come from since this page opened
+  useEffect(() => {
+    if (dailyTag) setVisited((v) => (v.includes(dailyTag) ? v : [...v, dailyTag]));
+  }, [dailyTag]);
 
   useEffect(() => {
     api.tags().then((r) => setTags(r.tags)).catch(() => {});
     api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
   }, []);
 
-  const context = { config, today, tags, dailyTag };
-  const shown = getDashboard().filter((w) => w.shown);
+  // Which tag today's note comes from is one setting kept on the server (the same one as in Settings).
+  const chooseDailyTag = async (next) => {
+    const before = dailyTag;
+    setDailyTag(next);
+    try {
+      await api.setSettings({ dailyTag: next });
+      onConfigChanged?.();
+    } catch (err) {
+      setDailyTag(before);
+      throw err;
+    }
+  };
+
+  const context = { config, today, tags, dailyTag, visited, chooseDailyTag };
+  // A widget with nothing to show (starred tags, when none are starred) is left out, so it cannot hold a column open.
+  const shown = getDashboard().filter((w) => w.shown && !(w.id === 'pinned' && !tags.some((t) => t.favorite)));
   return (
     <div class="today" data-testid="today">
       <h2 class="today-date" data-testid="today-date">
         {longDate(today)}
       </h2>
-      <div class="dashboard-grid">
-        {REGIONS.map((region) => {
-          const here = shown.filter(({ id }) => WIDGETS.get(id)?.[1] === region);
+      <div class="dashboard-grid" style={gridFor(shown)}>
+        {['top', ...COLUMNS].map((region) => {
+          const here = shown.filter((w) => w.region === region);
           return (
             here.length > 0 && (
               <div key={region} class={`dash-region dash-${region}`} data-region={region}>
                 {here.map(({ id }) => {
-                  const Widget = WIDGETS.get(id)[0];
-                  return <Widget key={id} {...context} />;
+                  const Widget = WIDGETS.get(id);
+                  // the note starts fresh when its tag changes, so one tag's entry is never shown under another's name
+                  return <Widget key={id === 'note' ? `note:${dailyTag}` : id} {...context} />;
                 })}
               </div>
             )
