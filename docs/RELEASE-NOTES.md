@@ -1,6 +1,8 @@
 # Release notes
 
-## 0.3.0 — 2026-10-07 — Dashboard widgets can sit in any column; Mood widget slimmed down (version raised; not yet deployed)
+## 0.3.0 — 2026-10-07 — Dashboard widgets can sit in any column; Mood widget slimmed down (deployed to CasaOS)
+
+**Deployed** from commit `efce7be` (pushed to GitHub `main` first) to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1`, over the home network. The server's `/api/health` reports version 0.3.0 and the home page loads. The script runs the unit tests (100/100 before sending), takes a verified backup of the live data before changing anything (it is listed under Data & backups), and tags the previous image `gordonite:rollback-before-efce7be`; the release is unpacked in `/home/gordon/gordonite/releases/efce7be`. No database change in this release, so rolling back means retagging that image as `gordonite:0.1.0` and recreating the service. Dashboard layout, mood and tag-choice settings are kept per device in each browser, so a phone starts on the new default layout until its own choices are made.
 
 Version **0.3.0** (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`). A minor release: new dashboard features, nothing removed, no database or server change. Numbering rule: first number for a major change, second for a new feature or noticeable change, third for a small fix.
 
@@ -12,7 +14,7 @@ Version **0.3.0** (`APP_VERSION` in `server/app.js`, `package.json`, `package-lo
 
 **Mood widget.** The dashboard's Mood widget now shows only the five faces. Tapping a face selects it and reveals a "Note" box and a **Log** button; nothing is saved until Log (so a face is no longer logged by a single tap). The 7-day table, the streak line and today's entries (with delete) are off by default and can be turned on in Settings → Dashboard ("Show mood history"). A second switch there, "Ask for a note before logging" (on by default), brings back one-tap logging when turned off. Both are per device (`hq-mood-prefs`). Entries are still saved, exported and backed up exactly as before. While the list is hidden there is no on-screen way to delete an entry. No server change, no schema change. The version was left at 0.2.0 on request. Checks: `tests/e2e/mood.test.js` rewritten for the new flow, 4/4 (faces only at first, Note and Log on demand, history works when switched on in Settings, offline log kept and sent later, note step switched off); unit tests and the dashboard browser tests unchanged.
 
-## 0.2.0 — 2026-10-07 (version raised; not yet deployed)
+## 0.2.0 — 2026-10-07 (version raised; went out with 0.3.0)
 
 The application version is now **0.2.0** (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`), shown in Settings and returned by `/api/health`. It marks the assistant edit tools above and makes it possible to tell from the server whether an update landed. Rule from now on: raise the version with every change to the code (not for note-only work); see `AGENTS.md`. The Docker image keeps its `gordonite:0.1.0` tag name: that is only the name the Compose file and `deploy/casaos-update.sh` use for "the running image", not the app version, and renaming it would mean changing the live Compose file. Take the usual pre-update backup; there is no database change. After the server update, `/api/health` should say `0.2.0`.
 
