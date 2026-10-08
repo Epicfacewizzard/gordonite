@@ -12,7 +12,7 @@ Updated **2026-10-06**, home timezone **America/Edmonton**. This is the current 
 
 ## Current state
 
-Application version: **0.1.0**, shown at the bottom of Settings using the server configuration API. This is a release version, not a unique Git build identifier; recent commits still display 0.1.0.
+Application version: **0.2.0**, shown at the bottom of Settings using the server configuration API. This is a release version, not a unique Git build identifier. Raise it (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change. The Docker image tag `gordonite:0.1.0` is just a stable name, not the app version.
 
 Repository: `https://github.com/Epicfacewizzard/gordonite.git`, branch `main`.
 
