@@ -5,7 +5,7 @@ import { useSession, useToday } from '../hooks.js';
 import { NoteCard } from './Stream.jsx';
 import { EditorBar } from './EditorBar.jsx';
 import { TasksView } from './Tasks.jsx';
-import { getDashboard } from '../prefs.js';
+import { getDashboard, getDashboardTasks } from '../prefs.js';
 import { MoodWidget } from './Mood.jsx';
 
 // The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
@@ -48,7 +48,7 @@ function PinnedWidget({ tags }) {
 function TasksWidget({ config }) {
   return (
     <section class="widget" data-testid="widget-tasks">
-      <TasksView config={config} compact overdueOnly />
+      <TasksView config={config} compact scope={getDashboardTasks()} />
     </section>
   );
 }
@@ -87,10 +87,10 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
 
   const session = state.id ? sync.get(state.id) : null;
   // The current tag, every starred tag, and any tag used since this page was opened (so there is always a way back).
-  // Alphabetical, so the choices do not jump around when one is picked. A starred tag whose daily entry is switched
-  // off cannot be written in, so it is shown but cannot be picked.
-  const choices = [...new Set([dailyTag, ...visited, ...tags.filter((t) => t.favorite).map((t) => t.path)])].filter(Boolean).sort();
+  // Alphabetical, so the choices do not jump around when one is picked. A tag whose daily entry is switched off has
+  // nothing to write in, so it is left out (unless it is the current one, which always shows).
   const unusable = (path) => path !== dailyTag && tags.find((t) => t.path === path)?.daily === false;
+  const choices = [...new Set([dailyTag, ...visited, ...tags.filter((t) => t.favorite).map((t) => t.path)])].filter((path) => path && !unusable(path)).sort();
   const pick = async (path) => {
     if (path === dailyTag || unusable(path)) return;
     setPickError('');
@@ -129,7 +129,7 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
           <ul class="chips today-source-chips" role="radiogroup" aria-label="Which tag today’s note comes from">
             {choices.map((path) => (
               <li key={path} class="chip">
-                <button type="button" role="radio" aria-checked={path === dailyTag} disabled={unusable(path)} title={unusable(path) ? 'Its daily entry is switched off' : undefined} data-testid="daily-tag-choice" data-tag={path} onClick={() => pick(path)}>
+                <button type="button" role="radio" aria-checked={path === dailyTag} data-testid="daily-tag-choice" data-tag={path} onClick={() => pick(path)}>
                   {path}
                 </button>
               </li>

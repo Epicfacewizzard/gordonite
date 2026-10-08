@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard, resetDashboard, DASHBOARD_REGIONS, MOOD_OPTIONS, getMoodPrefs, setMoodPref } from '../prefs.js';
+import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard, resetDashboard, DASHBOARD_REGIONS, DASHBOARD_TASKS, getDashboardTasks, setDashboardTasks, MOOD_OPTIONS, getMoodPrefs, setMoodPref } from '../prefs.js';
 import { api } from '../api.js';
 
 /** Settings that belong to this device. Line spacing for now; the preview uses the same rules as a real note. */
@@ -14,6 +14,7 @@ export function SettingsView({ config, onConfigChanged }) {
   const [dailyTags, setDailyTags] = useState([]);
   const [dailyMessage, setDailyMessage] = useState('');
   const [widgets, setWidgets] = useState(getDashboard);
+  const [tasksScope, setTasksScope] = useState(getDashboardTasks);
   const [moodPrefs, setMoodPrefs] = useState(getMoodPrefs);
   const changeMoodPref = (id, value) => {
     if (setMoodPref(id, value)) setMoodPrefs((p) => ({ ...p, [id]: value }));
@@ -104,6 +105,8 @@ export function SettingsView({ config, onConfigChanged }) {
         <button type="button" class="btn" data-testid="widget-reset" onClick={() => { if (resetDashboard()) setWidgets(getDashboard()); else setDailyMessage('This browser could not reset the layout.'); }}>Reset dashboard layout</button>
         <span class="muted small"> Puts every widget back where it started.</span>
       </p>
+      <p class="muted small">Tasks box on this device:</p>
+      <label>The dashboard Tasks box shows <select value={tasksScope} data-testid="dashboard-tasks-scope" onChange={(e) => { const v = e.currentTarget.value; if (setDashboardTasks(v)) setTasksScope(v); else setDailyMessage('This browser could not save the choice.'); }}>{DASHBOARD_TASKS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       <p class="muted small">Mood band on this device:</p>
       <ul class="widget-prefs" data-testid="mood-prefs">
         {MOOD_OPTIONS.map(([id, name, about]) => (

@@ -91,3 +91,17 @@ export function setMoodPref(id, value) {
 export function resetDashboard() {
   try { localStorage.removeItem(DASHBOARD_KEY); return true; } catch { return false; }
 }
+
+// What the dashboard's Tasks box lists. Kept on this device like the other display prefs. [id, name]
+const DASH_TASKS_KEY = 'hq-dashboard-tasks';
+export const DASHBOARD_TASKS = [['overdue', 'Overdue only'], ['today', 'Overdue and due today'], ['week', 'Overdue, due today and the coming week'], ['all', 'Everything open (adds a few with no date)']];
+export const DASHBOARD_TASKS_DEFAULT = 'today';
+export function getDashboardTasks() {
+  try { const v = localStorage.getItem(DASH_TASKS_KEY); return DASHBOARD_TASKS.some(([id]) => id === v) ? v : DASHBOARD_TASKS_DEFAULT; }
+  catch { return DASHBOARD_TASKS_DEFAULT; }
+}
+export function setDashboardTasks(value) {
+  if (!DASHBOARD_TASKS.some(([id]) => id === value)) return false;
+  try { localStorage.setItem(DASH_TASKS_KEY, value); return true; }
+  catch { return false; }
+}

@@ -46,7 +46,13 @@ function bucketOf(t, today, touched, now) {
 const COMPACT_UNDATED = 5;
 const COMPACT_DAYS = 7;
 
-export function TasksView({ config, compact = false, overdueOnly = false }) {
+// `scope` (with `compact`) is how much the dashboard's list shows: 'overdue', 'today' (overdue and due today), 'week'
+// (adds the next seven days) or 'all' (adds a few with no date). The full Tasks page always shows everything.
+export function TasksView({ config, compact = false, overdueOnly = false, scope = null }) {
+  const level = !compact ? 'all' : overdueOnly ? 'overdue' : scope ?? 'all';
+  const showToday = level !== 'overdue';
+  const showUpcoming = level === 'week' || level === 'all';
+  const showUndated = level === 'all';
   const today = useToday(config.tz);
   const now = useNowTime(config.tz);
   const [tasks, setTasks] = useState(null);
@@ -150,6 +156,8 @@ export function TasksView({ config, compact = false, overdueOnly = false }) {
 
   // Tasks ticked on this page stay listed but no longer count as open.
   const openCount = [...buckets.overdue, ...buckets.today, ...buckets.upcoming, ...buckets.anytime].filter((t) => !t.checked).length;
+  const listed = buckets.overdue.length + (showToday ? buckets.today.length : 0) + (showUpcoming ? upcomingShown.length : 0) + (showUndated ? undatedShown.length : 0);
+  const EMPTY = { overdue: 'Nothing overdue.', today: 'Nothing overdue or due today.', week: 'Nothing overdue or coming up this week.' };
   const row = (t) => {
     const overdue = !t.checked && isOverdue(t.due, t.dueTime, today, now);
     const hiddenNow = isHiddenNow(t, today);
@@ -253,7 +261,7 @@ export function TasksView({ config, compact = false, overdueOnly = false }) {
       )}
       {tasks && (
         <p class="muted" data-testid="task-count">
-          {overdueOnly ? `${buckets.overdue.length} overdue · ${openCount} open` : `${openCount} open ${openCount === 1 ? 'task' : 'tasks'}`}
+          {level === 'overdue' ? `${buckets.overdue.length} overdue · ${openCount} open` : level === 'today' || level === 'week' ? `${buckets.overdue.length} overdue · ${buckets.today.length} today · ${openCount} open` : `${openCount} open ${openCount === 1 ? 'task' : 'tasks'}`}
           {compact && (
             <>
               {' · '}
@@ -264,21 +272,21 @@ export function TasksView({ config, compact = false, overdueOnly = false }) {
           )}
         </p>
       )}
-      {tasks && overdueOnly && buckets.overdue.length === 0 && !error && (
-        <p class="muted center" data-testid="nothing-overdue">
-          Nothing overdue.
+      {tasks && level !== 'all' && listed === 0 && !error && (
+        <p class="muted center" data-testid={level === 'overdue' ? 'nothing-overdue' : 'nothing-due'}>
+          {EMPTY[level]}
         </p>
       )}
-      {tasks && !overdueOnly && openCount === 0 && !error && (
+      {tasks && level === 'all' && openCount === 0 && !error && (
         <p class="muted center">
           {compact ? 'Nothing is due. Open All tasks to see everything.' : 'Nothing to do. Turn a line into a task with the toolbar’s task button while writing a note.'}
         </p>
       )}
       {section('overdue', 'Overdue', buckets.overdue)}
-      {!overdueOnly && section('today', 'Due today', buckets.today)}
-      {!overdueOnly && section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
-      {compact && !overdueOnly && section('anytime', 'No date', undatedShown)}
-      {compact && !overdueOnly && undatedMore > 0 && (
+      {showToday && section('today', 'Due today', buckets.today)}
+      {showUpcoming && section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
+      {compact && showUndated && section('anytime', 'No date', undatedShown)}
+      {compact && showUndated && undatedMore > 0 && (
         <p class="muted small">
           <a href="#/tasks">{undatedMore} more with no date</a>
         </p>

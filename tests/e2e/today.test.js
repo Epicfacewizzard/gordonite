@@ -28,7 +28,7 @@ const seedTasks = async (app, items, { tags = ['school'], date = today() } = {})
 };
 
 describe('the Dashboard (the Today screen)', () => {
-  test('opens on the dashboard: the date, only what is overdue on the right, and a note to write in', () =>
+  test('opens on the dashboard: the date, what is overdue or due today on the right, and a note to write in', () =>
     withPhone(browser, async ({ page, app }) => {
       const t = today();
       const taskNote = await seedTasks(app, [
@@ -50,10 +50,11 @@ describe('the Dashboard (the Today screen)', () => {
       await page.getByTestId('section-overdue').waitFor();
       assert.match((await inSection('overdue')).join('|'), /late one/);
       const body = await page.getByTestId('widget-tasks').innerText();
-      assert.doesNotMatch(body, /due now|this week|far away|not yet|put away|undated/, 'the dashboard column shows only what is overdue');
-      assert.equal(await page.getByTestId('section-today').count(), 0);
+      assert.match(body, /due now/, 'the default also shows what is due today');
+      assert.doesNotMatch(body, /this week|far away|not yet|put away|undated/, 'but not later tasks');
+      assert.equal(await page.getByTestId('section-today').count(), 1);
       assert.equal(await page.getByTestId('section-anytime').count(), 0);
-      assert.match(await page.getByTestId('task-count').innerText(), /1 overdue · 11 open/, 'all open tasks are still counted');
+      assert.match(await page.getByTestId('task-count').innerText(), /1 overdue · 1 today · 11 open/, 'all open tasks are still counted');
 
       // ticking works right here and is saved into its own note
       await page.locator('[data-testid="task-row"]', { hasText: 'late one' }).locator('input').tap();
@@ -153,10 +154,10 @@ describe('choosing where the dashboard note comes from', () => {
       await star('topic-only', false);
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('daily-tag-from').waitFor();
-      await page.waitForFunction(() => document.querySelectorAll('[data-testid="daily-tag-choice"]').length === 4);
-      assert.deepEqual(await page.getByTestId('daily-tag-choice').evaluateAll((els) => els.map((e) => e.dataset.tag)), ['daily-jots', 'school/fall26', 'topic-only', 'work-log'], 'the current tag and the starred ones, not the others');
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="daily-tag-choice"]').length === 3);
+      assert.deepEqual(await page.getByTestId('daily-tag-choice').evaluateAll((els) => els.map((e) => e.dataset.tag)), ['daily-jots', 'school/fall26', 'work-log'], 'the current tag and the starred ones, not the others, and not a starred tag with its daily entry off');
       assert.equal(await choice(page, 'daily-jots').getAttribute('aria-checked'), 'true');
-      assert.equal(await choice(page, 'topic-only').isDisabled(), true, 'a tag with its daily entry off cannot be picked');
+      assert.equal(await choice(page, 'topic-only').count(), 0, 'a starred tag with its daily entry off is left out, not greyed');
 
       await choice(page, 'work-log').tap();
       await page.waitForFunction(() => document.querySelector('[data-testid="daily-tag-choice"][data-tag="work-log"]')?.getAttribute('aria-checked') === 'true');
@@ -173,7 +174,7 @@ describe('choosing where the dashboard note comes from', () => {
       await page.reload();
       await page.getByTestId('daily-tag-from').waitFor();
       await page.waitForFunction(() => document.querySelector('[data-testid="daily-tag-choice"][data-tag="work-log"]')?.getAttribute('aria-checked') === 'true');
-      assert.deepEqual(await page.getByTestId('daily-tag-choice').evaluateAll((els) => els.map((e) => e.dataset.tag)), ['school/fall26', 'topic-only', 'work-log'], 'after a reload only the current and starred tags are offered');
+      assert.deepEqual(await page.getByTestId('daily-tag-choice').evaluateAll((els) => els.map((e) => e.dataset.tag)), ['school/fall26', 'work-log'], 'after a reload only the current and starred tags are offered');
       assert.deepEqual(page.errors, []);
     }));
 
@@ -320,5 +321,51 @@ describe('the bottom tab bar', () => {
       await page.evaluate(() => document.activeElement?.blur());
       await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="tabbar"]')).display !== 'none');
       assert.equal(await page.locator('.today .toolbar').isVisible(), false);
+    }));
+});
+
+describe('what the dashboard Tasks box shows', () => {
+  test('Settings chooses overdue only, plus today, plus the coming week, or everything open; the default is overdue and today', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const t = today();
+      await seedTasks(app, [['late one', { due: addDays(t, -2) }], ['due now', { due: t }], ['this week', { due: addDays(t, 4) }], ['far away', { due: addDays(t, 30) }], ['undated one']]);
+      const show = async (scope) => {
+        await page.goto(`${app.url}/#/settings`);
+        await page.getByTestId('dashboard-tasks-scope').selectOption(scope);
+        await page.goto(`${app.url}/#/`);
+        await page.getByTestId('task-count').waitFor();
+        await page.getByTestId('section-overdue').waitFor();
+        return page.getByTestId('widget-tasks').innerText();
+      };
+      await page.goto(`${app.url}/#/settings`);
+      assert.equal(await page.getByTestId('dashboard-tasks-scope').inputValue(), 'today', 'the default');
+
+      let body = await show('overdue');
+      assert.match(body, /late one/);
+      assert.doesNotMatch(body, /due now|this week|undated one/);
+      body = await show('today');
+      assert.match(body, /late one/);
+      assert.match(body, /due now/);
+      assert.doesNotMatch(body, /this week|undated one/);
+      body = await show('week');
+      assert.match(body, /late one[\s\S]*due now[\s\S]*this week/);
+      assert.doesNotMatch(body, /far away|undated one/);
+      body = await show('all');
+      assert.match(body, /this week/);
+      assert.match(body, /undated one/);
+      assert.doesNotMatch(body, /far away/, 'later than a week is still left for the Tasks page');
+
+      await page.reload();
+      await page.getByTestId('section-overdue').waitFor();
+      assert.match(await page.getByTestId('widget-tasks').innerText(), /undated one/, 'the choice is kept');
+      assert.deepEqual(page.errors, []);
+    }));
+
+  test('with nothing overdue or due today it says so', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await seedTasks(app, [['next month', { due: addDays(today(), 30) }]]);
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('nothing-due').waitFor();
+      assert.match(await page.getByTestId('nothing-due').innerText(), /Nothing overdue or due today/);
     }));
 });
