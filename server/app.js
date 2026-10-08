@@ -8,10 +8,11 @@ import { Store, HttpError, checkId } from './store.js';
 import { createBackup, backupPath, backupStatus } from './backup.js';
 import { exportAll, exportMarkdownZip, importAll } from './portability.js';
 import { addMood, listMoods, deleteMood } from './moods.js';
+import { createAuth } from './auth.js';
 import { DOC_FORMAT } from '../shared/doc.js';
 import { dateInTz, addDays } from '../shared/dates.js';
 
-export const APP_VERSION = '0.3.2';
+export const APP_VERSION = '0.4.0';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -64,6 +65,7 @@ async function readBody(req, limit) {
 
 export function createApp({ config, db, log = console }) {
   const store = new Store(db, config);
+  const auth = createAuth(db);
   const routes = [];
   const route = (method, pattern, handler) => {
     const keys = [];
@@ -84,6 +86,37 @@ export function createApp({ config, db, log = console }) {
   route('GET', '/api/health', async ({ res }) => {
     db.prepare('SELECT 1').get();
     sendJson(res, 200, { ok: true, version: APP_VERSION });
+  });
+
+  // ----- the optional password (see docs/LOGIN.md). These routes work without a login; everything else needs one when a password is set. -----
+  route('GET', '/api/auth', async ({ req, res }) => sendJson(res, 200, { enabled: auth.enabled(), loggedIn: auth.loggedIn(req) }));
+  route('POST', '/api/auth/login', async ({ res, body }) => {
+    if (!auth.enabled()) throw new HttpError(400, 'auth_off', 'No password is set');
+    if (!(await auth.check(body.password))) throw new HttpError(401, 'wrong_password', 'That password is not right');
+    res.setHeader('set-cookie', auth.cookie());
+    sendJson(res, 200, { ok: true });
+  });
+  route('POST', '/api/auth/logout', async ({ res }) => {
+    res.setHeader('set-cookie', auth.clearCookie());
+    sendJson(res, 200, { ok: true });
+  });
+  // Set the first password (nothing needed), or change it (log in and give the current one). The browser that did it stays logged in.
+  route('PUT', '/api/auth/password', async ({ req, res, body }) => {
+    if (auth.enabled()) {
+      if (!auth.loggedIn(req)) throw new HttpError(401, 'login_required', 'Log in to continue');
+      if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current password is not right');
+    }
+    await auth.setPassword(body.password);
+    res.setHeader('set-cookie', auth.cookie());
+    sendJson(res, 200, { enabled: true, loggedIn: true });
+  });
+  route('POST', '/api/auth/off', async ({ req, res, body }) => {
+    if (!auth.enabled()) return sendJson(res, 200, { enabled: false, loggedIn: true });
+    if (!auth.loggedIn(req)) throw new HttpError(401, 'login_required', 'Log in to continue');
+    if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current password is not right');
+    auth.turnOff();
+    res.setHeader('set-cookie', auth.clearCookie());
+    sendJson(res, 200, { enabled: false, loggedIn: true });
   });
 
   route('GET', '/api/config', async ({ res }) => {
@@ -293,6 +326,11 @@ export function createApp({ config, db, log = console }) {
       }
 
       if (url.pathname.startsWith('/api/assistant/')) requireAssistant(req);
+
+      // With a password set, every other request needs the login cookie. The health check, the login routes themselves
+      // and the assistant (which has its own key) stay open. The page itself is not data, so it is always served.
+      const open = url.pathname === '/api/health' || url.pathname.startsWith('/api/auth') || url.pathname.startsWith('/api/assistant/');
+      if (!open && !auth.loggedIn(req)) throw new HttpError(401, 'login_required', 'Log in to continue');
 
       for (const r of routes) {
         if (r.method !== req.method) continue;

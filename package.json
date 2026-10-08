@@ -1,6 +1,6 @@
 {
   "name": "personal-hq",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Personal HQ: tag-based daily notes with inline tasks. Self-hosted, SQLite-backed.",

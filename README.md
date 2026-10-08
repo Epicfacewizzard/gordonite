@@ -237,7 +237,7 @@ for what to verify on the S24 before relying on mobile editing.
 
 * **Not yet validated on a real S24.** Autocorrect/suggestions, the on-screen keyboard resize, tap-to-focus
   opening the keyboard, and Samsung Keyboard/Gboard composition are untested on hardware.
-* **No login.** It assumes your VPN is the access control. Add basic auth at a reverse proxy if you want more.
+* **Login is optional and off by default.** It assumes your VPN is the access control. A small password can be switched on in Settings → Password (see `docs/LOGIN.md`); you can also add basic auth at a reverse proxy.
 * Opening a stream needs the server. Mid-session disconnects are handled; cold-starting the app offline shows
   only notes that have unsent edits on the phone (full offline browsing is out of scope).
 * Two Chrome tabs/windows on the same note share one phone-side pending record; keep to one.

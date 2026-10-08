@@ -13,7 +13,7 @@ a future redesign can replace the interface without changing note documents.
   anchors, and backlinks. Folder-qualified links currently resolve the leaf title; no match is guessed.
 - Continue improving People cards as views over ordinary notes. Structured contacts and relationship
   metadata need a separate design decision; avoid a duplicate copy of note contents.
-- Add a personal login before treating this as a private diary: one owner account, salted password hash,
+- A small optional login now exists (Settings → Password, `docs/LOGIN.md`); the fuller version below is still open if this becomes a private diary: one owner account, salted password hash,
   server sessions, login throttling, CSRF protection, logout and local administrator recovery. Protect all
   note/export/backup endpoints. Keep separately authenticated MCP access. Use HTTPS over LAN/WireGuard;
   no public exposure or port forwarding. Pending phone edits must survive logout/session expiry and must

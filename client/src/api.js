@@ -45,6 +45,8 @@ async function request(method, path, body, { timeout = TIMEOUT_MS } = {}) {
     /* empty or non-JSON body */
   }
   if (!res.ok) {
+    // A password is set and this browser is not (or no longer) logged in: the app shows the login page.
+    if (json?.error?.code === 'login_required' && typeof window !== 'undefined') window.dispatchEvent(new Event('hq-login-required'));
     throw new ApiError(res.status, json?.error?.code ?? json?.reason ?? `http_${res.status}`, json?.error?.message ?? `Server error ${res.status}`, json);
   }
   return json;
@@ -53,6 +55,11 @@ async function request(method, path, body, { timeout = TIMEOUT_MS } = {}) {
 const enc = encodeURIComponent;
 
 export const api = {
+  auth: () => request('GET', '/api/auth'),
+  login: (password) => request('POST', '/api/auth/login', { password }),
+  logout: () => request('POST', '/api/auth/logout', {}),
+  setPassword: (password, current) => request('PUT', '/api/auth/password', { password, current }),
+  passwordOff: (current) => request('POST', '/api/auth/off', { current }),
   config: () => request('GET', '/api/config'),
   resolveLink: (target) => request('GET', `/api/note-links?target=${enc(target)}`),
   tags: () => request('GET', '/api/tags'),

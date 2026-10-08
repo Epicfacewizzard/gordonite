@@ -37,7 +37,13 @@ step "2/7 Sudo (enter the server password if asked)"
 sudo -v
 
 step "3/7 Taking a verified backup of the live data before anything changes"
-curl -sf -X POST "$URL/api/backups" -H 'content-type: application/json' -d '{}' | head -c 400; echo
+# With a login password set, the web route answers 401: then make the same verified backup from inside the container.
+if OUT="$(curl -sf -X POST "$URL/api/backups" -H 'content-type: application/json' -d '{}')"; then
+  printf '%s\n' "${OUT:0:400}"
+else
+  echo "(the web backup was refused; using the backup tool inside the container instead)"
+  sudo docker exec gordonite node server/cli.js backup
+fi
 
 has_key() { sudo docker inspect gordonite --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -c '^ASSISTANT_TOKEN=' || true; }
 KEY_BEFORE="$(has_key)"
@@ -63,7 +69,7 @@ for i in $(seq 1 40); do
 done
 curl -sf "$URL/api/health" || { echo; echo "NOT HEALTHY. Look at: sudo docker logs --tail 50 gordonite"; exit 1; }
 echo
-printf 'mood API: HTTP %s (200 expected)\n' "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/moods")"
+printf 'mood API: HTTP %s (200 expected; 401 means the login password is on, which is fine)\n' "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/moods")"
 printf 'logo:     HTTP %s (200 expected)\n' "$(curl -s -o /dev/null -w '%{http_code}' "$URL/icon-512.png")"
 KEY_AFTER="$(has_key)"
 echo "assistant key set after the update: $([ "$KEY_AFTER" -ge 1 ] && echo yes || echo no)"

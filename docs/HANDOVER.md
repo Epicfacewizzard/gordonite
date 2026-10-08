@@ -79,7 +79,7 @@ Schema migrations are append-only in `server/db.js` (currently **v4**); never ed
   about anything whose purpose is unclear.
 * Plain, short explanations; they are not a developer. Say what changed and what you did not do.
 * Confirm before pushing to GitHub unless they have said to (they did at the end of this session: push everything).
-* They will be on a **VPN** when away; the server need not be public. There is **no human login** by design (CasaOS's
+* They will be on a **VPN** when away; the server need not be public. There is **no human login unless the owner turns on the small optional password** (Settings → Password, `docs/LOGIN.md`), by design (CasaOS's
   own login protects the CasaOS dashboard, not the app's port); only the assistant door has a key. A login can be added
   later if they want one.
 * Decisions already made: Obsidian is a **one-time import** (no two-way sync), skipping dot-folders such as `.agents` and

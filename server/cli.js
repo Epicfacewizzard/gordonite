@@ -17,6 +17,7 @@ const config = loadConfig();
 function usage() {
   console.log(`Usage:
   node server/cli.js backup                        Take a verified backup now
+  node server/cli.js password-off                  Turn the app's login password off (if you forgot it)
   node server/cli.js token                         Print a new random key to use as ASSISTANT_TOKEN
                                                    (it is not stored anywhere; put it in the app's settings)
   node server/cli.js verify <file.sqlite>          Check a backup file
@@ -36,6 +37,13 @@ switch (cmd) {
     const info = createBackup(db, config, 'manual');
     db.close();
     console.log(`Backup written and verified: ${path.join(config.backupDir, info.file)}\n  ${describe(info)}`);
+    break;
+  }
+  case 'password-off': {
+    const db = openDb(config.dbFile);
+    const had = db.prepare("DELETE FROM meta WHERE key = 'auth_password'").run().changes > 0;
+    db.close();
+    console.log(had ? 'The password is off. The app opens without a login again; set a new one in Settings.' : 'No password was set.');
     break;
   }
   case 'token': {

@@ -1437,3 +1437,12 @@ body:not([data-editing]) .today .toolbar {
 .widget-group-name { margin: 0.6rem 0 0.1rem; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .widget-move select { min-height: 44px; max-width: 9.5rem; }
 .widget-reset { margin: 0.5rem 0 0; }
+
+/* login page and the password settings */
+.login { max-width: 22rem; margin: 12vh auto 0; padding: 0 16px; text-align: center; }
+.login-logo { width: 72px; height: 72px; border-radius: 16px; }
+.login h1 { margin: 8px 0 16px; font-size: 1.6rem; }
+.login form { display: grid; gap: 12px; text-align: left; }
+.login label { display: grid; gap: 4px; }
+.pw-form { display: grid; gap: 8px; max-width: 22rem; margin: 8px 0; }
+.pw-form label { display: grid; gap: 4px; }

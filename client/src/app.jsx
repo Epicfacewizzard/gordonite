@@ -12,6 +12,7 @@ import { NotesView } from './views/Notes.jsx';
 import { PeopleView } from './views/People.jsx';
 import { LinkTarget } from './views/LinkTarget.jsx';
 import { NewNoteView } from './views/NewNote.jsx';
+import { LoginView } from './views/LoginView.jsx';
 import { TrashView } from './views/Trash.jsx';
 import { DataView } from './views/Data.jsx';
 import { STATUS_TEXT } from './views/parts.jsx';
@@ -158,6 +159,22 @@ export function App() {
   const route = useHashRoute();
   const [config, setConfig] = useState(loadCachedConfig);
   const [error, setError] = useState(null);
+  // 'checking' until the server says whether a password is set; 'login' shows only the login page; else 'open'.
+  const [gate, setGate] = useState('checking');
+
+  useEffect(() => {
+    const lock = () => setGate('login'); // any request answered "log in first" (a login that ran out, say)
+    window.addEventListener('hq-login-required', lock);
+    // Offline or slow: do not hold the app back, the phone's own copy keeps working.
+    const slow = setTimeout(() => setGate((g) => (g === 'checking' ? 'open' : g)), 3000);
+    api.auth()
+      .then((a) => setGate((g) => (g === 'login' || (a.enabled && !a.loggedIn) ? 'login' : 'open')))
+      .catch(() => setGate((g) => (g === 'checking' ? 'open' : g)));
+    return () => {
+      window.removeEventListener('hq-login-required', lock);
+      clearTimeout(slow);
+    };
+  }, []);
 
   const loadConfig = () =>
     api
@@ -221,6 +238,8 @@ export function App() {
   }
 
   useTypingMarks();
+  if (gate === 'checking') return <p class="muted center">Loading…</p>;
+  if (gate === 'login') return <LoginView />;
   const tabbar = showsTabBar(route);
   return (
     <>

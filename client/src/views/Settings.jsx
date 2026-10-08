@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard, resetDashboard, DASHBOARD_REGIONS, DASHBOARD_TASKS, getDashboardTasks, setDashboardTasks, getShiftDismiss, setShiftDismiss, MOOD_OPTIONS, getMoodPrefs, setMoodPref } from '../prefs.js';
 import { api } from '../api.js';
+import { PasswordSettings } from './PasswordSettings.jsx';
 
 /** Settings that belong to this device. Line spacing for now; the preview uses the same rules as a real note. */
 export function SettingsView({ config, onConfigChanged }) {
@@ -118,6 +119,7 @@ export function SettingsView({ config, onConfigChanged }) {
           </li>
         ))}
       </ul>
+      <PasswordSettings />
       <h2 class="section">Opening page on this device</h2>
       <p class="muted small">Choose separately on your phone and computer. Direct links to notes still open that note.</p>
       <label>Opening page <select value={opening} data-testid="opening-page" onChange={(e) => {
