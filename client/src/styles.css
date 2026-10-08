@@ -1446,3 +1446,5 @@ body:not([data-editing]) .today .toolbar {
 .login label { display: grid; gap: 4px; }
 .pw-form { display: grid; gap: 8px; max-width: 22rem; margin: 8px 0; }
 .pw-form label { display: grid; gap: 4px; }
+
+.archive-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }

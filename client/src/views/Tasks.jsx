@@ -2,11 +2,12 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { sync } from '../sync.js';
 import { useToday, useNowTime } from '../hooks.js';
-import { addDays, formatDateShort, formatDateLabel, hasStarted, isOverdue } from '../../../shared/dates.js';
+import { addDays, dateInTz, formatDateShort, formatDateLabel, hasStarted, isOverdue } from '../../../shared/dates.js';
 import { findDatePhrases, parseTaskSchedule } from '../../../shared/taskdates.js';
 import { PRIORITY_LABEL, dueBar, priorityRank, extractTasks } from '../../../shared/tasks.js';
 import { TaskDetails } from './TaskSheet.jsx';
-import { getShiftDismiss } from '../prefs.js';
+import { getShiftDismiss, getDoneDays } from '../prefs.js';
+import { DateRangePicker } from './DateRangePicker.jsx';
 import { TaskTextEditor } from './TaskTextEditor.jsx';
 import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
 
@@ -59,6 +60,13 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
   const [tasks, setTasks] = useState(null);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState({ done: false, hidden: false, later: false, dismissed: false });
+  // The date range for the Done and Dismissed lists (the same control the note history uses). Starts at the length chosen
+  // in Settings; 'Everything' starts with no limit.
+  const [range, setRangeState] = useState(() => {
+    const days = getDoneDays();
+    return days > 0 ? { from: addDays(today, -(days - 1)), to: today } : { from: '', to: '' };
+  });
+  const setRange = (from, to) => setRangeState({ from, to });
   const [expanded, setExpanded] = useState(() => new Set()); // tasks opened out to show their details
   const toggleExpanded = (t) =>
     setExpanded((s) => {
@@ -228,6 +236,46 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
     );
   };
 
+  // Done and Dismissed: only the tasks finished or dismissed inside the date range are listed; the rest are counted and
+  // one tap brings them back. (A task with no recorded date, from before dates were kept, is always listed.)
+  const dayOf = (t) => {
+    const stamp = t.dismissedAt || t.completedAt;
+    return stamp ? dateInTz(new Date(stamp), config.tz) : null;
+  };
+  const archived = (id, title, all) => {
+    if (all.length === 0) return false;
+    const list = all.filter((t) => {
+      const day = dayOf(t);
+      return !day || ((!range.from || day >= range.from) && (!range.to || day <= range.to));
+    });
+    const outside = all.length - list.length;
+    return (
+      <section class="task-group" data-testid={`section-${id}`}>
+        <h2 class="section">
+          <button type="button" class="link-plain" onClick={() => setOpen((o) => ({ ...o, [id]: !o[id] }))} aria-expanded={open[id]} data-testid={`toggle-${id}`}>
+            {open[id] ? '▾' : '▸'} {title} <span class="count">{list.length}</span>
+          </button>
+        </h2>
+        {open[id] && (
+          <>
+            <div class="archive-bar" data-testid={`range-${id}`}>
+              <DateRangePicker from={range.from} to={range.to} today={today} onChange={setRange} />
+              {outside > 0 && (
+                <span class="muted small" data-testid={`outside-${id}`}>
+                  {outside} outside this range ·{' '}
+                  <button type="button" class="link" onClick={() => setRange('', '')} data-testid={`show-all-${id}`}>
+                    Show all
+                  </button>
+                </span>
+              )}
+            </div>
+            {list.length > 0 ? <ul class="task-list">{list.map(row)}</ul> : <p class="muted">Nothing in this date range.</p>}
+          </>
+        )}
+      </section>
+    );
+  };
+
   const section = (id, title, list) =>
     list.length > 0 && (
       <section class="task-group" data-testid={`section-${id}`}>
@@ -306,8 +354,8 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
       )}
       {!compact && folded('later', 'Starts later', buckets.later)}
       {!compact && folded('hidden', 'Hidden', buckets.hidden)}
-      {!compact && folded('done', 'Done', buckets.done)}
-      {!compact && folded('dismissed', 'Dismissed', buckets.dismissed)}
+      {!compact && archived('done', 'Done', buckets.done)}
+      {!compact && archived('dismissed', 'Dismissed', buckets.dismissed)}
       {menu && (() => {
         const t = tasks?.find((x) => keyOf(x) === menu.key);
         if (!t) return null;

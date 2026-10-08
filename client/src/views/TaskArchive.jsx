@@ -3,12 +3,13 @@ import { useRef, useState } from 'preact/hooks';
 import { addDays, dateInTz, formatDateShort, changeTimestampDay, isValidDateString } from '../../../shared/dates.js';
 import { extractTasks } from '../../../shared/tasks.js';
 import { Sheet } from './parts.jsx';
+import { getDoneDays } from '../prefs.js';
 
 /** A view over the tasks still in this note; there is no duplicate history database. */
 export function TaskArchive({ doc, noteDate, today, tz, onReactivate, onPatch }) {
   const [kind, setKind] = useState('all');
-  const [from, setFrom] = useState(() => addDays(today, -6));
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState(() => (getDoneDays() > 0 ? addDays(today, -(getDoneDays() - 1)) : '')); // the length is a setting
+  const [to, setTo] = useState(() => (getDoneDays() > 0 ? today : ''));
   const [error, setError] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [dropDay, setDropDay] = useState(null);

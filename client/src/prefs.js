@@ -116,3 +116,18 @@ export function setShiftDismiss(on) {
   try { localStorage.setItem(SHIFT_DISMISS_KEY, on ? '1' : '0'); return true; }
   catch { return false; }
 }
+
+// How many days of done and dismissed tasks the Tasks page and each note's task history show by default (a date range
+// can still be picked on the spot). 0 = no limit. Kept on this device like the other display prefs. [days, name]
+const DONE_DAYS_KEY = 'hq-done-days';
+export const DONE_DAYS = [[7, 'The last 7 days'], [14, 'The last 14 days'], [30, 'The last 30 days'], [90, 'The last 90 days'], [0, 'Everything']];
+export const DONE_DAYS_DEFAULT = 7;
+export function getDoneDays() {
+  try { const v = Number(localStorage.getItem(DONE_DAYS_KEY)); return localStorage.getItem(DONE_DAYS_KEY) !== null && DONE_DAYS.some(([d]) => d === v) ? v : DONE_DAYS_DEFAULT; }
+  catch { return DONE_DAYS_DEFAULT; }
+}
+export function setDoneDays(days) {
+  if (!DONE_DAYS.some(([d]) => d === days)) return false;
+  try { localStorage.setItem(DONE_DAYS_KEY, String(days)); return true; }
+  catch { return false; }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard, resetDashboard, DASHBOARD_REGIONS, DASHBOARD_TASKS, getDashboardTasks, setDashboardTasks, getShiftDismiss, setShiftDismiss, MOOD_OPTIONS, getMoodPrefs, setMoodPref } from '../prefs.js';
+import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard, resetDashboard, DASHBOARD_REGIONS, DASHBOARD_TASKS, getDashboardTasks, setDashboardTasks, getShiftDismiss, setShiftDismiss, DONE_DAYS, getDoneDays, setDoneDays, MOOD_OPTIONS, getMoodPrefs, setMoodPref } from '../prefs.js';
 import { api } from '../api.js';
 import { PasswordSettings } from './PasswordSettings.jsx';
 
@@ -17,6 +17,7 @@ export function SettingsView({ config, onConfigChanged }) {
   const [widgets, setWidgets] = useState(getDashboard);
   const [tasksScope, setTasksScope] = useState(getDashboardTasks);
   const [shiftDismiss, setShiftDismissState] = useState(getShiftDismiss);
+  const [doneDays, setDoneDaysState] = useState(getDoneDays);
   const [moodPrefs, setMoodPrefs] = useState(getMoodPrefs);
   const changeMoodPref = (id, value) => {
     if (setMoodPref(id, value)) setMoodPrefs((p) => ({ ...p, [id]: value }));
@@ -109,6 +110,8 @@ export function SettingsView({ config, onConfigChanged }) {
       </p>
       <p class="muted small">Tasks on this device:</p>
       <label class="check-row"><input type="checkbox" checked={shiftDismiss} data-testid="shift-dismiss" onChange={(e) => { const on = e.currentTarget.checked; if (setShiftDismiss(on)) setShiftDismissState(on); else setDailyMessage('This browser could not save the choice.'); }} /> <span>Shift-click a task’s checkbox to dismiss it instead of ticking it</span></label>
+      <label>Done and dismissed tasks show <select value={doneDays} data-testid="done-days" onChange={(e) => { const v = Number(e.currentTarget.value); if (setDoneDays(v)) setDoneDaysState(v); else setDailyMessage('This browser could not save the choice.'); }}>{DONE_DAYS.map(([days, name]) => <option key={days} value={days}>{name}</option>)}</select></label>
+      <p class="muted small">On the Tasks page and in each note's task history, to start with. You can pick any other dates on the spot.</p>
       <p class="muted small">Tasks box on this device:</p>
       <label>The dashboard Tasks box shows <select value={tasksScope} data-testid="dashboard-tasks-scope" onChange={(e) => { const v = e.currentTarget.value; if (setDashboardTasks(v)) setTasksScope(v); else setDailyMessage('This browser could not save the choice.'); }}>{DASHBOARD_TASKS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       <p class="muted small">Mood band on this device:</p>
