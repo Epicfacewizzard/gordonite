@@ -1,6 +1,8 @@
 # Release notes
 
-## 0.3.1 — 2026-10-07 — Dashboard Tasks box: overdue and due today by default, adjustable (version raised; not yet deployed)
+## 0.3.1 — 2026-10-07 — Dashboard Tasks box: overdue and due today by default, adjustable (deployed to CasaOS)
+
+**Deployed** from commit `abca4aa` (pushed to GitHub `main` first) to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1`, over the home network. The server's `/api/health` reports version 0.3.1 and the home page loads. The script ran the unit tests (100/100) and took a verified backup of the live data before changing anything (listed under Data & backups); the previous image is tagged `gordonite:rollback-before-abca4aa`. No database change, so rolling back means retagging that image as `gordonite:0.1.0` and recreating the service. Tasks box, dashboard layout, mood and tag-choice settings are kept per device in each browser.
 
 Version **0.3.1** (a small change: third number). The dashboard's Tasks box showed only overdue tasks, fixed in the code. It now shows **overdue and due today** by default, and Settings → Dashboard → "Tasks box on this device" lets you choose: overdue only; overdue and due today; overdue, today and the coming week (seven days); or everything open (adds a few with no date). Saved per device (`hq-dashboard-tasks`; list in `DASHBOARD_TASKS` in `client/src/prefs.js`). The count line adapts ("1 overdue · 2 today · 9 open") and an empty box says what it is empty of. The full Tasks page is unchanged. Also: in the Today's note tag choices, a starred tag whose daily entry is switched off is now left out instead of shown greyed (the current tag always shows). No server or database change. Checks: unit tests 100/100; browser tests for the dashboard (default, all four choices, remembered, empty message), tasks, task rows, settings and the clock/calendar view, 29/29.
 
