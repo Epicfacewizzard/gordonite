@@ -9,7 +9,7 @@ export const OPENING_PAGES = [['/', 'Dashboard'], ['/notes', 'Notes'], ['/tasks'
 // display prefs. [id, name, the column it starts in], in the order they first appear. A widget added later appears at
 // the end of its column until it is moved. To add a widget: add it here and to WIDGETS in views/Today.jsx.
 const DASHBOARD_KEY = 'hq-dashboard';
-export const DASHBOARD_WIDGETS = [['nav', 'New note button', 'right'], ['pinned', 'Starred tags', 'left'], ['mood', 'Mood', 'right'], ['tasks', 'Tasks', 'right'], ['note', 'Today’s note', 'center']];
+export const DASHBOARD_WIDGETS = [['nav', 'New note button', 'right'], ['pinned', 'Starred tags', 'right'], ['mood', 'Mood', 'right'], ['tasks', 'Tasks', 'right'], ['note', 'Today’s note', 'center']];
 // Where a widget can go. 'top' is a band across the whole width; the others are columns side by side (stacked top to
 // bottom in this order on a phone). A column nobody uses takes no room.
 export const DASHBOARD_REGIONS = [['top', 'Across the top'], ['left', 'Left column'], ['center', 'Middle column'], ['right', 'Right column']];

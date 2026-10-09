@@ -1448,3 +1448,11 @@ body:not([data-editing]) .today .toolbar {
 .pw-form label { display: grid; gap: 4px; }
 
 .archive-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
+
+/* Inside a column the widgets stack, except the New note button and the starred tags, which sit on one row (the tags
+   fill what is left of the row and wrap below if there is no room). */
+.dash-region { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; }
+.dash-region > * { flex: 1 1 100%; min-width: 0; }
+.dash-region > .today-nav { flex: 0 0 auto; }
+.dash-region > [data-testid="widget-pinned"] { flex: 1 1 10rem; margin-bottom: 8px; }
+.dash-region > [data-testid="widget-pinned"] .chips { margin: 0; }

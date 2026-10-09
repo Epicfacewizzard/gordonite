@@ -196,7 +196,7 @@ describe('dashboard widgets', () => {
       await app.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: true });
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { left: ['widget-pinned'], center: ['widget-note'], right: ['nav', 'widget-mood', 'widget-tasks'] });
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['nav', 'widget-pinned', 'widget-mood', 'widget-tasks'] });
 
       await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('widget-prefs').waitFor();
@@ -204,11 +204,13 @@ describe('dashboard widgets', () => {
       await page.getByTestId('widget-toggle-mood').tap(); // hide mood
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { left: ['widget-pinned'], center: ['widget-note'], right: ['nav', 'widget-tasks'] });
+      await page.getByTestId('widget-pinned').waitFor(); // the starred tags arrive a moment after the page
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['widget-pinned', 'nav', 'widget-tasks'] });
 
       await page.reload();
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { left: ['widget-pinned'], center: ['widget-note'], right: ['nav', 'widget-tasks'] }, 'kept after a reload');
+      await page.getByTestId('widget-pinned').waitFor(); // the starred tags arrive a moment after the page
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['widget-pinned', 'nav', 'widget-tasks'] }, 'kept after a reload');
 
       // hide everything: the dashboard says so and points to Settings
       await page.goto(`${app.url}/#/settings`);
@@ -234,6 +236,22 @@ describe('dashboard widgets', () => {
       assert.ok(n.y + n.height <= m.y + 1 && m.y + m.height <= t.y + 1, 'New note, then mood, then tasks, top to bottom');
       assert.ok(n.width < 160 && n.height < 44, 'the New note button is small, not the full column');
       assert.ok(c.width > t.width, 'the note column is the widest');
+    }));
+
+  test('the starred tags sit beside the New note button, and the note has the room on the left under the date', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const tag = (await app.api('POST', '/api/tags', { path: 'school/fall26' })).json.tag;
+      await app.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: true });
+      await page.setViewportSize({ width: 1200, height: 800 });
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('widget-pinned').waitFor();
+      const box = async (id) => page.getByTestId(id).boundingBox();
+      const [date, note, nav, pinned, tasks] = [await box('today-date'), await box('widget-note'), await box('today-new-note'), await box('widget-pinned'), await box('widget-tasks')];
+      assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length), 2, 'no column is kept for the starred tags');
+      assert.ok(Math.abs(pinned.y - nav.y) < 24 && pinned.x >= nav.x + nav.width - 1, 'the starred tags are on the same row, right of the New note button');
+      assert.ok(pinned.y + pinned.height <= tasks.y + 1, 'and above the tasks');
+      assert.ok(Math.abs(note.x - date.x) < 4 && date.y + date.height <= note.y, 'the date is straight above the note');
+      assert.ok(note.width > tasks.width, 'the note is the widest part');
     }));
 
   test('a widget can be moved to another column in Settings; a column nobody uses leaves no gap; Reset puts everything back', () =>

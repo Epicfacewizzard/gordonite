@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.4.2 — 2026-10-09 — Starred tags beside the New note button; more room for today's note (version raised; not yet deployed)
+
+Version **0.4.2** (a small change: third number). The starred tags used to start in their own left column, which left a wide, mostly empty strip beside the date. They now start in the **right column, on the same row as the New note button** (they wrap onto the next line if there is no room), the left column is empty so it takes no space, and today's note starts straight under the date with the most room. Nothing is fixed: in **Settings → Dashboard** each widget can still be moved to any column or the top band, hidden or reordered, and **Reset** puts back this new starting layout. A device that already saved its own layout keeps it, so press Reset (or set the starred tags' column to "Right column") to see the change. No server or database change. Checks: `tests/e2e/today.test.js` updated and extended (starred tags beside the button, no column kept for them, the date above the note).
+
 ## 0.4.1 — 2026-10-08 — Date range on the Tasks page's Done and Dismissed lists (deployed to CasaOS)
 
 **Deployed** from commit `1c61337` (pushed to GitHub `main` first) to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1`, over the home network. The server's `/api/health` reports version 0.4.1 and the home page loads. The script ran the unit tests (114/114) and took a verified backup of the live data before changing anything (listed under Data & backups); the previous image is tagged `gordonite:rollback-before-1c61337`. No database change, so rolling back means retagging that image as `gordonite:0.1.0` and recreating the service. Settings kept in each browser (including the new done/dismissed length) are per device.
