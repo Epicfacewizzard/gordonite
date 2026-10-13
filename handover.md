@@ -176,9 +176,7 @@ move the items back. The Inbox's own files were not touched, except `README.md`,
 in the archive as `00 Inbox README (original).md`): it described moving processed files to `90 Archive/Inbox
 Processed/`, a folder that no longer exists, and now describes the Gordonite flow (`list_inbox`, then `upload_file` with
 `archive: true`, which moves the original into `_imported/`; `create_note` / `append_note` for text). Nothing here is
-in the app that is not also in the archive. **For the inbox tools to work, the private bridge config file needs
-`"inboxDir": "C:/Users/Epicf/OneDrive - University of Calgary/Obsidian Vault/00 Inbox"`** (docs/MCP.md); that file was
-not changed.
+in the app that is not also in the archive. The private bridge config (`%LOCALAPPDATA%\Gordonite\mcp.json`, used by both Claude Desktop and Codex) now has `"inboxDir"` pointing at that folder (added 2026-10-13 and checked by starting the bridge and calling `ping`, `list_inbox` and `list_files`); clients load tools when they start, so restart them (or start a new chat) to get the inbox tools.
 
 The vault itself was an old copy (its "MOVED" note said the live vault is `C:\Users\Epicf\Vault`, which is not on this
 PC); only its `00 Inbox` remains here, as the agents' drop folder.

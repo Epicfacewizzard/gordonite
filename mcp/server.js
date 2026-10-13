@@ -38,6 +38,7 @@ function listInbox(inboxDir) {
   const walk = (dir, depth) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (entry.name.startsWith('.') || entry.name.startsWith('_')) continue; // hidden, and _imported/ below
+      if (depth === 0 && /^readme(\.md|\.txt)?$/i.test(entry.name)) continue; // the folder's own instructions, not an item
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (depth < 3) walk(full, depth + 1);

@@ -20,6 +20,7 @@ test('the inbox folder: list, send to Gordonite, attach, read back; nothing outs
   fs.mkdirSync(path.join(inbox, 'photos'));
   fs.writeFileSync(path.join(inbox, 'photos', 'Floor.png'), PNG);
   fs.writeFileSync(path.join(inbox, '.hidden.pdf'), PDF);
+  fs.writeFileSync(path.join(inbox, 'README.md'), '# Inbox\n\nHow to use this folder.\n'); // instructions, not an item
 
   const configFile = path.join(inbox, '..', `hq-mcp-config-${process.pid}.json`);
   fs.writeFileSync(configFile, JSON.stringify({ url: app.url, token, inboxDir: inbox }));
@@ -41,7 +42,7 @@ test('the inbox folder: list, send to Gordonite, attach, read back; nothing outs
 
     // listing
     const listed = json(await call('list_inbox'));
-    assert.deepEqual(listed.files.map((f) => f.path).sort(), ['Insurance Policy.pdf', 'photos/Floor.png'], 'hidden files are not offered');
+    assert.deepEqual(listed.files.map((f) => f.path).sort(), ['Insurance Policy.pdf', 'photos/Floor.png'], 'hidden files and the folder README are not offered');
 
     // sending, with the file also placed in a note
     const note = (await app.api('POST', '/api/assistant/notes', { title: 'Condo', markdown: 'Documents', tags: ['condo'] }, { authorization: `Bearer ${token}` })).json;

@@ -78,7 +78,7 @@ automatically: after a timeout, inspect the note before retrying an append/creat
 | `upload_file` | Send one file from the inbox to Gordonite, optionally into a note (`noteId`), optionally moving the original to `<inbox>/_imported/` (`archive:true`) so it is not picked up twice |
 
 The inbox tools can read only inside `inboxDir`: a path that leaves it by `..`, an absolute path elsewhere, or a link
-pointing out is refused, and hidden files (`.name`) and `_imported/` are not listed. HEIC photos are converted to JPEG
+pointing out is refused, and hidden files (`.name`), `_imported/` and the folder's own `README.md` are not listed. HEIC photos are converted to JPEG
 by the server. Only upload when the user asks. See [ATTACHMENTS.md](ATTACHMENTS.md).
 
 ## "Server disconnected" at startup

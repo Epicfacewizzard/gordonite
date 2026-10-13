@@ -1,6 +1,14 @@
 # Release notes
 
-## Unreleased — three old failing browser tests repaired (tests only; no app change, nothing to deploy)
+## Unreleased — inbox listing skips its README; three old failing browser tests repaired (nothing to deploy)
+
+- **Bridge:** `list_inbox` no longer lists the inbox folder's own `README.md` (its instructions are not an item to
+  process). Covered by `tests/server/mcp-files.test.js`. This is the local bridge (`mcp/server.js`), not the server, so
+  there is no deployment; it takes effect the next time the assistant client starts the bridge.
+- **Owner's setup (not in the repository):** `"inboxDir"` was added to the private bridge config
+  (`%LOCALAPPDATA%\Gordonite\mcp.json`, used by both Claude Desktop and Codex), pointing at
+  `Obsidian Vault\00 Inbox`; checked by starting the bridge as the client does and calling `ping`, `list_inbox` and
+  `list_files`.
 
 The three browser tests that had been failing since 0.4.x were looked into and were not app bugs:
 
