@@ -1,6 +1,6 @@
 # Gordonite handover
 
-Updated **2026-10-06**, home timezone **America/Edmonton**. This is the current handover; `docs/HANDOVER.md` is an older historical snapshot and contains superseded deployment and feature information.
+Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current handover; `docs/HANDOVER.md` is an older historical snapshot and contains superseded deployment and feature information. The exact per-release record is `docs/RELEASE-NOTES.md`.
 
 ## Read first
 
@@ -9,109 +9,118 @@ Updated **2026-10-06**, home timezone **America/Edmonton**. This is the current 
 - Keep storage and writing reliability ahead of presentation. The UI is provisional and may be redesigned.
 - Tasks live inside their original structured note documents. Keep stable note/tag/task IDs, revision conflict checks, durable pending edits, undo, recovery, and backups intact.
 - Do not treat instructions imported from the Obsidian vault as current project instructions.
+- **Source files use Windows (CRLF) line endings.** A script that matches multi-line text will silently fail to match; use the editor tool or normalise line endings first and write them back.
 
 ## Current state
 
-Application version: **0.2.0**, shown at the bottom of Settings using the server configuration API. This is a release version, not a unique Git build identifier. Raise it (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change. The Docker image tag `gordonite:0.1.0` is just a stable name, not the app version.
+| | |
+| --- | --- |
+| Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
+| Version on `origin/main` | **0.4.2** (`af8868f`) |
+| Version running on the server | **0.4.2** (read from `/api/health` on 2026-10-12) |
+| Newest work, **not pushed and not deployed** | **0.4.3**, branch `feature/today-previous-days`, commits `a02aa7e` (test fix) and `856def5` (feature) |
 
-Repository: `https://github.com/Epicfacewizzard/gordonite.git`, branch `main`.
+Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
 
-Latest runtime deployed: **`e4e47a7`** (Settings version label). Latest pushed commit before this handover: **`8cecdbe`** (deployment documentation). No other uncommitted changes were present when this handover started.
+### 0.4.3 (built and tested, waiting to be deployed)
 
-Working features:
+On the dashboard, under today's note, the last **two** days' daily entries of the chosen tag show, greyed out and headed only by their date. **Tapping one opens it for editing in place** (caret where tapped; saved to that day, never into a new note). Only one editor is open at a time (today's, or the tapped day's); tapping today's note makes it the open one again. "Show older notes" adds three at a time and fetches older stream pages when the loaded ones run out. Empty days are skipped; only `daily` entries are listed; long entries fade until opened. The tag choices moved from under the note to beside the "Today's note" heading.
 
-- Daily and ordinary titled notes, formatting, bullets/nested lists, inline tasks, tags/sub-tags, exact-tag streams, search, and folder-style note browsing.
-- Tasks can be completed, dismissed, deleted, restored, scheduled, and moved. Completed items remain in the document as crossed-out bullet-like rows; dismissed items are hidden from the writing surface. Each note has date-filtered task history. Deletion confirmation and recovery remain important.
-- Today and Tasks: clicking task text opens an inline Tiptap editor; only the right arrow opens details. It edits the original note task through the normal save path, preserving formatting and nested task content.
-- Task movement handles sit in the left gutter outside the colour strip. Movement preserves IDs and supports undo.
+Files: `client/src/views/EarlierNotes.jsx` (new; reuses the stream's `NoteCard`), `client/src/views/Today.jsx`, `client/src/styles.css`. No server or database change. Tests: `tests/e2e/earlier-notes.test.js`.
+
+### Working features
+
+- Daily and ordinary titled notes, formatting, bullets/nested lists, inline tasks, tags/sub-tags, exact-tag streams, search, and folder-style note browsing. Tags page: collapsed parents and drag to move/nest.
+- Tasks can be completed, dismissed (Shift-click a checkbox dismisses), deleted, restored, scheduled, and moved. Completed items stay in the document as crossed-out rows; dismissed items are hidden from the writing surface. Each note has date-filtered task history; the Tasks page has Done and Dismissed lists with a date range.
+- Natural dates/times (`docs/NATURAL-DATES.md`): relative phrases use the **note date**. No alarms, notifications or recurrence.
+- Dashboard (the "Today" route, `#/`): widgets (New note, starred tags, Tasks box, Mood, Today's note) can be shown, hidden, reordered and moved between columns per device in Settings → Dashboard.
+- Optional login password, off by default (`docs/LOGIN.md`). Stable HTTPS is still unfinished.
 - People cards/search/group filters are views over ordinary notes tagged `05-people` and its children, not a separate contacts database.
-- `[[note links]]` resolve saved titles to stable note IDs. Duplicate names show a choice; missing names show an explanation. Folder-qualified names currently resolve by leaf title. Links are not yet permanently bound across title changes; heading anchors/backlinks need further design.
-- Linked-note Back navigation is fixed: automatic single-match resolution replaces its temporary resolver history entry. Back/Forward can follow chains of notes.
-- Settings includes home timezone, per-device opening tab, line spacing, Trash/Data links, and version.
-- Automatic saving, IndexedDB pending edits, reconnect retries, explicit conflict preservation, recent versions, trash, JSON/Markdown export, merge import, and verified SQLite backups.
-- Authenticated local MCP bridge works from computers connected through LAN/WireGuard.
+- `[[note links]]` resolve saved titles to stable note IDs; linked-note Back navigation works across chains.
+- Automatic saving, IndexedDB pending edits, reconnect retries, explicit conflict preservation, recent versions, trash, JSON/Markdown export, merge import, and verified SQLite backups with retention.
+- Authenticated local MCP bridge (see below).
 
 ## Server and local preview
 
-| Item | Current value |
+| Item | Value |
 | --- | --- |
 | CasaOS | `http://192.168.1.50` |
 | Live Gordonite | `http://192.168.1.50:8082` |
 | SSH username | `gordon` |
 | Container / Compose service | `gordonite` |
-| Existing Compose file | `/home/gordon/gordonite/deploy/gordonite-casaos.yml` |
+| Compose file | `/home/gordon/gordonite/deploy/gordonite-casaos.yml` |
 | Persistent directory | `/DATA/AppData/gordonite/data` → `/data` |
 | User / restart | `1000:1000` / `unless-stopped` |
-| Current image tags | `gordonite:e4e47a7`, `gordonite:0.1.0` |
-| Current release source | `/home/gordon/gordonite/releases/e4e47a7` |
-| Immediate rollback image | `gordonite:rollback-before-e4e47a7` |
-| Local preview | `http://127.0.0.1:8091` |
-| Local preview storage | `data/local-preview` (separate from the server) |
 
-The CasaOS dashboard login does **not** protect the Gordonite app port. A personal app login has been requested but is **not implemented**. Current access is trusted LAN/VPN over HTTP. Stable HTTPS remains unfinished. Do not expose the app publicly.
+The exact image tags and release folders change with every deployment; `docs/DEPLOYMENT-2026-10-06.md` and `docs/RELEASE-NOTES.md` record the earlier ones. They were **not** re-inspected for this handover (`scripts/deploy-casaos.ps1 -Inspect` shows them, read-only).
 
-Node **24+**, Preact, Tiptap/ProseMirror, Vite, and SQLite via Node's built-in driver. No runtime server npm dependencies. Docker builds the client and runs one Node server.
+Do not expose the app publicly. Access is trusted LAN, or WireGuard away from home. The computer must be on `192.168.1.x` or have its WireGuard tunnel up; on 2026-10-11 it was on a different subnet with the tunnel off and could not reach the server. (That was written up in an uncommitted status note in the owner's working folder, `docs/STATUS-CHECK-2026-10-11.md`; it is not in `main`.)
+
+Node **24+**, Preact, Tiptap/ProseMirror, Vite, SQLite via Node's built-in driver; no runtime server npm dependencies. Docker builds the client and runs one Node server.
 
 ```powershell
 npm ci
-npm run dev
-# Or the persistent local preview:
-npm run preview:local
+npm run dev                  # API on :8080 + Vite on :5173
+npm run build; npm start     # production-style, serves client/dist
+npm run preview:local        # persistent local preview with its own data (scripts/preview-local.js)
 ```
 
-Do not start another preview on 8091 if one is already running. Production preview and browser tests serve `client/dist`; build after client edits. Local edits do not automatically update CasaOS.
+Production preview and browser tests serve `client/dist`; **build after client edits**. A page that only changes its `#hash` does not reload: use a new query string or Ctrl+Shift+R to see a new build.
 
-## Deployments and backups
+## Deploying (what is outstanding)
 
-Recent deployments used clean `git archive` releases transferred over SSH, archive hash verification, an image build on the server, and recreation using the **existing Compose configuration**. Preserve its assistant token, mount, port, and user. The generic repository Compose examples use different names/ports; do not substitute them into this installation.
+`scripts/deploy-casaos.ps1` builds a clean `git archive` of the last commit, runs the unit tests, copies it to the server, builds the image there and recreates the container with the **existing** Compose configuration (assistant token, mount, port and user preserved). It needs the server password interactively (copy, login, sudo), so it must be run by the owner in a normal PowerShell window; an assistant cannot answer those prompts. `-DryRun` builds and verifies without touching the server; `-Inspect` is read-only.
 
-Take a verified backup and save the old image tag before updating. Build a versioned image, retag it as `gordonite:0.1.0`, then:
+**Outstanding: deploy 0.4.3.** The dry run on 2026-10-12 built release `856def5` (2.8 MB) and 114/114 unit tests passed. After deploying, check `http://192.168.1.50:8082/api/health` reports `0.4.3`, then update the 0.4.3 release-notes heading from "not yet deployed" to deployed. Previous releases were pushed to GitHub `main` before deploying; **0.4.3 has not been pushed**, so the script prints a harmless "HEAD is not the same as origin/main" note.
+
+Take a verified backup first (Settings → Data & backups → Back up now), and keep the old image tag for rollback. A plain container restart does not apply a new image; recreate with:
 
 ```bash
 sudo docker compose -f /home/gordon/gordonite/deploy/gordonite-casaos.yml up -d --no-build --pull never --force-recreate gordonite
 ```
 
-A plain container restart does not apply a new image. For app rollback, retag the saved rollback image as `gordonite:0.1.0` and recreate with the same command. Do not replace the database merely to roll back this release (schema v4).
+Never run restore against the live database while the app is running. The database is at schema **v5** (upgraded from v4 in the 2026-10-07 deployment); rolling back the app image past that point needs the pre-upgrade database backup as well (see the release notes for that deployment).
 
-Latest verified pre-update snapshot: `/DATA/AppData/gordonite/data/backups/hq-manual-20261006-165950.sqlite`: **111 notes, 26 tags, two versions, no trash, schema v4**. Counts are a snapshot, not a live promise; the owner is actively editing.
-
-Consistent automatic backups and retention are implemented. Copying a full private snapshot to local `data/hq-server-backup-20261006-163507.sqlite` was blocked by automatic approval review pending explicit destination approval. **No off-server SQLite copy or restoration drill of that live snapshot was completed.** Do not retry the blocked transfer without resolving approval. Automated restore tests with synthetic data passed; server snapshot integrity checks passed. Browser storage and sync are not backups.
-
-See `docs/BACKUPS.md`, `docs/DEPLOYMENT-2026-10-06.md`, `docs/LINK-NAVIGATION.md`, and `docs/RELEASE-NOTES.md` for exact records and recovery procedures. Never run restore against the live database while the app is running.
-
-## Obsidian import
-
-Source vault: `C:\Users\Epicf\OneDrive - University of Calgary\Obsidian Vault`.
-
-Transferred the authorized `00 Inbox`, `05 People`, `10 School`, and `20 CSS` folders: **109 notes and 25 new tags**. Existing server notes were preserved. A subsequent dry run found all 109 unchanged. The vault was not modified. Hidden files, agent instruction files, and symlinks were excluded. Unsupported Markdown constructs may be readable text rather than full Obsidian equivalents.
-
-`scripts/import-vault.js` prepares a dry-run payload/report by default; `--apply` merges. It uses stable imported IDs and preserves changed existing content through recovery rather than overwriting it. Reports/source copies are ignored in `data/vault-transfer-*`. Do not commit them, repeatedly import without reviewing the report, or expand the selected source folders without owner direction.
+**No off-server copy of the database exists yet.** Backups are verified but live on the same machine; copy `/DATA/AppData/gordonite/data/backups` elsewhere (`docs/BACKUPS.md`).
 
 ## MCP
 
-Read root `mcp-bridge.md` for another LLM's setup instructions and `docs/MCP.md` / `docs/ASSISTANT.md` for API details.
+Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `docs/ASSISTANT.md` for API details. Connection: assistant → local `mcp/server.js` subprocess over stdio → authenticated HTTP assistant API → server → SQLite. Each computer runs its own bridge; stdio is not a LAN listening port.
 
-Connection: assistant → local `mcp/server.js` subprocess over stdio → authenticated HTTP assistant API → server → SQLite. Each computer runs its own bridge; stdio is not a LAN listening port. Current private configuration is `%LOCALAPPDATA%/Gordonite/mcp.json`, outside the repository/OneDrive. Do not print its token. Codex and Claude Desktop configuration examples are documented. Cloud/mobile clients cannot directly use this local stdio bridge.
+- Private configuration: `%LOCALAPPDATA%\Gordonite\mcp.json` with `url` and `token`, kept outside the repository **and outside OneDrive**. Never print or commit it; the token equals the server's `ASSISTANT_TOKEN`.
+- **2026-10-07 incident:** every client start failed with "Server disconnected" because that file did not exist. The bridge now says which startup step failed (file not found, invalid JSON, key too short, bad URL, no `--config`) and tolerates a UTF-8 BOM; the table is in `docs/MCP.md`. The owner recreated the file and `scripts/check-mcp.mjs` then listed all nine tools and pinged successfully.
+- A chat loads MCP tools only when it starts; after fixing the connection, start a **new** chat to get them.
+- Note trashing needs the human's explicit confirmation of that specific note and its reviewed revision. A timed-out write may have succeeded: read the note before retrying an append/create, to avoid duplicates (an append that looked as if it had failed had in fact been saved).
 
-MCP ping succeeded after the recent deployments. Note trashing requires specific human confirmation and the reviewed revision. Preserve conflict checks; inspect server state before retrying a timed-out write.
+## Validation
 
-## Validation and next work
+- `npm test`: **114/114** (server, API, persistence, interruption recovery, conflicts, backup/export/import/restore, MCP bridge and startup messages, client sync).
+- `npm run test:e2e` (real Chrome/Edge, 360×780 touch context; builds first): **120 of 123** pass on 0.4.3. The three failures fail identically on unmodified 0.4.2, so they are not from the 0.4.3 change, and have **not been investigated**:
+  - `history-move.test.js` — "desktop grip drag corrects the recorded day"
+  - `task-text-edit.test.js` — "text edits stay in the original task, preserve formatting/children and recover offline; only arrow expands"
+  - `task-lifecycle.test.js` — "task dismissal and deletion in the editor are undoable and survive a connection interruption" (passed in one earlier run; may depend on time or test order)
+- Test helpers and sleeps: Playwright sends keys far faster than a person. Several tests wait ~40 ms after navigation keys and ~400 ms after a tap before pressing keys, because ProseMirror ignores selection changes right after it places the caret. That is deliberate, not flakiness.
+- Tests must not hard-code "today". `resilience.test.js` did (2026-10-05) and eight of its tests silently failed once the date moved; they now use the current date in `America/Edmonton`.
+- **Not verified on the S24.** Autocorrect, Gboard/Samsung Keyboard composition, keyboard resizing and whether a tap on a read-only note opens the keyboard in one tap are unchecked on hardware; use `docs/DEVICE-CHECKLIST.md`. IME composition is only simulated.
 
-Checks already completed:
+## Repository and housekeeping
 
-- 83/83 unit/integration checks covering persistence, interruption recovery, conflict preservation, backup/export/import/restore, and MCP.
-- Focused task/note browser checks: 18/18; final task-text and note-movement checks: 2/2.
-- Linked-note regression plus note-page checks: 4/4 (three-note chain, Back/Forward, reload, unchanged content, stream return, missing/trashed notes, deletion navigation).
-- Production builds, actual Docker builds, healthy container checks, live inline-edit/link-Back/version-label checks, and verified server snapshots.
+- The OneDrive checkout (`C:\Users\Epicf\OneDrive - University of Calgary\Gordonite`) is on branch **`work-from-other-session`** (`6a5876b`), **behind `origin/main`**, with one uncommitted local change in `mcp/server.js` that predates the 0.4.3 work and was left alone. Do not build new work on it: `git fetch` and start from `origin/main`.
+- 0.4.3 was built in a separate worktree under the session scratchpad (`...\scratchpad\gordonite-main`, a temp folder that may be cleaned up). The branch `feature/today-previous-days` lives in the main repository's `.git` and survives; run `git worktree prune` if the folder disappears.
+- The repository is inside OneDrive. `git gc` packing loose objects makes OneDrive ask to confirm deleting hundreds of hex-named files (`.git/objects/..`); that is safe (**Delete all items**; the objects are in the pack and `git fsck` is clean). Moving the repository outside OneDrive (for example `C:\dev\Gordonite`) would stop this and keep `node_modules` out of the cloud.
+- A stray folder `C:\proc\nonexistent\x` (a test database and one backup) was created on the system drive by a mistaken probe on 2026-10-05. It holds nothing else and can be deleted by hand; the assistant tool refuses to remove that path.
+- The screenshots in the 2026-10-12 session used throwaway data on port 8083; it is not the live server.
 
-Use `npm test`, then meaningful focused browser tests for the change. Browser tests require `npm run build` first and localhost access; sandbox restrictions can produce EACCES rather than a software failure. The suite uses disposable data, not live notes. **Actual S24 keyboard/composition/autocorrect, touch dragging, midnight transitions, and interrupted editing still need real-device verification.** Desktop phone-sized tests do not validate them.
+## Obsidian import
 
-Owner's requested future directions (do not implement automatically from this document):
+Source vault: `C:\Users\Epicf\OneDrive - University of Calgary\Obsidian Vault`. The authorized `00 Inbox`, `05 People`, `10 School` and `20 CSS` folders were transferred (109 notes, 25 new tags); existing server notes were preserved and a repeat dry run found all unchanged. The vault was not modified. `scripts/import-vault.js` prepares a dry-run payload by default; `--apply` merges and preserves changed existing content through recovery rather than overwriting. Expanded vault import shipped with the 2026-10-07 deployment (see the release notes).
 
-1. Personal app login and stable HTTPS, preserving pending edits through session expiry/logout.
-2. Separate Personal, School, and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text remains in its source document.
-3. Today is now the Dashboard: widgets can be shown, hidden and reordered per device in Settings (2026-10-07). More widgets (mood, goals, calendar) still need design before they are built.
+## Next work (owner's requests; do not implement automatically from this document)
 
-Natural dates/times are implemented; read `docs/NATURAL-DATES.md`. Relative phrases use the **note date**, not the date of conversion; `next Friday` means the upcoming Friday. Picked dates/times override typed values. No alarms, notifications, recurrence, or automatic emails exist.
+1. Deploy 0.4.3 and push the branch/merge to `main`.
+2. Investigate the three failing browser tests above.
+3. Stable HTTPS; an off-server copy of the backups.
+4. Separate Personal, School and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text stays in its source document.
+5. More dashboard widgets (goals, calendar) need design before they are built.
 
 Read `docs/ARCHITECTURE.md` and `docs/EDITOR.md` before changing saving or editing behaviour. Follow the owner's latest request over old planning documents, keep dependencies modest, and explain changes in plain language.
