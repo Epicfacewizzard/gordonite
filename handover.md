@@ -16,8 +16,8 @@ Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current 
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.4.3** (pushed 2026-10-12; includes `a02aa7e` test fix and `856def5` feature) |
-| Version running on the server | **0.4.3** (`/api/health` reported `0.4.3` on 2026-10-12, after the owner ran the deploy script) |
+| Version on `origin/main` | **0.4.4** (pushed 2026-10-12; `5fa921b`: task history only on a note's own page) |
+| Version running on the server | **0.4.4** (`/api/health` reported `0.4.4` on 2026-10-12, after the owner ran the deploy script) |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
 

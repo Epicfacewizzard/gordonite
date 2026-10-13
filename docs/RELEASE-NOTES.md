@@ -1,12 +1,13 @@
 # Release notes
 
-## 0.4.4 — 2026-10-12 — Task history only on a note's own page (not yet deployed)
+## 0.4.4 — 2026-10-12 — Task history only on a note's own page (deployed to CasaOS)
 
 Version **0.4.4** (a small fix: third number). **Task history** no longer shows under notes on the dashboard (today's note and the earlier days beneath it) or in tag streams; it appears only on a note's own page (`#/n/<id>`), where it always was meant to live. Nothing is removed: tasks, history dates and Bring back are unchanged, and every note's history is still one tap away by opening the note.
 
 - **Where:** `client/src/views/Stream.jsx` (`NoteCard` renders `TaskArchive` only when `standalone`). No server change beyond the version number.
 - **Tests:** `tests/e2e/tasks.test.js` and `tests/e2e/done-range.test.js` now open task history from the note's own page, and `tasks.test.js` asserts it is absent in a stream.
-- **Not yet deployed.** Deploy with `scripts/deploy-casaos.ps1` from the home network; `/api/health` should then report `0.4.4`.
+- **Deployed** on 2026-10-12 to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1` (release `5fa921b`, 114/114 unit tests passing), run by the owner from the home network; `/api/health` then reported `0.4.4`, and the mood API and logo checks returned 200. Verified pre-update backup: `hq-manual-20261013-021614.sqlite` (schema v5, 222 notes, 42 tags, 79 versions). Rollback image: `gordonite:rollback-before-5fa921b` (retag as `gordonite:0.1.0`, then recreate the service). No schema change. Pushed to GitHub `main` before the deployment.
+- **Known, not caused by this change:** `history-move.test.js` "desktop grip drag corrects the recorded day" and `task-text-edit.test.js` "text edits stay in the original task…" fail on unmodified 0.4.3 as well.
 
 ## 0.4.3 — 2026-10-12 — The last few days under today's note, editable in place; tag choices beside the heading (deployed to CasaOS)
 
