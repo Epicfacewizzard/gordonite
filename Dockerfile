@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 #
-# Personal HQ. The server has no npm runtime dependencies (it uses Node's built-in
-# SQLite), so the final image only needs the server code and the built client.
+# Personal HQ. The server uses Node's built-in SQLite and has one small runtime dependency (heic-convert,
+# which turns HEIC photos into JPEG; about 10 MB). The final image has only those, the server code and the
+# built client; the browser libraries are bundled into the client in the build stage.
 
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
@@ -17,12 +18,13 @@ ENV NODE_ENV=production \
     DATA_DIR=/data \
     HOME_TZ=America/Edmonton
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 COPY server ./server
 COPY shared ./shared
 COPY --from=build /app/client/dist ./client/dist
 
-# /data holds the database and the automatic backups. Mount a host folder or volume here.
+# /data holds the database, the automatic backups and the attached files (data/files). Mount a host folder or volume here.
 RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 EXPOSE 8080

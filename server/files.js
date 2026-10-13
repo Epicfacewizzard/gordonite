@@ -70,7 +70,10 @@ export function convertHeicInWorker(buffer) {
   return new Promise((resolve, reject) => {
     // Copy exactly this file's bytes (a Buffer may be a view into a larger shared block).
     const copy = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-    const worker = new Worker(new URL('./heic-worker.js', import.meta.url), { workerData: { buffer: copy } });
+    const worker = new Worker(new URL('./heic-worker.js', import.meta.url), {
+      workerData: { buffer: copy },
+      execArgv: [], // do not inherit the server's flags (--watch in development, for one)
+    });
     const timer = setTimeout(() => {
       worker.terminate();
       reject(new HttpError(422, 'heic_timeout', 'That photo took too long to convert. Try a smaller one, or export it as JPEG first.'));

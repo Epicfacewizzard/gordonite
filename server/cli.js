@@ -4,12 +4,14 @@
 //   node server/cli.js verify <backup.sqlite>
 //   node server/cli.js restore <backup.sqlite> --yes     (stop the app first)
 //   node server/cli.js token                             (a new random key for ASSISTANT_TOKEN)
+//   node server/cli.js check-files [--hashes]            (every attached file is present and undamaged)
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from './config.js';
 import { openDb } from './db.js';
 import { createBackup, verifyDatabaseFile } from './backup.js';
+import { FileStore } from './files.js';
 
 const [, , cmd, arg, ...flags] = process.argv;
 const config = loadConfig();
@@ -20,6 +22,8 @@ function usage() {
   node server/cli.js password-off                  Turn the app's login password off (if you forgot it)
   node server/cli.js token                         Print a new random key to use as ASSISTANT_TOKEN
                                                    (it is not stored anywhere; put it in the app's settings)
+  node server/cli.js check-files [--hashes]        Check that every attached file is present (--hashes also
+                                                   re-reads each one and checks its content)
   node server/cli.js verify <file.sqlite>          Check a backup file
   node server/cli.js restore <file.sqlite> --yes   Replace the live database with a backup
                                                    (STOP THE APP FIRST; the current database is saved
@@ -48,6 +52,15 @@ switch (cmd) {
   }
   case 'token': {
     console.log(crypto.randomBytes(24).toString('base64url'));
+    break;
+  }
+  case 'check-files': {
+    const db = openDb(config.dbFile);
+    const r = new FileStore(db, config).check({ hashes: arg === '--hashes' || flags.includes('--hashes') });
+    db.close();
+    for (const p of r.problems) console.error(`  ${p.name} (${p.id}): ${p.problem}`);
+    console.log(r.ok ? `OK: ${r.checked} stored file(s) present in ${config.filesDir}` : `NOT OK: ${r.problems.length} problem(s) among ${r.checked} stored file(s)`);
+    process.exit(r.ok ? 0 : 1);
     break;
   }
   case 'verify': {
