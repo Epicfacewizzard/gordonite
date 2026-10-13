@@ -40,7 +40,7 @@ describe('the optional password', () => {
     assert.match(r.headers.get('set-cookie'), /HttpOnly/);
     assert.match(r.headers.get('set-cookie'), /SameSite=Lax/);
 
-    for (const p of ['/api/tags', '/api/config', '/api/tasks', '/api/notes', '/api/export/json', '/api/backups', '/api/moods', '/api/trash']) {
+    for (const p of ['/api/tags', '/api/config', '/api/tasks', '/api/notes', '/api/export/json', '/api/export/files', '/api/backups', '/api/backups/bundle', '/api/moods', '/api/trash']) {
       const denied = await app.api('GET', p);
       assert.equal(denied.status, 401, `${p} needs a login`);
       assert.equal(denied.json.error.code, 'login_required');

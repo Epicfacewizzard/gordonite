@@ -320,6 +320,13 @@ describe('stage 4: backups and export through the UI', () => {
       assert.match(json.suggestedFilename(), /^personal-hq-export-.*\.json$/);
       const [md] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-md').click()]);
       assert.match(md.suggestedFilename(), /\.zip$/);
+      // everything in one file (database + files), which can be checked on its own
+      const [bundle] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-bundle').click()]);
+      assert.match(bundle.suggestedFilename(), /^gordonite-bundle-.*\.zip$/);
+      const { verifyBundle } = await import('../../server/bundle.js');
+      const checked = await verifyBundle(await bundle.path());
+      assert.deepEqual(checked.problems, []);
+      assert.equal(checked.manifest.counts.notes, 1);
 
       // import the JSON export into an empty second server through the UI
       const exportPath = await json.path();

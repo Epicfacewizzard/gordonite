@@ -10,6 +10,10 @@ Three independent layers, because syncing or browser storage is not a backup:
 
 The phone's own store (IndexedDB) is **not** a backup: it only holds edits the server has not yet confirmed.
 
+**What a database backup does not hold: your photos and PDFs.** The `hq-*.sqlite` backups and the JSON export have
+the notes, tags, history and the *list* of files, but the files' bytes live in the `files` folder beside the database.
+A **bundle** (below) is the one file that holds both, so it is the thing to keep off the server.
+
 ## Automatic backups
 
 * Every `BACKUP_INTERVAL_HOURS` (default 6) the app writes `backups/hq-auto-YYYYMMDD-HHMMSS.sqlite`
@@ -23,6 +27,53 @@ The phone's own store (IndexedDB) is **not** a backup: it only holds edits the s
   (`hq-manual-…`) are kept up to 20 of each kind. Files with other names in that folder are never touched.
 * `backups/backup-status.json` records the last attempt, last success and last error.
 * Backups only run while the container is running.
+
+## Bundles: the notes and their files in one verified file
+
+A bundle is one zip that restores the notes **and** their photos and PDFs together:
+
+```
+bundle.json            what is in it, with a size and SHA-256 for every part
+hq.sqlite              a consistent snapshot of the database (the same VACUUM INTO the automatic backups use)
+files/<aa>/<sha256>    every stored file the database knows about
+```
+
+It holds **every** file the database has a record of, not only those in notes you can see: files in the trash, in
+old versions of a note, the original kept beside a converted iPhone photo, and files that were removed from the Files
+page (they can be brought back, so their bytes must survive too). Files never change once stored and are named by
+their content, so a database snapshot plus the files it names is consistent even though the files are read a moment
+later. It is streamed, so a big workspace is not held in memory.
+
+**Make one**
+
+* In the app: *Data & backups → Download everything (database + files)*.
+* On the server (this also checks it, and is the one to schedule):
+  `docker exec gordonite node server/cli.js bundle` writes `backups/bundles/gordonite-bundle-<time>.zip` and keeps the
+  newest 3 there (`--keep N` to change; `bundle <file.zip>` writes where you say and keeps everything).
+
+**Check one on its own** (nothing is changed; do this to any copy you rely on):
+`node server/cli.js verify-bundle <file.zip>`. It reads the archive's index, checks every part is there with the right
+size and SHA-256, opens the database and checks it (integrity, schema newer than the app?), and that the manifest names
+every file the database refers to. `--quick` skips re-reading the file contents. It says plainly what is wrong: a
+file cut off, a damaged file (named), not a bundle, a file that was already missing on the server when the bundle was
+made (the bundle is then "incomplete": the notes are in it, that file is not).
+
+**Restore one** (stop the app first):
+`node server/cli.js restore-bundle <file.zip> --yes`. In this order, so a failure at any step leaves the current
+data usable: (1) the whole bundle is verified, and nothing is touched if it is damaged or incomplete (an incomplete
+one needs `--allow-incomplete`); (2) the current database is saved as `hq-prerestore-…`; (3) the bundle's files are
+added to the files folder (only those missing or damaged; **nothing is ever deleted**; each is written under a
+temporary name and checked before it takes its real one); (4) the database is replaced, opened (any pending migration
+runs) and checked. The files folder is wherever `FILES_DIR` points, which need not be beside the database.
+
+**Limits.** It is a classic ZIP, so **4 GiB** in total and 65,535 files; past that the command stops with a message
+instead of writing a damaged archive. Then copy the `files` folder (rsync/robocopy/Syncthing; it is append-only, so
+repeat copies are quick) together with a database backup. A bundle made through the app's download cannot be checked
+by the app afterwards (the response has gone), so run `verify-bundle` on a downloaded copy once.
+
+**Rolling back an update.** A bundle made by a newer app than the one you restore into is refused with a clear
+message (its database schema is newer); restore with the newer app, or use the pre-update database backup as in
+DEPLOYMENT.md.
 
 ## Getting backups off the server
 
@@ -44,8 +95,15 @@ Schedule it with `crontab -e` on the server, e.g. `15 3 * * * rclone copy ...`.
 
 **Syncthing** (also available for CasaOS): share the `backups` folder as *send-only* to another device.
 
-**By hand**: *Data & backups → Download a fresh copy* downloads a new consistent database file to the phone;
-the list below it downloads any stored backup. *Full backup (JSON)* is a second, format-independent copy.
+**By hand**: *Data & backups → Download everything (database + files)* downloads a bundle (above): the one to keep.
+*Download a fresh copy* is the database alone; the list below it downloads any stored backup. *Full backup (JSON)* is
+a second, format-independent copy of the notes (not the files).
+
+**Bundles on a schedule** (e.g. nightly, copied off the server afterwards):
+
+```bash
+15 3 * * *  docker exec gordonite node server/cli.js bundle --keep 3
+```
 
 Periodically check a copy is good: `node server/cli.js verify <file>` (or, in Docker,
 `docker run --rm -v <folder>:/b personal-hq:0.1.0 node server/cli.js verify /b/<file>`).

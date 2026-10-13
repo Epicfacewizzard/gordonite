@@ -212,6 +212,10 @@ On CasaOS, build the image once over SSH (`docker build -t personal-hq:0.1.0 .`)
   (zip). `node server/cli.js check-files [--hashes]` verifies every stored file. Details in
   [docs/ATTACHMENTS.md](docs/ATTACHMENTS.md#backups).
 * `node server/cli.js check-docs` lists stored notes (and saved versions) that break the document rules. Read-only.
+* **One file with everything**: *Data & backups → Download everything*, or `node server/cli.js bundle`, is the
+  database plus every stored file with a manifest of SHA-256 sums. `verify-bundle` checks one on its own and
+  `restore-bundle <file> --yes` puts it back (stop the app first; nothing is deleted). See
+  [docs/BACKUPS.md](docs/BACKUPS.md#bundles-the-notes-and-their-files-in-one-verified-file).
 
 ## How saving works (the short version)
 

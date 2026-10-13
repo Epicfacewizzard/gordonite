@@ -87,7 +87,13 @@ export function DataView({ config }) {
           <a class="btn" href="/api/backups/snapshot" download>
             Download a fresh copy
           </a>
+          <a class="btn" href="/api/backups/bundle" download data-testid="download-bundle">
+            Download everything (database + files)
+          </a>
         </div>
+        <p class="muted small">
+          <strong>Download everything</strong> is one file that restores your notes <em>and</em> their photos and PDFs together; a database copy alone does not hold the files. It can be checked on its own with <code>node server/cli.js verify-bundle</code> (see the README).
+        </p>
         <ul class="plain" data-testid="backup-list">
           {status?.backups.map((b) => (
             <li key={b.file}>

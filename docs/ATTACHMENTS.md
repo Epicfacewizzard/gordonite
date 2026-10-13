@@ -58,8 +58,11 @@ This matters: **the database backup does not contain the files.**
   where used), not their bytes.
 * The bytes are in the `files` folder beside the database. In the CasaOS setup that folder is inside the data
   folder that is mounted into the container, so it survives updates and recreating the container.
-* To back files up: copy the `files` folder together with the database/backups, or use **Data → All files (zip)**
-  (limit 1 GB per zip; beyond that, copy the folder). The Markdown export includes the files its notes use under
+* **One file that has both: a bundle** (*Data → Download everything*, or `node server/cli.js bundle`). It holds the
+  database and every file the database knows about, with a manifest of SHA-256 sums, and can be checked on its own
+  (`verify-bundle`) and restored in one step (`restore-bundle`). See [BACKUPS.md](BACKUPS.md#bundles-the-notes-and-their-files-in-one-verified-file).
+* Otherwise copy the `files` folder together with the database/backups, or use **Data → All files (zip)** (limit 1 GB
+  per zip; beyond that, copy the folder). The Markdown export includes the files its notes use under
   `attachments/`, linked from the notes.
 * Restoring a database backup does not change the `files` folder; the files and their rows line up again as long as
   the folder was kept. To check: `node server/cli.js check-files` (add `--hashes` to re-read every file and verify its

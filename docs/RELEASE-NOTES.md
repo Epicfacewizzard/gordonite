@@ -1,9 +1,11 @@
 # Release notes
 
-## 0.5.2 — 2026-10-13 — Queued moods are kept until the server confirms them; a note with bold across a line break saves (built and tested, not yet deployed)
+## 0.6.0 — 2026-10-13 — Backups that include the files; nothing queued on the phone is thrown away; a fresher Tasks list (built and tested, not yet deployed)
 
-Version **0.5.2** (a fix release). It is the first batch of [ARCHITECTURE-IMPROVEMENT-PLAN.md](ARCHITECTURE-IMPROVEMENT-PLAN.md):
-stage 1 (queued work and a testable save engine) and stage 2 (the document contract). No new screens, no schema change.
+Version **0.6.0** (a new feature: second number). It carries out [ARCHITECTURE-IMPROVEMENT-PLAN.md](ARCHITECTURE-IMPROVEMENT-PLAN.md)
+(stages 1 to 5 and 7; stage 6, the server's file layout, is a separate follow-up): fixes the places where work
+waiting on the phone or a list on screen could be wrong, tightens and tests the rules a note's document must follow,
+and adds a backup that holds the photos and PDFs too. No schema change, so going back to 0.5.1 is the image swap only.
 
 **Fixed**
 
@@ -35,6 +37,18 @@ stage 1 (queued work and a testable save engine) and stage 2 (the document contr
 
 **Added**
 
+- **Bundles: the notes and their files in one verified file** (stage 7 of the plan). A database backup never held your
+  photos and PDFs, which sit in the `files` folder, so a restore needed two separate copies kept in step. A bundle is
+  one zip with the database snapshot, every stored file the database knows about (including files in the trash and in
+  old versions, a converted photo's original, and files removed from the Files page), and a manifest with a size and
+  SHA-256 for each. *Data & backups → Download everything (database + files)*, or on the server
+  `node server/cli.js bundle` (keeps the newest 3 in `backups/bundles/`), `verify-bundle <file>` (checks it on its own
+  and says what is wrong in plain words), `restore-bundle <file> --yes` (verifies first; saves the current database
+  as a prerestore backup; adds missing files without deleting anything; then replaces the database). It is streamed, so
+  memory stays flat however large it is; the ZIP limit (4 GiB) is stated and stops with a message. See
+  [BACKUPS.md](BACKUPS.md#bundles-the-notes-and-their-files-in-one-verified-file). `tests/server/zip-stream.test.js` (7),
+  `tests/server/bundle.test.js` (14: restore into an empty folder, a separate files folder, damage, cut-off, not a
+  bundle, an incomplete bundle, a restore that cannot finish, download, command line, retention).
 - **The nesting rules of a document are now part of the contract** (`shared/doc.js`): which nodes may sit inside which
   (see [ARCHITECTURE.md](ARCHITECTURE.md), "Document contract"). The server used to check only that each node was a
   known kind, so it accepted a paragraph inside a paragraph, which the editor cannot hold. It now refuses such a
@@ -81,7 +95,7 @@ stage 1 (queued work and a testable save engine) and stage 2 (the document contr
 **Before you deploy**: nothing is required. If you want to know whether any note predates the nesting rules, run
 `node server/cli.js check-docs` on the server afterwards (it changes nothing). Such notes keep working either way.
 
-## Before 0.5.2 — inbox listing skips its README; three old failing browser tests repaired (no deployment of their own)
+## Before 0.6.0 — inbox listing skips its README; three old failing browser tests repaired (no deployment of their own)
 
 - **Bridge:** `list_inbox` no longer lists the inbox folder's own `README.md` (its instructions are not an item to
   process). Covered by `tests/server/mcp-files.test.js`. This is the local bridge (`mcp/server.js`), not the server, so

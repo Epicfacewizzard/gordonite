@@ -6,6 +6,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { Store, HttpError, checkId } from './store.js';
 import { createBackup, backupPath, backupStatus } from './backup.js';
+import { writeBundle } from './bundle.js';
 import { exportAll, exportMarkdownZip, exportFilesZip, importAll } from './portability.js';
 import { FileStore } from './files.js';
 import { addMood, listMoods, deleteMood, restoreMood } from './moods.js';
@@ -13,7 +14,7 @@ import { createAuth } from './auth.js';
 import { DOC_FORMAT } from '../shared/doc.js';
 import { dateInTz, addDays } from '../shared/dates.js';
 
-export const APP_VERSION = '0.5.2';
+export const APP_VERSION = '0.6.0';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -403,6 +404,22 @@ export function createApp({ config, db, log = console, convertHeic }) {
       sendDownload(res, `personal-hq-${fileStamp()}.sqlite`, 'application/vnd.sqlite3', fs.readFileSync(tmp));
     } finally {
       fs.rmSync(tmp, { force: true });
+    }
+  });
+  // Everything in one file: a consistent snapshot of the database and every stored file, with a manifest that
+  // names each one and its SHA-256 (see docs/BACKUPS.md). Streamed, so a large workspace is not held in memory.
+  // If it fails part way the connection is dropped, so the download fails instead of looking like a whole zip.
+  route('GET', '/api/backups/bundle', async ({ res }) => {
+    res.writeHead(200, {
+      'content-type': 'application/zip',
+      'content-disposition': `attachment; filename="gordonite-bundle-${fileStamp()}.zip"`,
+      'cache-control': 'no-store',
+    });
+    try {
+      await writeBundle(db, config, res, { appVersion: APP_VERSION });
+    } catch (err) {
+      log.error('[bundle] download failed:', err);
+      res.destroy(err);
     }
   });
   route('GET', '/api/backups/file/:name', async ({ res, params }) => {
