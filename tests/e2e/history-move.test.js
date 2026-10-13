@@ -36,6 +36,9 @@ test('desktop grip drag corrects the recorded day', async () => {
   const context = await browser.newContext({ viewport: { width: 915, height: 884 } });
   try {
     const page = await context.newPage(); page.setDefaultTimeout(5000);
+    // The history shows the last 7 days by default and these tasks are dated 2026-10-04/05, so pin the clock to the
+    // day the data is from (the first test above does the same). Without it this test only passes for a week.
+    await page.clock.install({ time: new Date('2026-10-05T22:30:00Z') });
     const id = uuid(), first = uuid(), second = uuid();
     const make = (taskId, text, completedAt) => ({ type: 'taskItem', attrs: { id: taskId, checked: true, completedAt }, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
     await app.api('PUT', `/api/notes/${id}`, { baseRevision: 0, kind: 'note', date: '2026-10-05', tags: ['test'], docFormat: 1, doc: { type: 'doc', content: [{ type: 'taskList', content: [make(first, 'Finished poster', '2026-10-05T18:00:00.000Z'), make(second, 'Venue booked', '2026-10-04T18:00:00.000Z')] }] } });

@@ -122,10 +122,13 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 ## Validation
 
 - `npm test`: **114/114** (server, API, persistence, interruption recovery, conflicts, backup/export/import/restore, MCP bridge and startup messages, client sync).
-- `npm run test:e2e` (real Chrome/Edge, 360×780 touch context; builds first): **120 of 123** pass on 0.4.3. The three failures fail identically on unmodified 0.4.2, so they are not from the 0.4.3 change, and have **not been investigated**:
-  - `history-move.test.js` — "desktop grip drag corrects the recorded day"
-  - `task-text-edit.test.js` — "text edits stay in the original task, preserve formatting/children and recover offline; only arrow expands"
-  - `task-lifecycle.test.js` — "task dismissal and deletion in the editor are undoable and survive a connection interruption" (passed in one earlier run; may depend on time or test order)
+- `npm test`: **140/140** on 0.5.1 (server, API, persistence, interruption recovery, conflicts, backup/export/import/restore, files, MCP bridge, client sync).
+- `npm run test:e2e` (real Chrome/Edge, 360×780 touch context; builds first): at 0.5.1 **128 of 131** passed, and the three failures were old and are **now repaired (2026-10-13; test changes only, none of them was a bug in the app)**:
+  - `history-move.test.js` "desktop grip drag corrects the recorded day": it hard-coded 2026-10-04/05 and the history only shows the last 7 days by default, so it stopped finding the grip once the calendar moved on. It now pins the clock (as the first test in that file does).
+  - `task-text-edit.test.js` "text edits stay in the original task…": it looked for a task with no date on the dashboard, but since 0.3.1 the dashboard's Tasks box shows only overdue and due-today tasks. It now uses the Tasks page.
+  - `task-lifecycle.test.js` "task dismissal and deletion in the editor are undoable and survive a connection interruption": a synthetic tap issued in the instant a save finishes was sometimes never delivered (logged: no selection change and no editor event), so the caret stayed in the new task and the test deleted the wrong one. The app did exactly what it was told. It now pauses 300 ms and checks the caret moved (10 of 10 runs pass).
+  - Other flakes seen while comparing against 0.4.4 (about 1 run in 6 and 1 in 10, same rate before and after 0.5.0, not investigated): `streams.test.js` "home lists tags; opening a tag shows today as an editable entry…" and `editing.test.js` "boundary behaviours".
+- Run only the tests for what changed (`node --test --test-concurrency=1 tests/e2e/<file>.test.js`); the full browser suite takes several minutes. `tests/e2e/undo-depth.test.js` pins the editor's undo at 100 to 120 steps.
 - Test helpers and sleeps: Playwright sends keys far faster than a person. Several tests wait ~40 ms after navigation keys and ~400 ms after a tap before pressing keys, because ProseMirror ignores selection changes right after it places the caret. That is deliberate, not flakiness.
 - Tests must not hard-code "today". `resilience.test.js` did (2026-10-05) and eight of its tests silently failed once the date moved; they now use the current date in `America/Edmonton`.
 - **Not verified on the S24.** Autocorrect, Gboard/Samsung Keyboard composition, keyboard resizing and whether a tap on a read-only note opens the keyboard in one tap are unchecked on hardware; use `docs/DEVICE-CHECKLIST.md`. IME composition is only simulated.
@@ -163,11 +166,33 @@ identical** (only the 8 deliberately excluded files remain). The 9 non-Markdown 
 end of the note beside it in the vault (the Week 5 DOCX and PDF, `CSS Inventory.xlsx`, the September FAT `.wav`, and
 the two `.srt`), with the three loose Inbox files in a new note, **Inbox files from the vault** (tag `00-inbox`);
 each edited note kept its earlier text as a version, and all 9 were checked to open at the stored size. The vault was
-not modified. Trimming the OneDrive vault down to `00 Inbox` is now possible without losing anything that is only
-there (the two `.srt` and the loose files are in the app; the originals are still in the vault).
+not modified by the import.
 
-The OneDrive vault copy is old (its own "MOVED" note says the live vault is `C:\Users\Epicf\Vault`, which is not on
-this PC); its `00 Inbox` is still used as the agents' drop folder.
+**Vault trimmed to `00 Inbox` (2026-10-13).** Everything else in `Obsidian Vault` (the folders `01 Daily` … `99 System`,
+the hidden `.agents`, `.claude`, `.obsidian`, and the root files `AGENTS.md`, `CLAUDE.md`, `Home.md` and the "MOVED"
+note: 237 files, 26.4 MB) was **moved**, not deleted, to `C:\Users\Epicf\Archive\Obsidian Vault (OneDrive copy)
+2026-10-12\` (outside OneDrive), and every file was verified by SHA-256 (`_moves.txt` there lists the items). To undo,
+move the items back. The Inbox's own files were not touched, except `README.md`, which was rewritten (the original is
+in the archive as `00 Inbox README (original).md`): it described moving processed files to `90 Archive/Inbox
+Processed/`, a folder that no longer exists, and now describes the Gordonite flow (`list_inbox`, then `upload_file` with
+`archive: true`, which moves the original into `_imported/`; `create_note` / `append_note` for text). Nothing here is
+in the app that is not also in the archive. **For the inbox tools to work, the private bridge config file needs
+`"inboxDir": "C:/Users/Epicf/OneDrive - University of Calgary/Obsidian Vault/00 Inbox"`** (docs/MCP.md); that file was
+not changed.
+
+The vault itself was an old copy (its "MOVED" note said the live vault is `C:\Users\Epicf\Vault`, which is not on this
+PC); only its `00 Inbox` remains here, as the agents' drop folder.
+
+## OneDrive layout (tidied 2026-10-13)
+
+Light tidy, nothing deleted or renamed; every move was checked before and after (log:
+`C:\Users\Epicf\Archive\OneDrive tidy 2026-10-12 (moves).txt`; to undo, move an item back to the OneDrive root):
+`Book.xlsx` and `Loans Tracker.xlsx` → `Personal\Spreadsheets\`; `Gordon Resume_October 1.docx` →
+`Personal\Career\`; `Attachments\` (3 files, 72 MB) and `Notebooks\` (4 `.url` shortcuts) → `School\`. The root is now
+`Audio Upload`, `Chinese Student Society`, `Condo Docs Shared - 1311 Sage Meadows Gardens` (shared; left alone),
+`Gordonite` (this repository), `Obsidian Vault` (only `00 Inbox`), `Personal`, `School`. `Audio Upload` (1.7 GB) was
+kept at the owner's request; `Chinese Student Society\CSS Ticketing System` (the older of two versions) was left for
+the owner to decide.
 
 ## Condo files import (2026-10-12)
 

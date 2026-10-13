@@ -13,7 +13,9 @@ test('text edits stay in the original task, preserve formatting/children and rec
   const parent = task(taskId, 'Write poster');
   parent.content.push({ type: 'taskList', content: [task(childId, 'Nested action')] });
   await app.api('PUT', `/api/notes/${id}`, { baseRevision: 0, kind: 'note', title: 'Source', date: dateInTz(new Date(), TZ), tags: ['test'], docFormat: 1, doc: { type: 'doc', content: [{ type: 'taskList', content: [parent] }] } });
-  await page.goto(`${app.url}/#/`);
+  // The Tasks page lists every open task. (The dashboard's Tasks box only shows what is overdue or due today by
+  // default, and this task has no date, so it is not there.)
+  await page.goto(`${app.url}/#/tasks`);
   const row = page.getByTestId('task-row').filter({ hasText: 'Write poster' });
   await row.getByTestId('task-edit-text').tap();
   const editor = page.getByTestId('task-text-editor');

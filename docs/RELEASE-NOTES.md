@@ -1,5 +1,25 @@
 # Release notes
 
+## Unreleased — three old failing browser tests repaired (tests only; no app change, nothing to deploy)
+
+The three browser tests that had been failing since 0.4.x were looked into and were not app bugs:
+
+- `history-move.test.js` "desktop grip drag corrects the recorded day" hard-coded the dates 2026-10-04/05; the task
+  history shows only the last 7 days by default, so once the real date passed 2026-10-11 the grip was no longer on
+  screen. The test now pins the clock to the day its data is from, as the first test in the file does.
+- `task-text-edit.test.js` looked for a task with no date on the dashboard. Since 0.3.1 the dashboard's Tasks box shows
+  only overdue and due-today tasks (adjustable in Settings), so it was never there. The test now uses the Tasks page.
+- `task-lifecycle.test.js` "task dismissal and deletion in the editor are undoable and survive a connection
+  interruption" failed about half the time. Logging the selection and editor events showed that a synthetic tap
+  issued in the instant a save finishes was sometimes never delivered by the browser, so the caret stayed in the
+  newly typed task and the test then deleted that task instead of the first. The app did what it was told, and the
+  offline save, undo, redo and reconnect all behaved correctly. The test now pauses 300 ms and checks the caret
+  moved; it passed 10 of 10 runs.
+
+Two other browser tests flake at roughly 1 run in 6 and 1 in 10 (`streams.test.js` "home lists tags…" and
+`editing.test.js` "boundary behaviours"); the rate is the same on 0.4.4, so they are older than 0.5, and they have
+not been investigated.
+
 ## 0.5.1 — 2026-10-12 — Undo for a removed file and a deleted mood entry (deployed to CasaOS)
 
 Version **0.5.1** (a small change: third number). Two deletes had no way back in the app; now they do.

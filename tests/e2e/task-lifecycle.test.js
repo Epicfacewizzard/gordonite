@@ -69,7 +69,12 @@ test('task dismissal and deletion in the editor are undoable and survive a conne
   await page.keyboard.type('New active task');
   assert.equal(await editor.locator('li[data-dismissed-at]').count(), 0, 'restored task and new task are active');
   await waitSaved(page);
+  // A synthetic tap issued in the very instant a save finishes is sometimes never delivered by the browser (no
+  // selection change, no editor event: found by logging both), so the caret stays in the new task and the delete
+  // below would remove the wrong one. A person cannot tap that fast; the test can, so pause, then check it landed.
+  await page.waitForTimeout(300);
   await editor.locator('li p').first().tap();
+  await page.waitForFunction(() => getSelection().anchorNode?.parentElement?.closest('li')?.textContent.includes('Task 1'), null, { timeout: 5000 });
   await page.getByTestId('tb-taskdates').tap();
   await context.setOffline(true);
   await page.getByTestId('task-delete').tap();
