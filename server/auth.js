@@ -8,7 +8,7 @@
 // - The assistant's key (ASSISTANT_TOKEN) is a separate door and is not affected.
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
-import { HttpError } from './store.js';
+import { HttpError } from './errors.js';
 
 const scrypt = promisify(crypto.scrypt);
 

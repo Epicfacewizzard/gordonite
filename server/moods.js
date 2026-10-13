@@ -1,6 +1,7 @@
 // Mood entries: a 1 to 5 score, an optional short note, the moment it was logged. Several a day.
 // Saving is idempotent by id (the phone keeps trying until the server confirms), and deleting is soft.
-import { HttpError, checkId } from './store.js';
+import { HttpError } from './errors.js';
+import { checkId } from './ids.js';
 import { dateInTz, addDays, isValidDateString } from '../shared/dates.js';
 import { uuid } from '../shared/ids.js';
 import { MAX_MOOD_NOTE, moodStreak } from '../shared/moods.js';

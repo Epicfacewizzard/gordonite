@@ -2,12 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tx } from './db.js';
 import { createBackup } from './backup.js';
-import { HttpError, checkId } from './store.js';
+import { HttpError } from './errors.js';
+import { checkId } from './ids.js';
+import { exportSettings, importSettings, savedTimeZone } from './settings.js';
 import { noteToMarkdownFile } from './markdown.js';
 import { makeZip } from './zip.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
-import { isValidDateString, isValidTimeZone } from '../shared/dates.js';
+import { isValidDateString } from '../shared/dates.js';
 import { DOC_FORMAT, attachmentsIn, migrateDoc, validateDoc } from '../shared/doc.js';
 import { cleanFileName, isPlausibleMime, kindOfType } from '../shared/attachments.js';
 
@@ -15,19 +17,6 @@ export const EXPORT_FORMAT = 'hq-export';
 export const EXPORT_FORMAT_VERSION = 1;
 
 // ---------- full-fidelity JSON export ----------
-
-function exportSettings(db) {
-  const meta = (key) => db.prepare('SELECT value FROM meta WHERE key = ?').get(key)?.value;
-  const settings = {};
-  if (meta('daily_tag')) settings.dailyTag = meta('daily_tag');
-  try {
-    const order = meta('tag_order') ? JSON.parse(meta('tag_order')) : null;
-    if (order && Object.keys(order).length) settings.tagOrder = order;
-  } catch {
-    /* an unreadable order is dropped; tags are shown alphabetically */
-  }
-  return settings;
-}
 
 export function exportAll(db, cfg) {
   const tags = db
@@ -314,23 +303,8 @@ export function importAll(db, cfg, data, mode) {
   tx(db, () => {
     const tagIdFor = new Map(); // import tag id -> local tag id
 
-    // Settings: replace takes the export's; merge only fills in what is not set here.
-    const dailyTag = normalizeTag(data.settings?.dailyTag);
-    if (dailyTag) {
-      const set = db.prepare("INSERT INTO meta (key, value) VALUES ('daily_tag', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING'));
-      set.run(dailyTag);
-    }
-    const tagOrder = data.settings?.tagOrder;
-    if (tagOrder && typeof tagOrder === 'object' && !Array.isArray(tagOrder)) {
-      const clean = {};
-      for (const [parent, names] of Object.entries(tagOrder)) {
-        if (Array.isArray(names) && (parent === '' || normalizeTag(parent) === parent)) clean[parent] = names.filter((n) => typeof n === 'string' && n && !n.includes('/')).slice(0, 500);
-      }
-      db.prepare("INSERT INTO meta (key, value) VALUES ('tag_order', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING')).run(JSON.stringify(clean));
-    }
-    if (typeof data.homeTimeZone === 'string' && isValidTimeZone(data.homeTimeZone)) {
-      db.prepare("INSERT INTO meta (key, value) VALUES ('home_tz', ?) ON CONFLICT(key) DO " + (mode === 'replace' ? 'UPDATE SET value = excluded.value' : 'NOTHING')).run(data.homeTimeZone);
-    }
+    // Settings: replace takes the export's; merge only fills in what is not set here (see settings.js).
+    importSettings(db, data, mode);
 
     if (mode === 'replace') {
       db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries;');
@@ -403,8 +377,8 @@ export function importAll(db, cfg, data, mode) {
     addMoods();
     addAttachments();
   });
-  const savedTz = db.prepare("SELECT value FROM meta WHERE key = 'home_tz'").get()?.value;
-  if (savedTz && isValidTimeZone(savedTz)) cfg.tz = savedTz;
+  const savedTz = savedTimeZone(db);
+  if (savedTz) cfg.tz = savedTz;
   if (nestingProblems.length) report.nestingProblems = nestingProblems.slice(0, 50); // only present when there are some
   return report;
 }

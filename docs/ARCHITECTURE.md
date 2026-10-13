@@ -64,6 +64,25 @@ attachments(id, sha256, name, mime, size, kind, original_sha256/name/mime/size, 
   It is read-only; nothing is rewritten without someone choosing to.
 * **WAL + `synchronous=FULL`**: a committed save survives a power cut. Foreign keys on; a busy timeout set.
 
+## Server layout
+
+One Node process, no framework. Each file has one job and says what it depends on:
+
+| File | Job |
+|---|---|
+| `app.js` | builds the store, the files and the auth, registers the route groups **in a fixed order** (routes match in the order registered), and dispatches each request: the cross-site and JSON checks, the assistant key, the login |
+| `http.js` | the transport only: write JSON, a download or a stored file (ranges, ETag), read a body, serve the built client |
+| `routes/*.js` | one file per feature, each a `register…Routes(context)`: `health`, `auth`, `settings`, `assistant`, `moods`, `tags`, `notes`, `files`, `portability`, `backups` |
+| `store.js` | the note store: reading, **the one save operation** (revisions, conflict copies, snapshots, files claimed), membership, trash, versions. Every write to a note, including the assistant's, goes through `saveNote` |
+| `assistant-notes.js` | what the assistant door does to notes (create, append, replace text or a section, attach, change a task, read as Markdown), built on the store's public API |
+| `tags.js`, `settings.js` | tag operations (list, create, flags, move) and the settings in the `meta` table with their export/import rules: one place for what a setting is and how a value is checked |
+| `errors.js`, `ids.js` | `HttpError` and the shape of an id, so no feature has to import them from the note store |
+| `moods.js`, `files.js`, `portability.js`, `backup.js`, `bundle.js`, `zip.js`, `zip-stream.js`, `auth.js`, `db.js`, `doc-check.js` | one feature each |
+
+Transactions are synchronous SQLite transactions (`tx` in `db.js`): a function that reads and then writes does so in
+one step, and nothing awaits inside one. Moving a function between files must not change which statements share a
+transaction; the tests in `tests/server` pin this behaviour.
+
 ## Moving tags
 
 Folders are derived from tag paths, so "moving" a tag is renaming paths. `POST /api/tags/move { from, into, order }`

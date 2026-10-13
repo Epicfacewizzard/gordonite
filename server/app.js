@@ -1,136 +1,27 @@
-import fs from 'node:fs';
 import http from 'node:http';
-import os from 'node:os';
-import path from 'node:path';
-import zlib from 'node:zlib';
 import crypto from 'node:crypto';
-import { Store, HttpError, checkId } from './store.js';
-import { createBackup, backupPath, backupStatus } from './backup.js';
-import { writeBundle } from './bundle.js';
-import { exportAll, exportMarkdownZip, exportFilesZip, importAll } from './portability.js';
+import { Store } from './store.js';
+import { AssistantNotes } from './assistant-notes.js';
+import { HttpError } from './errors.js';
 import { FileStore } from './files.js';
-import { addMood, listMoods, deleteMood, restoreMood } from './moods.js';
 import { createAuth } from './auth.js';
-import { DOC_FORMAT } from '../shared/doc.js';
-import { dateInTz, addDays } from '../shared/dates.js';
+import { sendJson, readBody, createStaticServer } from './http.js';
+import { registerHealthRoutes } from './routes/health.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { registerSettingsRoutes } from './routes/settings.js';
+import { registerAssistantRoutes } from './routes/assistant.js';
+import { registerMoodRoutes } from './routes/moods.js';
+import { registerTagRoutes } from './routes/tags.js';
+import { registerNoteRoutes } from './routes/notes.js';
+import { registerFileRoutes } from './routes/files.js';
+import { registerPortabilityRoutes } from './routes/portability.js';
+import { registerBackupRoutes } from './routes/backups.js';
 
 export const APP_VERSION = '0.6.0';
 
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2',
-  '.map': 'application/json',
-};
-
-function sendJson(res, status, body) {
-  const data = Buffer.from(JSON.stringify(body));
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': data.length,
-    'cache-control': 'no-store',
-  });
-  res.end(data);
-}
-
-function sendDownload(res, filename, type, data) {
-  res.writeHead(200, {
-    'content-type': type,
-    'content-length': data.length,
-    'content-disposition': `attachment; filename="${filename}"`,
-    'cache-control': 'no-store',
-  });
-  res.end(data);
-}
-
-async function readBody(req, limit) {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += chunk.length;
-    if (size > limit) throw new HttpError(413, 'too_large', 'Request body too large');
-    chunks.push(chunk);
-  }
-  const text = Buffer.concat(chunks).toString('utf8');
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new HttpError(400, 'bad_json', 'Body is not valid JSON');
-  }
-}
-
-// The whole body as bytes (an uploaded file), refusing anything over `limit`.
-async function readRaw(req, limit) {
-  const tooLarge = () => new HttpError(413, 'too_large', `That file is larger than the ${Math.round(limit / 1024 / 1024)} MB limit`);
-  const declared = Number(req.headers['content-length']);
-  if (Number.isFinite(declared) && declared > limit) throw tooLarge();
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += chunk.length;
-    if (size > limit) throw tooLarge();
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
-}
-
-// Content-Disposition with a plain ASCII fallback and the real (UTF-8) name for browsers that understand it.
-function disposition(kind, name) {
-  const ascii = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
-  const utf8 = encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-  return `${kind}; filename="${ascii}"; filename*=UTF-8''${utf8}`;
-}
-
-// Serve one stored file. Images and PDFs show in the browser; everything else is only ever a download, as opaque
-// bytes, so a stored page or script can never run from this origin. Files are named by their content hash, so they
-// are cached for good and can be fetched in ranges (PDF viewers do).
-function sendFile(req, res, info, { download = false } = {}) {
-  const show = !download && (info.kind === 'image' || info.kind === 'pdf');
-  const headers = {
-    'content-type': show ? info.mime : 'application/octet-stream',
-    'content-disposition': disposition(show ? 'inline' : 'attachment', info.name),
-    'accept-ranges': 'bytes',
-    etag: `"${info.sha}"`,
-    'cache-control': 'private, max-age=31536000, immutable',
-    'x-content-type-options': 'nosniff',
-  };
-  if (!show) headers['content-security-policy'] = "sandbox; default-src 'none'";
-  if (req.headers['if-none-match'] === headers.etag) {
-    res.writeHead(304, { etag: headers.etag, 'cache-control': headers['cache-control'] });
-    return res.end();
-  }
-  let start = 0;
-  let end = info.size - 1;
-  let status = 200;
-  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
-  if (range && (range[1] || range[2]) && info.size > 0) {
-    if (range[1] === '') {
-      start = Math.max(info.size - Number(range[2]), 0); // the last N bytes
-    } else {
-      start = Number(range[1]);
-      if (range[2] !== '') end = Math.min(Number(range[2]), end);
-    }
-    if (start > end || start >= info.size) {
-      res.writeHead(416, { 'content-range': `bytes */${info.size}` });
-      return res.end();
-    }
-    status = 206;
-    headers['content-range'] = `bytes ${start}-${end}/${info.size}`;
-  }
-  headers['content-length'] = info.size === 0 ? 0 : end - start + 1;
-  res.writeHead(status, headers);
-  if (info.size === 0) return res.end();
-  fs.createReadStream(info.path, { start, end }).on('error', () => res.destroy()).pipe(res);
-}
-
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);
+  const assistant = new AssistantNotes(store);
   const files = new FileStore(db, config, convertHeic ? { convertHeic } : {});
   const auth = createAuth(db);
   const routes = [];
@@ -149,320 +40,20 @@ export function createApp({ config, db, log = console, convertHeic }) {
     if (!crypto.timingSafeEqual(sha(given), sha(config.assistantToken))) throw new HttpError(401, 'unauthorized', 'Missing or wrong assistant key');
   }
 
-  const fileStamp = () => new Date().toISOString().slice(0, 10);
+  // Routes are matched in the order they are registered.
+  const context = { route, db, config, store, assistant, files, auth, log, appVersion: APP_VERSION };
+  registerHealthRoutes(context);
+  registerAuthRoutes(context);
+  registerSettingsRoutes(context);
+  registerAssistantRoutes(context);
+  registerMoodRoutes(context);
+  registerTagRoutes(context);
+  registerNoteRoutes(context);
+  registerFileRoutes(context);
+  registerPortabilityRoutes(context);
+  registerBackupRoutes(context);
 
-  route('GET', '/api/health', async ({ res }) => {
-    db.prepare('SELECT 1').get();
-    sendJson(res, 200, { ok: true, version: APP_VERSION });
-  });
-
-  // ----- the optional password (see docs/LOGIN.md). These routes work without a login; everything else needs one when a password is set. -----
-  route('GET', '/api/auth', async ({ req, res }) => sendJson(res, 200, { enabled: auth.enabled(), loggedIn: auth.loggedIn(req) }));
-  route('POST', '/api/auth/login', async ({ res, body }) => {
-    if (!auth.enabled()) throw new HttpError(400, 'auth_off', 'No password is set');
-    if (!(await auth.check(body.password))) throw new HttpError(401, 'wrong_password', 'That password is not right');
-    res.setHeader('set-cookie', auth.cookie());
-    sendJson(res, 200, { ok: true });
-  });
-  route('POST', '/api/auth/logout', async ({ res }) => {
-    res.setHeader('set-cookie', auth.clearCookie());
-    sendJson(res, 200, { ok: true });
-  });
-  // Set the first password (nothing needed), or change it (log in and give the current one). The browser that did it stays logged in.
-  route('PUT', '/api/auth/password', async ({ req, res, body }) => {
-    if (auth.enabled()) {
-      if (!auth.loggedIn(req)) throw new HttpError(401, 'login_required', 'Log in to continue');
-      if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current password is not right');
-    }
-    await auth.setPassword(body.password);
-    res.setHeader('set-cookie', auth.cookie());
-    sendJson(res, 200, { enabled: true, loggedIn: true });
-  });
-  route('POST', '/api/auth/off', async ({ req, res, body }) => {
-    if (!auth.enabled()) return sendJson(res, 200, { enabled: false, loggedIn: true });
-    if (!auth.loggedIn(req)) throw new HttpError(401, 'login_required', 'Log in to continue');
-    if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current password is not right');
-    auth.turnOff();
-    res.setHeader('set-cookie', auth.clearCookie());
-    sendJson(res, 200, { enabled: false, loggedIn: true });
-  });
-
-  route('GET', '/api/config', async ({ res }) => {
-    sendJson(res, 200, {
-      version: APP_VERSION,
-      tz: config.tz,
-      today: dateInTz(new Date(), config.tz),
-      docFormat: DOC_FORMAT,
-      trashRetentionDays: config.trashRetentionDays,
-      ...store.getSettings(),
-    });
-  });
-  route('PUT', '/api/settings', async ({ res, body }) => {
-    if (body.tz !== undefined) store.setTimeZone(body.tz);
-    if (body.dailyTag !== undefined) store.setDailyTag(body.dailyTag);
-    sendJson(res, 200, store.getSettings());
-  });
-
-  route('GET', '/api/note-links', async ({ res, query }) => {
-    const target = (query.get('target') ?? '').trim();
-    // Imported folder-qualified names match the leaf title. Show all matches rather
-    // than guessing when names collide; navigation itself uses the stable note ID.
-    const title = target.split('#')[0].split('/').at(-1).replace(/\.md$/i, '');
-    const notes = db.prepare('SELECT id, title, note_date AS date FROM notes WHERE deleted_at IS NULL AND title = ? COLLATE NOCASE ORDER BY note_date DESC, id').all(title);
-    sendJson(res, 200, { notes });
-  });
-
-  // ----- assistant (needs the ASSISTANT_TOKEN key; see docs/ASSISTANT.md) -----
-  route('GET', '/api/assistant/ping', async ({ res }) => sendJson(res, 200, { ok: true, today: dateInTz(new Date(), config.tz), tz: config.tz }));
-  route('GET', '/api/assistant/moods', async ({ res, query }) => {
-    // ?days=N (default 14) counts back from today; ?from= and ?to= give exact days
-    const days = Math.min(Math.max(Number(query.get('days')) || 14, 1), 400);
-    const to = query.get('to') || dateInTz(new Date(), config.tz);
-    sendJson(res, 200, listMoods(db, config, { from: query.get('from') || addDays(to, -(days - 1)), to }));
-  });
-  route('POST', '/api/assistant/moods', async ({ res, body }) => sendJson(res, 200, addMood(db, config, body)));
-  route('GET', '/api/assistant/overview', async ({ res }) => sendJson(res, 200, store.assistantOverview()));
-  route('GET', '/api/assistant/notes', async ({ res, query }) => {
-    sendJson(res, 200, store.listNotes({ tag: query.get('tag'), sub: query.get('sub') === '1', untagged: query.get('untagged') === '1', q: query.get('q') ?? '', limit: query.get('limit'), offset: query.get('offset'), sort: query.get('sort') }));
-  });
-  route('GET', '/api/assistant/notes/:id', async ({ res, params }) => sendJson(res, 200, store.assistantGetNote(params.id)));
-  route('POST', '/api/assistant/notes/:id/trash', async ({ res, params, body }) => {
-    if (body.confirmed !== true) throw new HttpError(400, 'confirmation_required', 'Ask the user to confirm this specific note before moving it to Trash');
-    const note = store.assistantGetNote(checkId(params.id));
-    if (body.expectedRevision !== note.revision) throw new HttpError(409, 'revision_conflict', 'The note changed. Read it and ask for confirmation again');
-    sendJson(res, 200, store.deleteNote(note.id));
-  });
-  route('POST', '/api/assistant/notes', async ({ res, body }) => sendJson(res, 200, store.assistantCreateNote(body)));
-  route('POST', '/api/assistant/notes/:id/append', async ({ res, params, body }) => sendJson(res, 200, store.assistantAppend(params.id, body.markdown)));
-  route('POST', '/api/assistant/notes/:id/replace-text', async ({ res, params, body }) => sendJson(res, 200, store.assistantReplaceText(params.id, body)));
-  route('POST', '/api/assistant/notes/:id/replace-section', async ({ res, params, body }) => sendJson(res, 200, store.assistantReplaceSection(params.id, body)));
-  route('POST', '/api/assistant/daily/append', async ({ res, body }) => sendJson(res, 200, store.assistantAppendDaily(body)));
-  route('POST', '/api/assistant/notes/:id/tasks/:taskId', async ({ res, params, body }) => {
-    sendJson(res, 200, store.assistantUpdateTask(params.id, params.taskId, body));
-  });
-  // Files (see docs/ATTACHMENTS.md). Bytes travel as base64 in JSON, like everything else on this door.
-  const ASSISTANT_FILE_LIMIT = 25 * 1024 * 1024;
-  const listArgs = (query) => ({ noteId: query.get('noteId'), unattached: query.get('unattached') === '1', q: query.get('q') ?? '', kind: query.get('kind'), limit: query.get('limit'), offset: query.get('offset') });
-  route('GET', '/api/assistant/attachments', async ({ res, query }) => sendJson(res, 200, files.list(listArgs(query))));
-  route('GET', '/api/assistant/attachments/:id', async ({ res, params }) => {
-    const attachment = files.get(checkId(params.id, 'file id'));
-    if (!attachment) throw new HttpError(404, 'file_not_found', 'No such file');
-    sendJson(res, 200, { attachment });
-  });
-  route('GET', '/api/assistant/attachments/:id/content', async ({ res, params, query }) => {
-    const info = files.fileFor(checkId(params.id, 'file id'), { original: query.get('original') === '1' });
-    if (!info) throw new HttpError(404, 'file_not_found', 'No such file');
-    if (info.size > ASSISTANT_FILE_LIMIT) throw new HttpError(413, 'too_large', `That file is ${Math.round(info.size / 1024 / 1024)} MB; the assistant door sends files up to 25 MB`);
-    sendJson(res, 200, { id: params.id, name: info.name, mime: info.mime, size: info.size, encoding: 'base64', data: fs.readFileSync(info.path).toString('base64') });
-  });
-  route('POST', '/api/assistant/attachments', async ({ res, body }) => {
-    if (typeof body.data !== 'string' || !body.data) throw new HttpError(400, 'bad_file', '"data" must be the file as base64');
-    const noteId = body.noteId ? checkId(body.noteId, 'note id') : null;
-    const attachment = await files.add(Buffer.from(body.data, 'base64'), { name: body.name, noteId, source: 'assistant' });
-    sendJson(res, 200, { attachment });
-  });
-  route('POST', '/api/assistant/notes/:id/attach', async ({ res, params, body }) => {
-    sendJson(res, 200, store.assistantAttach(params.id, body.attachmentId));
-  });
-
-  // ----- mood entries (see docs/MOOD.md) -----
-  route('GET', '/api/moods', async ({ res, query }) => sendJson(res, 200, listMoods(db, config, { from: query.get('from'), to: query.get('to') })));
-  route('PUT', '/api/moods/:id', async ({ res, params, body }) => sendJson(res, 200, addMood(db, config, body, params.id)));
-  route('DELETE', '/api/moods/:id', async ({ res, params }) => sendJson(res, 200, deleteMood(db, params.id)));
-  route('POST', '/api/moods/:id/restore', async ({ res, params }) => sendJson(res, 200, restoreMood(db, params.id)));
-
-  // ----- tags & streams -----
-  route('GET', '/api/tags', async ({ res }) => sendJson(res, 200, { tags: store.listTags(), order: store.getTagOrder() }));
-  route('POST', '/api/tags', async ({ res, body }) => sendJson(res, 200, { tag: store.createTag(body.path) }));
-  route('POST', '/api/tags/move', async ({ res, body }) => sendJson(res, 200, store.moveTag(body)));
-  route('PUT', '/api/tags/:id/daily', async ({ res, params, body }) => {
-    sendJson(res, 200, store.setTagDaily(checkId(params.id, 'tag id'), body.daily));
-  });
-  route('PUT', '/api/tags/:id/favorite', async ({ res, params, body }) => {
-    sendJson(res, 200, store.setTagFavorite(checkId(params.id, 'tag id'), body.favorite));
-  });
-  route('GET', '/api/stream', async ({ res, query }) => {
-    sendJson(res, 200, store.stream(query.get('tag') ?? '', { before: query.get('before'), limit: query.get('limit') }));
-  });
-
-  route('GET', '/api/tasks', async ({ res }) => sendJson(res, 200, { tasks: store.listTasks() }));
-
-  // ----- notes -----
-  route('GET', '/api/notes', async ({ res, query }) => {
-    sendJson(
-      res,
-      200,
-      store.listNotes({
-        tag: query.get('tag'),
-        sub: query.get('sub') === '1',
-        untagged: query.get('untagged') === '1',
-        q: query.get('q') ?? '',
-        limit: query.get('limit'),
-        offset: query.get('offset'),
-        sort: query.get('sort'),
-      }),
-    );
-  });
-  route('GET', '/api/notes/:id', async ({ res, params }) => {
-    const note = store.getNote(checkId(params.id));
-    if (!note) throw new HttpError(404, 'not_found', 'Note not found');
-    sendJson(res, 200, { note });
-  });
-  route('PUT', '/api/notes/:id', async ({ res, params, body }) => {
-    const result = store.saveNote(params.id, body);
-    sendJson(res, result.status === 'ok' ? 200 : 409, result);
-  });
-  route('DELETE', '/api/notes/:id', async ({ res, params }) => sendJson(res, 200, store.deleteNote(checkId(params.id))));
-  route('POST', '/api/notes/:id/restore', async ({ res, params, query }) => {
-    sendJson(res, 200, store.restoreNote(checkId(params.id), { dropConflictingTags: query.get('dropConflictingTags') === '1' }));
-  });
-  route('POST', '/api/notes/:id/tags', async ({ res, params, body }) => {
-    sendJson(res, 200, { tags: store.addTagToNote(checkId(params.id), body.path) });
-  });
-  route('DELETE', '/api/notes/:id/tags/:tagId', async ({ res, params }) => {
-    sendJson(res, 200, { tags: store.removeTagFromNote(checkId(params.id), checkId(params.tagId, 'tag id')) });
-  });
-  route('GET', '/api/notes/:id/versions', async ({ res, params }) => {
-    sendJson(res, 200, { versions: store.listVersions(checkId(params.id)) });
-  });
-  route('GET', '/api/notes/:id/versions/:vid', async ({ res, params }) => {
-    sendJson(res, 200, { version: store.getVersion(checkId(params.id), checkId(params.vid, 'version id')) });
-  });
-  route('POST', '/api/notes/:id/versions/:vid/restore', async ({ res, params }) => {
-    sendJson(res, 200, { note: store.restoreVersion(checkId(params.id), checkId(params.vid, 'version id')) });
-  });
-  route('GET', '/api/trash', async ({ res }) => sendJson(res, 200, { notes: store.listTrash() }));
-
-  // ----- files: images, PDFs and other documents (see docs/ATTACHMENTS.md) -----
-  // The body is the file itself. ?name= is its name; ?noteId= the note it is for, if known (a saved note that
-  // refers to the file claims it anyway).
-  route(
-    'POST',
-    '/api/attachments',
-    async ({ req, res, query }) => {
-      const noteId = query.get('noteId');
-      if (noteId) checkId(noteId, 'note id');
-      const data = await readRaw(req, config.maxUploadBytes);
-      sendJson(res, 200, { attachment: await files.add(data, { name: query.get('name') ?? '', noteId: noteId || null, source: 'upload' }) });
-    },
-    { raw: true },
-  );
-  route('GET', '/api/attachments', async ({ res, query }) => {
-    // ?removed=1 lists the files that were removed, so one can be brought back.
-    const listed = files.list({ noteId: query.get('noteId'), unattached: query.get('unattached') === '1', q: query.get('q') ?? '', kind: query.get('kind'), removed: query.get('removed') === '1', limit: query.get('limit'), offset: query.get('offset') });
-    sendJson(res, 200, { ...listed, total: files.stats() });
-  });
-  route('GET', '/api/attachments/:id', async ({ res, params }) => {
-    const attachment = files.get(checkId(params.id, 'file id'));
-    if (!attachment) throw new HttpError(404, 'file_not_found', 'No such file');
-    sendJson(res, 200, { attachment });
-  });
-  route('GET', '/api/attachments/:id/file', async ({ req, res, params, query }) => {
-    const info = files.fileFor(checkId(params.id, 'file id'));
-    if (!info) throw new HttpError(404, 'file_not_found', 'No such file');
-    sendFile(req, res, info, { download: query.get('download') === '1' });
-  });
-  route('GET', '/api/attachments/:id/original', async ({ req, res, params }) => {
-    const info = files.fileFor(checkId(params.id, 'file id'), { original: true });
-    if (!info) throw new HttpError(404, 'file_not_found', 'No such file');
-    sendFile(req, res, info, { download: true });
-  });
-  route('DELETE', '/api/attachments/:id', async ({ res, params }) => {
-    if (!files.remove(checkId(params.id, 'file id'))) throw new HttpError(404, 'file_not_found', 'No such file');
-    sendJson(res, 200, { ok: true });
-  });
-  // Undo a removal: the file is shown again, in the Files page and in every note that has it.
-  route('POST', '/api/attachments/:id/restore', async ({ res, params }) => {
-    const attachment = files.restore(checkId(params.id, 'file id'));
-    if (!attachment) throw new HttpError(404, 'file_not_found', 'That file is not among the removed files');
-    sendJson(res, 200, { attachment });
-  });
-
-  // ----- export / import -----
-  route('GET', '/api/export/json', async ({ res }) => {
-    sendDownload(res, `personal-hq-export-${fileStamp()}.json`, 'application/json', Buffer.from(JSON.stringify(exportAll(db, config), null, 1)));
-  });
-  route('GET', '/api/export/markdown', async ({ res }) => {
-    sendDownload(res, `personal-hq-markdown-${fileStamp()}.zip`, 'application/zip', exportMarkdownZip(store, db, files));
-  });
-  // Every attached file in one zip (with an index.json). The JSON export lists them but does not carry the bytes.
-  route('GET', '/api/export/files', async ({ res }) => {
-    sendDownload(res, `personal-hq-files-${fileStamp()}.zip`, 'application/zip', exportFilesZip(db, files));
-  });
-  route('POST', '/api/import', async ({ res, query, body }) => {
-    sendJson(res, 200, importAll(db, config, body, query.get('mode') ?? 'merge'));
-  });
-
-  // ----- backups -----
-  route('GET', '/api/backups', async ({ res }) => sendJson(res, 200, backupStatus(config)));
-  route('POST', '/api/backups', async ({ res }) => sendJson(res, 200, createBackup(db, config, 'manual')));
-  // A fresh consistent snapshot streamed straight to the client; nothing is kept on the server.
-  route('GET', '/api/backups/snapshot', async ({ res }) => {
-    const tmp = path.join(os.tmpdir(), `hq-snapshot-${process.pid}-${Date.now()}.sqlite`);
-    try {
-      db.exec(`VACUUM INTO '${tmp.replace(/'/g, "''")}'`);
-      sendDownload(res, `personal-hq-${fileStamp()}.sqlite`, 'application/vnd.sqlite3', fs.readFileSync(tmp));
-    } finally {
-      fs.rmSync(tmp, { force: true });
-    }
-  });
-  // Everything in one file: a consistent snapshot of the database and every stored file, with a manifest that
-  // names each one and its SHA-256 (see docs/BACKUPS.md). Streamed, so a large workspace is not held in memory.
-  // If it fails part way the connection is dropped, so the download fails instead of looking like a whole zip.
-  route('GET', '/api/backups/bundle', async ({ res }) => {
-    res.writeHead(200, {
-      'content-type': 'application/zip',
-      'content-disposition': `attachment; filename="gordonite-bundle-${fileStamp()}.zip"`,
-      'cache-control': 'no-store',
-    });
-    try {
-      await writeBundle(db, config, res, { appVersion: APP_VERSION });
-    } catch (err) {
-      log.error('[bundle] download failed:', err);
-      res.destroy(err);
-    }
-  });
-  route('GET', '/api/backups/file/:name', async ({ res, params }) => {
-    const p = backupPath(config, params.name);
-    if (!p) throw new HttpError(404, 'not_found', 'No such backup');
-    sendDownload(res, params.name, 'application/vnd.sqlite3', fs.readFileSync(p));
-  });
-
-  // ----- static client -----
-  const gzCache = new Map();
-  function serveStatic(req, res, pathname) {
-    let rel = decodeURIComponent(pathname);
-    if (rel.endsWith('/')) rel += 'index.html';
-    let file = path.join(config.staticDir, rel);
-    if (!file.startsWith(config.staticDir + path.sep) && file !== config.staticDir) {
-      return sendJson(res, 400, { error: { code: 'bad_path', message: 'Bad path' } });
-    }
-    if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-      if (path.extname(rel)) return sendJson(res, 404, { error: { code: 'not_found', message: 'Not found' } });
-      file = path.join(config.staticDir, 'index.html'); // client-side routes
-      if (!fs.existsSync(file)) {
-        res.writeHead(503, { 'content-type': 'text/plain' });
-        return res.end('Client not built. Run "npm run build" (or use "npm run dev").');
-      }
-    }
-    const ext = path.extname(file);
-    const st = fs.statSync(file);
-    const headers = {
-      'content-type': MIME[ext] ?? 'application/octet-stream',
-      'cache-control': file.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache',
-    };
-    let data = fs.readFileSync(file);
-    if (/\bgzip\b/.test(req.headers['accept-encoding'] ?? '') && data.length > 1024 && /\.(html|js|css|json|svg)$/.test(ext)) {
-      const key = `${file}:${st.mtimeMs}`;
-      if (!gzCache.has(key)) gzCache.set(key, zlib.gzipSync(data));
-      data = gzCache.get(key);
-      headers['content-encoding'] = 'gzip';
-      headers.vary = 'Accept-Encoding';
-    }
-    headers['content-length'] = data.length;
-    res.writeHead(200, headers);
-    res.end(data);
-  }
+  const serveStatic = createStaticServer(config);
 
   async function handler(req, res) {
     const started = Date.now();

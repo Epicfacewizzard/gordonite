@@ -72,7 +72,11 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
 
   useEffect(() => {
     let broken = false;
-    const editor = new Editor({
+    let editor = null; // assigned below; the content check can fire while the editor is still being built
+    const markEmpty = () => {
+      if (editor) host.current?.classList.toggle('is-empty', editor.isEmpty);
+    };
+    editor = new Editor({
       element: host.current,
       extensions: createExtensions({
         onTaskAction: (kind, taskId) => live.current.onTaskAction?.(kind, taskId),
@@ -85,7 +89,7 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
       onContentError: () => {
         // Never autosave over content this editor cannot represent.
         broken = true;
-        editor.setEditable(false);
+        editor?.setEditable(false, false); // (while it is being built this is done just after, below)
         onProblem?.('This note contains content this version of the editor cannot show. It has not been changed.');
       },
       editorProps: {
@@ -119,11 +123,12 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
       },
       onBlur: () => session.captureNow(),
     });
-    const markEmpty = () => host.current?.classList.toggle('is-empty', editor.isEmpty);
+    // A document this editor cannot hold was found while it was being built: it opens read-only and is never saved.
+    if (broken) editor.setEditable(false, false);
     markEmpty();
-    // cleanTaskAttrs drops empty optional task attributes, so tasks without dates are stored exactly as before.
     // While this editor is open, a change to one of the note's tasks (from a button or a menu) goes through it, as one
     // undoable edit; the session lets go of it when this releases, and only if it has not been replaced since.
+    // (cleanTaskAttrs drops empty optional task attributes, so tasks without dates are stored exactly as before.)
     const release = session.attachEditor({
       provider: () => cleanTaskAttrs(editor.getJSON()),
       updateTask: (taskId, patch) => updateTaskById(editor, taskId, patch),

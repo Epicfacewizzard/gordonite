@@ -3,9 +3,9 @@
 ## 0.6.0 — 2026-10-13 — Backups that include the files; nothing queued on the phone is thrown away; a fresher Tasks list (built and tested, not yet deployed)
 
 Version **0.6.0** (a new feature: second number). It carries out [ARCHITECTURE-IMPROVEMENT-PLAN.md](ARCHITECTURE-IMPROVEMENT-PLAN.md)
-(stages 1 to 5 and 7; stage 6, the server's file layout, is a separate follow-up): fixes the places where work
-waiting on the phone or a list on screen could be wrong, tightens and tests the rules a note's document must follow,
-and adds a backup that holds the photos and PDFs too. No schema change, so going back to 0.5.1 is the image swap only.
+(all seven stages): it fixes the places where work waiting on the phone, or a list on screen, could be wrong; tightens
+and tests the rules a note's document must follow; and adds a backup that holds the photos and PDFs too. No schema
+change, so going back to 0.5.1 is the image swap only. Not deployed yet.
 
 **Fixed**
 
@@ -32,6 +32,11 @@ and adds a backup that holds the photos and PDFs too. No schema change, so going
   mark on the line break as well as on the text, and the server's rules refused marks on anything but text; the dot
   went to "failed" and kept retrying. The text was never lost (it stayed on the phone) but it never reached the server.
   Marks are now accepted on line breaks. Found by the new generated tests, then reproduced in the browser.
+- **A note whose document the editor cannot hold opened as a blank area** (a stored note with a paragraph inside a
+  paragraph, say). The editor's protective check ("never autosave over content this editor cannot represent") ran
+  while the editor was still being built and tripped over itself, so nothing was drawn and the message never showed.
+  It now opens read-only, says "This note contains content this version of the editor cannot show. It has not been
+  changed.", and is never saved over. Found while writing the test for the document rules.
 - **`***both***` in Markdown** was read as `*both*` in bold. The exporter writes bold-and-italic that way, so a
   note read back through the assistant lost its formatting; it is now read as bold and italic.
 
@@ -60,6 +65,16 @@ and adds a backup that holds the photos and PDFs too. No schema change, so going
 
 **Internal**
 
+- **Server layout (stage 6 of the plan).** `server/app.js` was one 500-line function with every route inline, and
+  `server/store.js` held the notes, the tags, the settings and the assistant's editing together, so unrelated features
+  imported their error class and id check from the note store. Now: `errors.js` and `ids.js`; `http.js` for the
+  transport; one file per route group in `server/routes/`, registered in the same order; `settings.js` (what a setting
+  is, how a value is checked, and how it travels in an export and an import, so a setting changed in the app and one
+  that arrives with an import follow the same rules; an import used to accept a few values the app itself would
+  refuse); `tags.js`; and `assistant-notes.js`. The store is 525 lines instead of 869 and still has the one save
+  operation. A mechanical move: the routes are copied verbatim and in the same order, and the existing server tests and
+  the browser suite are the check (the layout is described in [ARCHITECTURE.md](ARCHITECTURE.md#server-layout)).
+  `tests/server/settings.test.js` (7) pins the settings rules.
 - **View structure (stage 5 of the plan).** `NoteCard` has its own file (`views/NoteCard.jsx`) instead of living in
   the stream's; the rules for dividing the task list are pure functions in `client/src/task-groups.js`
   (`tests/client/task-groups.test.js`, 11 tests); `client/src/paging.js` is the shared guard for lists that load more.
@@ -89,6 +104,18 @@ and adds a backup that holds the photos and PDFs too. No schema change, so going
   editor agree both ways; `tests/server/doc-contract.test.js` saves, exports, imports, renders and reads back one
   document per supported structure (`tests/fixtures/docs.js`); `tests/e2e/doc-contract.test.js` is the Shift+Enter
   case in a browser.
+
+**Tests**
+
+- Unit suite (`npm test`): **267/267** (it was 140 at 0.5.1). New: the mood queue (15), the save protocol (15), the
+  document contract against the editor (13 client, 16 server), task parity (14), the task list (12), task grouping
+  (11), paging (3), settings (7), zip streams (7), bundles (14).
+- Browser suite: new `task-list`, `lists-and-conflicts`, `doc-contract` and `legacy-nesting` files (the last
+  one is the note above), and
+  additions to `mood` and `resilience`. Two long-standing flaky tests were fixed at their cause: `streams` "home lists
+  tags…" asserted on the stream's entry before it had loaded (it passed 20 of 20 afterwards), and `task-lifecycle`
+  now taps again until the caret has really moved, because a synthetic tap issued as the page redraws is sometimes
+  never delivered (the app is fine; it passed 20 of 20 afterwards). `editing` "boundary behaviours" is still flaky.
 
 **Rollback**: there is no schema change, so going back to 0.5.1 only needs the image retag and recreate.
 

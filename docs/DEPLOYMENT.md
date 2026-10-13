@@ -62,7 +62,9 @@ then recreate the app container using the same CasaOS settings and data-folder m
 (`docker restart personal-hq`) keeps the old image and does not apply the rebuild. If you manage this
 installation with Compose, run `docker compose -f deploy/casaos-compose.yml up -d --force-recreate`
 after building instead. Keep the existing data-folder mount. Take a manual backup first
-(Data & backups → Back up now).
+(Data & backups → Back up now). Before an update that changes the database or the files, also keep a **bundle**
+(Data & backups → Download everything, or `docker exec gordonite node server/cli.js bundle`): it holds the files too,
+which the database backup does not, and `verify-bundle` checks it on its own.
 
 ## First-run checks
 
@@ -148,7 +150,9 @@ before files existed, restore the database backup taken before the update (an ol
 
 Backups are written to `<data folder>/backups` (or `BACKUP_DIR`). To keep them on a different disk, mount
 another folder at `/backups` and set `BACKUP_DIR=/backups`. How to copy them off the machine and how to
-restore: [BACKUPS.md](BACKUPS.md).
+restore: [BACKUPS.md](BACKUPS.md). Bundles (the database and every stored file in one verified zip, written by
+`node server/cli.js bundle`) go in `<backups>/bundles/`; the files themselves stay in `FILES_DIR`, which may be a
+different folder from the database.
 
 ## Selected Obsidian notes
 

@@ -16,10 +16,40 @@ Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language sum
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.5.1**. The release deployed is `37bf398` (undo for a removed file and a deleted mood entry); `main` is later (`5bd42a2`) only by test, documentation and local-bridge changes, with no server code change |
+| Version on `origin/main` | **0.5.1** until the 0.6.0 work is pushed. The release deployed is `37bf398` (undo for a removed file and a deleted mood entry); `main` is later (`5bd42a2`) only by test, documentation and local-bridge changes |
+| Built, tested, **not yet deployed** | **0.6.0**, branch `feature/save-queue-and-doc-contract` (seven commits on top of `fa8053f`): see "0.6.0" below. No schema change |
 | Version running on the server | **0.5.1** (`/api/health` reported `0.5.1` on 2026-10-12, after the owner ran the deploy script; schema v6) |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
+
+### 0.6.0 (built and tested 2026-10-13; not deployed)
+
+Carries out [docs/ARCHITECTURE-IMPROVEMENT-PLAN.md](docs/ARCHITECTURE-IMPROVEMENT-PLAN.md), whose "Implementation
+status" section maps each stage to the change and the tests. What matters operationally:
+
+- **Backups that include the files.** *Data & backups → Download everything*, or `docker exec gordonite node
+  server/cli.js bundle`, is one verified zip of the database **and** every stored file; `verify-bundle` checks one on
+  its own and `restore-bundle <file> --yes` puts it back (stop the app first; nothing is deleted; the current
+  database is saved as a prerestore backup). [docs/BACKUPS.md](docs/BACKUPS.md#bundles-the-notes-and-their-files-in-one-verified-file).
+  Still **no off-server copy exists**: download one and run `verify-bundle` on it, or schedule the command and copy
+  `backups/bundles/`.
+- **Fixes that change behaviour:** a mood entry waiting on the phone is no longer deleted by a 503 or an expired login;
+  bold/italic across a Shift+Enter line break no longer makes a note unsaveable; the Tasks list follows other devices
+  on focus and follows what is typed into a note on this device; Load more cannot repeat rows; the conflict
+  indicator opens an untagged note; `***x***` Markdown keeps both marks.
+- **Stricter document rules** (which nodes may nest in which). Notes stored before this are never made unsaveable and
+  an import never refuses for nesting, but run `node server/cli.js check-docs` once after deploying to see whether any
+  stored note or version breaks the rules (read-only). The editor opens such a note read-only with a message and never
+  saves over it (it used to show a blank area; fixed in 0.6.0, `tests/e2e/legacy-nesting.test.js`).
+- **Server code was reorganised** (`routes/`, `settings.js`, `tags.js`, `assistant-notes.js`, `http.js`, `errors.js`,
+  `ids.js`; layout in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#server-layout)). Behaviour is meant to be identical;
+  the server tests and the browser suite are the check. **Watch the first minutes after deploying** (the deploy script's
+  health check, then open the app, the Tasks page and Data & backups).
+- **Rollback:** no schema change, so going back to 0.5.1 is only the image swap the deploy script already prepares.
+- Tests at this point: unit **267/267**; the whole browser suite is listed in the release notes. Two long-standing
+  flaky browser tests were fixed at their cause (a stream test that did not wait for the entry it asserts on; a
+  lifecycle test whose synthetic tap was sometimes dropped), and `task-lifecycle` now retries a tap until the caret has
+  really moved.
 
 ### 0.5.1 (deployed 2026-10-12)
 
@@ -122,12 +152,12 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 
 ## Validation
 
-- `npm test`: **140/140** on 0.5.1 (server, API, persistence, interruption recovery, conflicts, backup/export/import/restore, files, MCP bridge, client sync).
+- `npm test`: **267/267** on 0.6.0 (server, API, persistence, interruption recovery, conflicts, backup/export/import/restore, bundles, files, MCP bridge, client sync and save engine, the mood queue, the document contract against the editor's schema, task parity, the task list). Was 140/140 on 0.5.1.
 - `npm run test:e2e` (real Chrome/Edge, 360×780 touch context; builds first): at 0.5.1 **128 of 131** passed, and the three failures were old and are **now repaired (2026-10-13; test changes only, none of them was a bug in the app)**:
   - `history-move.test.js` "desktop grip drag corrects the recorded day": it hard-coded 2026-10-04/05 and the history only shows the last 7 days by default, so it stopped finding the grip once the calendar moved on. It now pins the clock (as the first test in that file does).
   - `task-text-edit.test.js` "text edits stay in the original task…": it looked for a task with no date on the dashboard, but since 0.3.1 the dashboard's Tasks box shows only overdue and due-today tasks. It now uses the Tasks page.
-  - `task-lifecycle.test.js` "task dismissal and deletion in the editor are undoable and survive a connection interruption": a synthetic tap issued in the instant a save finishes was sometimes never delivered (logged: no selection change and no editor event), so the caret stayed in the new task and the test deleted the wrong one. The app did exactly what it was told. It now pauses 300 ms and checks the caret moved (10 of 10 runs pass).
-  - Other flakes seen while comparing against 0.4.4 (about 1 run in 6 and 1 in 10, same rate before and after 0.5.0, not investigated): `streams.test.js` "home lists tags; opening a tag shows today as an editable entry…" and `editing.test.js` "boundary behaviours".
+  - `task-lifecycle.test.js` "task dismissal and deletion in the editor are undoable and survive a connection interruption": a synthetic tap issued in the instant the page redraws (a save finishing, a task coming back) was sometimes never delivered (logged: no selection change and no editor event), so the caret stayed in the wrong task and the test deleted or typed in the wrong place. The app did exactly what it was told. The test now taps again until the caret really is in the task (20 of 20 runs pass; it failed about one run in four before).
+  - Other flakes seen while comparing against 0.4.4: `streams.test.js` "home lists tags; opening a tag shows today as an editable entry…" was **fixed** on 2026-10-13 (it asserted on the entry before the stream had loaded it; it passed 20 of 20 runs afterwards). `editing.test.js` "boundary behaviours" (about 1 run in 10) is still not investigated.
 - Run only the tests for what changed (`node --test --test-concurrency=1 tests/e2e/<file>.test.js`); the full browser suite takes several minutes. `tests/e2e/undo-depth.test.js` pins the editor's undo at 100 to 120 steps.
 - Test helpers and sleeps: Playwright sends keys far faster than a person. Several tests wait ~40 ms after navigation keys and ~400 ms after a tap before pressing keys, because ProseMirror ignores selection changes right after it places the caret. That is deliberate, not flakiness.
 - Tests must not hard-code "today". `resilience.test.js` did (2026-10-05) and eight of its tests silently failed once the date moved; they now use the current date in `America/Edmonton`.
@@ -135,7 +165,7 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 
 ## Repository and housekeeping
 
-- The OneDrive checkout (`C:\Users\Epicf\OneDrive - University of Calgary\Gordonite`) is on `main` and is what the assistant bridge (Claude Desktop and Codex) runs `mcp/server.js` from. **Do not edit it in place**: make a worktree or branch from `origin/main`, test, push `main`, then fast-forward this clone. It has three untracked audit documents from earlier sessions (`docs/ARCHITECTURE-AUDIT-2026-10-12.md`, `docs/AUDIT-2026-10-12.md`, `docs/STATUS-CHECK-2026-10-11.md`); they make `deploy-casaos.ps1` refuse ("uncommitted changes"), so deploy from a clean worktree.
+- The OneDrive checkout (`C:\Users\Epicf\OneDrive - University of Calgary\Gordonite`) is on `main` and is what the assistant bridge (Claude Desktop and Codex) runs `mcp/server.js` from. **Do not edit it in place**: make a worktree or branch from `origin/main`, test, push `main`, then fast-forward this clone. It has had untracked audit documents from earlier sessions; three of them (`ARCHITECTURE-IMPROVEMENT-PLAN.md`, `ARCHITECTURE-AUDIT-2026-10-12.md`, `AUDIT-2026-10-12.md`) are committed with the 0.6.0 work, and `docs/STATUS-CHECK-2026-10-11.md` (a home-network diagnosis, not about the app) is deliberately left untracked. Untracked files make `deploy-casaos.ps1` refuse ("uncommitted changes"), so deploy from a clean worktree.
 - Local leftovers, all harmless: one git stash (an old, superseded draft of the bridge); the earlier session's temp folder `...\scratchpad\gordonite-main` under `AppData\Local\Temp\claude` (it was locked when removal was tried; `git worktree list` no longer shows it). The remote branches `work-from-other-session`, `feature/attachments` and `feature/restore-removed-files` are merged into `main` and can be deleted on GitHub.
 - Windows notes: paths over 260 characters fail normal deletes (use the `\\?\` form); `git worktree remove` can leave a stub in `.git\worktrees` that OneDrive refuses to delete until its attributes are cleared.
 - The repository is inside OneDrive. `git gc` packing loose objects makes OneDrive ask to confirm deleting hundreds of hex-named files (`.git/objects/..`); that is safe (**Delete all items**; the objects are in the pack and `git fsck` is clean). Moving the repository outside OneDrive (for example `C:\dev\Gordonite`) would stop this and keep `node_modules` out of the cloud.
@@ -206,9 +236,10 @@ uploads, with a rehearsal against a local server first.
 
 ## Next work (owner's requests; do not implement automatically from this document)
 
-1. Optional: look into the two occasional browser-test flakes listed under Validation; decide about the older `CSS Ticketing System` folder; check the camera and iPhone-photo upload on a real phone.
-2. Stable HTTPS; an off-server copy of the backups.
-3. Separate Personal, School and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text stays in its source document.
-4. More dashboard widgets (goals, calendar) need design before they are built.
+1. **Deploy 0.6.0** (owner runs `scripts/deploy-casaos.ps1`), then `node server/cli.js check-docs` and a first bundle: `docker exec gordonite node server/cli.js bundle`, then `verify-bundle` on the copy you keep.
+2. Optional: the remaining flaky browser test (`editing.test.js` "boundary behaviours"); decide about the older `CSS Ticketing System` folder; check the camera and iPhone-photo upload on a real phone.
+3. Stable HTTPS; an off-server copy of the backups (a scheduled `bundle` copied off the server is the simplest).
+4. Separate Personal, School and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text stays in its source document.
+5. More dashboard widgets (goals, calendar) need design before they are built.
 
 Read `docs/ARCHITECTURE.md` and `docs/EDITOR.md` before changing saving or editing behaviour. Follow the owner's latest request over old planning documents, keep dependencies modest, and explain changes in plain language.

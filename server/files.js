@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
-import { HttpError } from './store.js';
+import { HttpError } from './errors.js';
 import { uuid } from '../shared/ids.js';
 import { cleanFileName, kindOfType } from '../shared/attachments.js';
 
