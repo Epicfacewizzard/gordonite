@@ -146,6 +146,10 @@ describe('stage 2: inline tasks', () => {
       assert.deepEqual(items.map((i) => i.checked), [false, false, false], 'check is undoable');
       await tap(page, 'tb-redo');
       assert.deepEqual((await structure(page))[0].items.map((i) => i.checked), [false, true, false]);
+      assert.equal(await page.getByTestId('task-archive').count(), 0, 'task history is not shown in a stream');
+      await waitSaved(page);
+      await page.goto(`${app.url}/#/n/${app.notes()[0].id}`); // task history lives on the note's own page
+      await page.waitForSelector('.note-text[contenteditable="true"]');
       await page.locator('.task-archive summary').tap();
       await page.getByRole('button', { name: 'Bring back', exact: true }).tap(); // completed task is restored from history
       assert.deepEqual((await structure(page))[0].items.map((i) => i.checked), [false, false, false]);

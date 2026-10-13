@@ -153,7 +153,8 @@ export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active,
           dangerouslySetInnerHTML={{ __html: empty ? '<p class="placeholder">Empty note. Tap to write.</p>' : html }}
         />
       )}
-      <TaskArchive doc={session.currentDoc()} noteDate={session.date} today={today} tz={tz} onPatch={(taskId, patch) => session.applyTaskPatch(taskId, patch)} onReactivate={(taskId) => session.applyTaskPatch(taskId, { checked: false, dismissedAt: null, completedAt: null })} />
+      {/* Task history belongs to the note itself: streams and the dashboard only show the writing. */}
+      {standalone && <TaskArchive doc={session.currentDoc()} noteDate={session.date} today={today} tz={tz} onPatch={(taskId, patch) => session.applyTaskPatch(taskId, patch)} onReactivate={(taskId) => session.applyTaskPatch(taskId, { checked: false, dismissedAt: null, completedAt: null })} />}
       {taskMenu && (() => {
         const t = extractTasks(session.currentDoc(), session.date).find((x) => x.id === taskMenu.taskId);
         if (!t) return null;

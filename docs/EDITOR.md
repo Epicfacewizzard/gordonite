@@ -80,7 +80,7 @@ Task lifecycle additions use ordinary editor transactions: dismissal changes an 
 attribute; deletion removes the selected task item (or its now-empty list) with the engine's range deletion.
 Both are separate undo steps. A small ProseMirror append-transaction plugin records `completedAt` when an
 existing task checkbox changes, joining the same undo operation. It does not invent dates when old checked
-tasks are opened or pasted. Task history is a derived view of document nodes, not duplicate task storage.
+tasks are opened or pasted. Task history is a derived view of document nodes, not duplicate task storage. It renders only on a note's own page (`standalone` in `NoteCard`), never in the Today dashboard or tag streams.
 
 Completed tasks retain task nodes but display as crossed-out bullets. Dismissed task node views are hidden;
 read-only note rendering omits them while history reads the full document. A small visibility plugin moves

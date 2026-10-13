@@ -66,7 +66,7 @@ and reliable data; keep navigation and styling replaceable without changing note
   opening its ordinary note page. This is not yet a structured contacts database. Obsidian `[[links]]` are still
   plain text; linking is the next separate change.
 * **Task history** below a note lists its completed and dismissed tasks, grouped by the recorded date in your
-  home timezone. Choose From/Through dates, filter by status, use All dates, or Show older tasks to expand the
+  home timezone. It appears only on the note's own page, not in the Today dashboard or tag streams. Choose From/Through dates, filter by status, use All dates, or Show older tasks to expand the
   range. Bring back reopens a task in place. New checkbox completions record `completedAt` in the same undo
   operation; imported checked tasks have no fabricated completion timestamp and appear under Date not recorded.
 * **A stream** shows today's entry first, then earlier days, newest first. Only the entry you are writing in
