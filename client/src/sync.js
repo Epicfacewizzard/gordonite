@@ -6,7 +6,12 @@
 // so the selection, keyboard and undo history are left alone.
 //
 // Sessions live here, not in components, so saving continues when an editor unmounts.
-import { api, ApiError, NetworkError } from './api.js';
+//
+// Everything a session touches outside itself comes in through its SyncManager (api, durable store, timers, clock,
+// ids, page lifecycle). The page uses the defaults below; tests hand in fakes, so every save transition can be
+// checked deterministically without a browser (tests/client/sync-save.test.js).
+import { api as realApi } from './api.js';
+import { classifyFailure } from './failure.js';
 import { pendingStore } from './pending.js';
 import { uuid } from '../../shared/ids.js';
 import { DOC_FORMAT, emptyDoc, isEmptyDoc } from '../../shared/doc.js';
@@ -16,6 +21,22 @@ const CAPTURE_DEBOUNCE_MS = 300;
 const CAPTURE_MAX_WAIT_MS = 1000;
 const FLUSH_DELAY_MS = 500;
 const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
+
+const realTimers = { set: (fn, ms) => setTimeout(fn, ms), clear: (t) => clearTimeout(t) };
+
+// The page events that matter to saving: keep a copy when the page is hidden or closing, and send again when the
+// page comes back or the network does. Outside a browser this installs nothing.
+export const browserLifecycle = {
+  install({ persistAll, retryAll }) {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') persistAll();
+      else retryAll();
+    });
+    window.addEventListener('pagehide', persistAll);
+    window.addEventListener('online', retryAll);
+  },
+};
 
 class Emitter {
   #subs = new Set();
@@ -29,11 +50,11 @@ class Emitter {
 }
 
 // Give repeated task ids new ones (a merged document can contain the same task twice).
-export function dedupeTaskIds(doc) {
+export function dedupeTaskIds(doc, newId = uuid) {
   const seen = new Set();
   const walk = (n) => {
     if (n.type === 'taskItem') {
-      if (!n.attrs?.id || seen.has(n.attrs.id)) n = { ...n, attrs: { ...n.attrs, id: uuid() } };
+      if (!n.attrs?.id || seen.has(n.attrs.id)) n = { ...n, attrs: { ...n.attrs, id: newId() } };
       seen.add(n.attrs.id);
     }
     return n.content ? { ...n, content: n.content.map(walk) } : n;
@@ -41,12 +62,12 @@ export function dedupeTaskIds(doc) {
   return walk(doc);
 }
 
-function combineDocs(serverDoc, mineDoc) {
+function combineDocs(serverDoc, mineDoc, newId) {
   const marker = {
     type: 'paragraph',
     content: [{ type: 'text', text: 'Merged from the other version of this note:', marks: [{ type: 'italic' }] }],
   };
-  return dedupeTaskIds({ type: 'doc', content: [...serverDoc.content, marker, ...mineDoc.content] });
+  return dedupeTaskIds({ type: 'doc', content: [...serverDoc.content, marker, ...mineDoc.content] }, newId);
 }
 
 export class Session extends Emitter {
@@ -58,7 +79,7 @@ export class Session extends Emitter {
     this.date = date;
     this.title = title; // the note's name (free notes only); null = untitled
     this.kind = kind; // 'daily' (a stream's entry for a day) or 'note' (a free note: any number per day, may have no tag)
-    this.createdAt = createdAt ?? new Date().toISOString(); // only used to order notes of one day
+    this.createdAt = createdAt ?? new Date(sync.now()).toISOString(); // only used to order notes of one day
     this.revision = revision; // server revision our edits are based on (0 = not on server yet)
     this.serverDoc = doc; // last content known to be on the server
     this.pending = null; // { doc, seq }: newest captured content not yet confirmed
@@ -111,17 +132,19 @@ export class Session extends Emitter {
   }
 
   touch() {
+    const { timers } = this.sync;
     const wasClean = !this.hasUnsaved;
     this.dirtySeq++;
-    clearTimeout(this.captureTimer);
-    this.captureTimer = setTimeout(() => this.captureNow(), CAPTURE_DEBOUNCE_MS);
-    this.captureMaxTimer ??= setTimeout(() => this.captureNow(), CAPTURE_MAX_WAIT_MS);
+    timers.clear(this.captureTimer);
+    this.captureTimer = timers.set(() => this.captureNow(), CAPTURE_DEBOUNCE_MS);
+    this.captureMaxTimer ??= timers.set(() => this.captureNow(), CAPTURE_MAX_WAIT_MS);
     if (wasClean) this.emit(); // status flips to "pending"; later keystrokes need no re-render
   }
 
   captureNow({ schedule = true } = {}) {
-    clearTimeout(this.captureTimer);
-    clearTimeout(this.captureMaxTimer);
+    const { timers } = this.sync;
+    timers.clear(this.captureTimer);
+    timers.clear(this.captureMaxTimer);
     this.captureTimer = this.captureMaxTimer = null;
     if (!this.provider || this.dirtySeq === this.capturedSeq) return;
     const doc = this.provider();
@@ -156,10 +179,10 @@ export class Session extends Emitter {
       baseRevision: this.revision,
       unknownOps: [...this.unknownOps],
       seq: this.pending.seq,
-      updatedAt: Date.now(),
+      updatedAt: this.sync.now(),
     };
     this.idbChain = this.idbChain
-      .then(() => pendingStore.put(record))
+      .then(() => this.sync.store.put(record))
       .then(() => {
         if (this.localError) {
           this.localError = null;
@@ -174,7 +197,7 @@ export class Session extends Emitter {
   }
 
   #forgetLocal(seq = Infinity) {
-    this.idbChain = this.idbChain.then(() => pendingStore.deleteIfSeq(this.id, seq)).catch((err) => {
+    this.idbChain = this.idbChain.then(() => this.sync.store.deleteIfSeq(this.id, seq)).catch((err) => {
       this.localError = err;
       this.emit();
     });
@@ -184,12 +207,13 @@ export class Session extends Emitter {
   // ----- talking to the server -----
 
   scheduleFlush(delay = FLUSH_DELAY_MS) {
-    clearTimeout(this.flushTimer);
-    this.flushTimer = setTimeout(() => this.flush(), delay);
+    const { timers } = this.sync;
+    timers.clear(this.flushTimer);
+    this.flushTimer = timers.set(() => this.flush(), delay);
   }
 
   retryNow() {
-    clearTimeout(this.retryTimer);
+    this.sync.timers.clear(this.retryTimer);
     this.error = null;
     this.retryCount = 0;
     this.emit();
@@ -197,17 +221,17 @@ export class Session extends Emitter {
   }
 
   async flush() {
-    clearTimeout(this.flushTimer);
+    this.sync.timers.clear(this.flushTimer);
     if (this.inFlight || this.conflict) return;
     this.captureNow({ schedule: false });
     if (!this.pending) return;
 
     const snap = this.pending;
-    const opId = uuid();
+    const opId = this.sync.newId();
     this.inFlight = { seq: snap.seq, opId };
     this.emit();
     try {
-      const res = await api.saveNote(this.id, {
+      const res = await this.sync.api.saveNote(this.id, {
         baseRevision: this.revision,
         doc: snap.doc,
         docFormat: DOC_FORMAT,
@@ -233,14 +257,14 @@ export class Session extends Emitter {
         this.persist(); // newer edits exist; record the new base revision with them
       }
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409 && err.body?.status === 'conflict') {
+      const failure = classifyFailure(err);
+      if (failure.kind === 'conflict') {
         this.conflict = { reason: err.body.reason, note: err.body.note };
       } else {
+        // Whatever the failure, the text stays here: it is kept on this device and sent again, with the id of this
+        // attempt so the server can tell a repeat of an operation it already applied from a new edit.
         this.unknownOps = [...this.unknownOps, opId].slice(-50);
-        this.error =
-          err instanceof NetworkError
-            ? { kind: 'network', message: err.message }
-            : { kind: 'server', message: err.message ?? String(err) };
+        this.error = { kind: failure.kind === 'network' ? 'network' : 'server', message: err?.message ?? String(err) };
         this.scheduleRetry();
       }
       this.persist();
@@ -252,9 +276,10 @@ export class Session extends Emitter {
   }
 
   scheduleRetry() {
-    clearTimeout(this.retryTimer);
+    const { timers } = this.sync;
+    timers.clear(this.retryTimer);
     const delay = BACKOFF_MS[Math.min(this.retryCount++, BACKOFF_MS.length - 1)];
-    this.retryTimer = setTimeout(() => {
+    this.retryTimer = timers.set(() => {
       this.error = null;
       this.flush();
     }, delay);
@@ -288,7 +313,7 @@ export class Session extends Emitter {
   async resolveKeepMine() {
     const { reason, note } = this.conflict;
     if (reason === 'deleted') {
-      const restored = await api.restoreNote(this.id); // may throw slot_taken; the UI shows it
+      const restored = await this.sync.api.restoreNote(this.id); // may throw slot_taken; the UI shows it
       this.revision = restored.note.revision;
     } else if (reason === 'revision') {
       this.revision = note.revision;
@@ -316,10 +341,10 @@ export class Session extends Emitter {
     const { reason, note } = this.conflict;
     const mine = this.currentDoc();
     if (reason === 'revision') {
-      this.#replaceContent(combineDocs(note.doc, mine), { revision: note.revision, markPending: true, serverDoc: note.doc, title: this.title ?? note.title ?? null });
+      this.#replaceContent(combineDocs(note.doc, mine, this.sync.newId), { revision: note.revision, markPending: true, serverDoc: note.doc, title: this.title ?? note.title ?? null });
     } else if (reason === 'slot') {
       const target = this.sync.adopt(note);
-      target.#replaceContent(combineDocs(note.doc, mine), { revision: note.revision, markPending: true, serverDoc: note.doc });
+      target.#replaceContent(combineDocs(note.doc, mine, this.sync.newId), { revision: note.revision, markPending: true, serverDoc: note.doc });
       this.#discard();
       return target;
     } else {
@@ -400,8 +425,8 @@ export class Session extends Emitter {
     this.pending = null;
     this.conflict = null;
     this.discarded = true;
-    clearTimeout(this.flushTimer);
-    clearTimeout(this.retryTimer);
+    this.sync.timers.clear(this.flushTimer);
+    this.sync.timers.clear(this.retryTimer);
     this.#forgetLocal();
     this.sync.forget(this);
     this.emit();
@@ -413,9 +438,23 @@ export class Session extends Emitter {
   }
 }
 
-class SyncManager extends Emitter {
-  constructor() {
+export class SyncManager extends Emitter {
+  /**
+   * api:       { saveNote(id, body), restoreNote(id) }
+   * store:     the durable local copy: { put(record), deleteIfSeq(noteId, seq), getAll() }
+   * timers:    { set(fn, ms), clear(handle) }
+   * now:       () => milliseconds since 1970
+   * newId:     () => a fresh unique id
+   * lifecycle: { install({ persistAll, retryAll }) }
+   */
+  constructor({ api = realApi, store = pendingStore, timers = realTimers, now = () => Date.now(), newId = uuid, lifecycle = browserLifecycle } = {}) {
     super();
+    this.api = api;
+    this.store = store;
+    this.timers = timers;
+    this.now = now;
+    this.newId = newId;
+    this.lifecycle = lifecycle;
     this.sessions = new Map();
     this.drafts = new Map(); // "tag|date" -> session for notes that may not exist on the server yet
     this.storageError = null;
@@ -435,7 +474,7 @@ class SyncManager extends Emitter {
     this.ready ??= (async () => {
       let records = [];
       try {
-        records = await pendingStore.getAll();
+        records = await this.store.getAll();
       } catch (err) {
         this.storageError = err;
       }
@@ -454,15 +493,12 @@ class SyncManager extends Emitter {
   }
 
   #installLifecycleHooks() {
-    const persistAll = () => {
-      for (const s of this.sessions.values()) s.captureNow({ schedule: false });
-    };
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') persistAll();
-      else this.retryAll();
+    this.lifecycle.install({
+      persistAll: () => {
+        for (const s of this.sessions.values()) s.captureNow({ schedule: false });
+      },
+      retryAll: () => this.retryAll(),
     });
-    window.addEventListener('pagehide', persistAll);
-    window.addEventListener('online', () => this.retryAll());
   }
 
   retryAll() {
@@ -501,7 +537,7 @@ class SyncManager extends Emitter {
     const key = `${tag}|${date}`;
     let s = this.drafts.get(key);
     if (!s || s.discarded) {
-      s = this.#make({ id: uuid(), tags: [tag], date, revision: 0 });
+      s = this.#make({ id: this.newId(), tags: [tag], date, revision: 0 });
       this.drafts.set(key, s);
     }
     return s;
@@ -509,7 +545,7 @@ class SyncManager extends Emitter {
 
   /** A new free note (not tied to a day's slot), optionally already tagged. Creates nothing on the server until text is typed. */
   newNote(date, tags = []) {
-    return this.#make({ id: uuid(), tags, date, revision: 0, kind: 'note' });
+    return this.#make({ id: this.newId(), tags, date, revision: 0, kind: 'note' });
   }
 
   /** Unsent notes (not yet on the server) that belong to this tag. */
@@ -546,4 +582,5 @@ class SyncManager extends Emitter {
   }
 }
 
+/** The page's manager. Tests build their own SyncManager with fakes. */
 export const sync = new SyncManager();

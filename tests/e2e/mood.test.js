@@ -132,3 +132,75 @@ test('Settings can turn the note step off, so one tap on a face logs it, and bac
     assert.equal(entries(app).length, 1, 'with the step back on, a face alone saves nothing');
     assert.deepEqual(page.errors, []);
   }));
+
+// Answer every save of a mood with the given status and error, until the returned function is called.
+async function refuseMoodSaves(page, status, code, message) {
+  const pattern = '**/api/moods/*';
+  await page.route(pattern, (route) =>
+    route.request().method() === 'PUT'
+      ? route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: { code, message } }) })
+      : route.continue(),
+  );
+  return () => page.unroute(pattern);
+}
+const queued = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('hq-mood-pending') ?? '[]'));
+
+test('a server error keeps the entry on the phone, and it is sent once the server answers again', () =>
+  withPhone(browser, async ({ page, app }) => {
+    await page.goto(`${app.url}/#/`);
+    await page.getByTestId('widget-mood').waitFor();
+    const stopRefusing = await refuseMoodSaves(page, 503, 'unavailable', 'Try again in a moment');
+    await page.getByTestId('mood-4').tap();
+    await page.getByTestId('mood-log').tap();
+    await page.getByTestId('mood-status').waitFor();
+    assert.match(await page.getByTestId('mood-status').innerText(), /Not sent yet/);
+    assert.equal(entries(app).length, 0, 'the server has not accepted it');
+    assert.equal((await queued(page)).length, 1, 'it is still held on the phone, not thrown away');
+    assert.equal(await page.getByTestId('mood-refused').count(), 0, 'a temporary error is not a refusal');
+
+    await stopRefusing();
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(() => !document.querySelector('[data-testid="mood-status"]'));
+    assert.deepEqual(entries(app).map((e) => e.score), [4]);
+    assert.equal((await queued(page)).length, 0);
+  }));
+
+test('an entry the server refuses stays visible with Try again and Discard, and does not block the next one', () =>
+  withPhone(browser, async ({ page, app }) => {
+    await page.goto(`${app.url}/#/`);
+    await page.getByTestId('widget-mood').waitFor();
+    const stopRefusing = await refuseMoodSaves(page, 400, 'bad_time', '"at" cannot be in the future');
+    await page.getByTestId('mood-2').tap();
+    await page.getByTestId('mood-note').fill('refused one');
+    await page.getByTestId('mood-log').tap();
+    await page.getByTestId('mood-refused').waitFor();
+    assert.match(await page.getByTestId('mood-refused').innerText(), /clock/i, 'in words the person can act on');
+    assert.equal(entries(app).length, 0);
+    const held = await queued(page);
+    assert.equal(held.length, 1);
+    assert.equal(held[0].rejected.code, 'bad_time', 'the refusal is remembered across reloads');
+
+    // a reload shows it again; it is not sent again by itself
+    await page.reload();
+    await page.getByTestId('mood-refused').waitFor();
+    assert.equal(await page.getByTestId('mood-refused-entry').count(), 1);
+
+    // Try again, now that the server accepts: it goes through
+    await stopRefusing();
+    await page.getByTestId('mood-refused-retry').tap();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid="mood-refused-entry"]').length === 0);
+    assert.deepEqual(entries(app).map((e) => [e.score, e.note]), [[2, 'refused one']]);
+    assert.equal((await queued(page)).length, 0);
+
+    // and Discard removes one for good
+    const refuseAgain = await refuseMoodSaves(page, 400, 'bad_score', 'score must be a whole number from 1 to 5');
+    await page.getByTestId('mood-5').tap();
+    await page.getByTestId('mood-log').tap();
+    await page.getByTestId('mood-refused-entry').waitFor();
+    await refuseAgain();
+    await page.getByTestId('mood-refused-discard').tap();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid="mood-refused-entry"]').length === 0);
+    assert.equal((await queued(page)).length, 0);
+    assert.equal(entries(app).length, 1, 'the discarded entry never reached the server');
+    assert.deepEqual(page.errors, []);
+  }));

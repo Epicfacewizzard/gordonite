@@ -2,10 +2,21 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { addDays, dateInTz, timeInTz, formatDateShort } from '../../../shared/dates.js';
 import { MOOD_LABELS, MAX_MOOD_NOTE, dayAverages, moodStreak } from '../../../shared/moods.js';
-import { logMood, flushMoods, pendingMoods, dropPendingMood } from '../moods.js';
+import { logMood, flushMoods, pendingMoods, dropPendingMood, retryMood, moodStorageProblem, subscribeMoods } from '../moods.js';
 import { getMoodPrefs } from '../prefs.js';
 
 const FACES = ['😞', '🙁', '😐', '🙂', '😄'];
+const NOT_SENT = 'Not sent yet. It is kept on this device and goes up when the connection is back.';
+const NEEDS_LOGIN = 'Log in to send this. It is kept on this device until then.';
+const NOT_STORED = 'Not sent yet, and this device could not store a copy. Keep this page open until it is sent.';
+const UNREACHABLE = 'Can’t reach the server right now.';
+// Why the server refused an entry, in words for the person (the server's own message is the fallback).
+const REFUSED = {
+  bad_score: 'The server did not accept the mood score.',
+  bad_note: 'The server did not accept the note.',
+  bad_time: 'The server did not accept the time of this entry. Check this device’s clock.',
+  bad_body: 'The server did not accept this entry.',
+};
 const WINDOW_DAYS = 30; // how far back to load (the streak can run longer than the table)
 const TABLE_DAYS = 7;
 const colourOf = (avg) => `hsl(${(avg - 1) * 30} 55% 50% / 0.35)`; // 1 = red ... 5 = green, softened
@@ -19,6 +30,7 @@ export function MoodWidget({ config, today }) {
   const { askNote, history } = getMoodPrefs();
   const [saved, setSaved] = useState({ moods: [], streak: 0 });
   const [queued, setQueued] = useState(pendingMoods);
+  const [lastSend, setLastSend] = useState({ failure: null, paused: false }); // how the latest attempt to send ended
   const [picked, setPicked] = useState(null); // the face chosen but not logged yet (1-5)
   const [note, setNote] = useState('');
   const [status, setStatus] = useState('');
@@ -28,15 +40,21 @@ export function MoodWidget({ config, today }) {
   const undoTimer = useRef(null);
   const from = addDays(today, -(WINDOW_DAYS - 1));
 
+  // Entries still waiting on this device (and any the server refused) always come from the queue itself.
+  useEffect(() => subscribeMoods(() => setQueued(pendingMoods())), []);
+
   const load = async () => {
-    try {
-      const sent = await flushMoods();
-      setQueued(pendingMoods());
-      if (pendingMoods().length) throw new Error('waiting to be sent');
-      if (sent) setStatus('');
-      if (history) setSaved(await api.moods(from, today));
-    } catch {
-      setStatus(pendingMoods().length ? 'Not sent yet. It is kept on this device and goes up when the connection is back.' : 'Can’t reach the server right now.');
+    const result = await flushMoods();
+    setLastSend({ failure: result.failure, paused: result.paused });
+    if (result.sent) setStatus('');
+    if (result.failure) return; // the server could not be reached or wants a login: nothing more to ask it
+    if (history) {
+      try {
+        setSaved(await api.moods(from, today));
+        setStatus((s) => (s === UNREACHABLE ? '' : s));
+      } catch {
+        setStatus(UNREACHABLE);
+      }
     }
   };
   useEffect(() => {
@@ -58,17 +76,19 @@ export function MoodWidget({ config, today }) {
     logMood(score, note);
     setPicked(null);
     setNote('');
-    setQueued(pendingMoods());
     setStatus('');
     setDone(score);
     clearTimeout(doneTimer.current);
     doneTimer.current = setTimeout(() => setDone(null), 3000);
     await load();
   };
+  const tryAgain = async (id) => {
+    retryMood(id);
+    await load();
+  };
   const remove = async (entry) => {
     if (entry.pending) {
       dropPendingMood(entry.id);
-      setQueued(pendingMoods());
       return;
     }
     setSaved((s) => ({ ...s, moods: s.moods.filter((m) => m.id !== entry.id) }));
@@ -97,7 +117,15 @@ export function MoodWidget({ config, today }) {
   };
 
   // what the server has plus what is still waiting to be sent
-  const waiting = queued.map((m) => ({ id: m.id, score: m.score, note: m.note, at: m.at, day: dateInTz(new Date(m.at), config.tz), pending: true }));
+  const waiting = queued.map((m) => ({ id: m.id, score: m.score, note: m.note, at: m.at, day: dateInTz(new Date(m.at), config.tz), pending: true, refused: !!m.rejected }));
+  const refused = queued.filter((m) => m.rejected);
+  const unsent = queued.length - refused.length;
+  // Why entries are still here. A storage problem matters more than the connection: closing the page loses them.
+  const storageProblem = unsent > 0 ? moodStorageProblem() : null;
+  let queueNote = '';
+  if (unsent > 0 && lastSend.paused) queueNote = NEEDS_LOGIN;
+  else if (unsent > 0 && lastSend.failure) queueNote = storageProblem ? NOT_STORED : NOT_SENT;
+  const message = status || queueNote;
   const known = new Set(saved.moods.map((m) => m.id));
   const all = [...saved.moods, ...waiting.filter((m) => !known.has(m.id))].sort((a, b) => (a.at < b.at ? -1 : 1));
   const todays = all.filter((m) => m.day === today);
@@ -140,7 +168,7 @@ export function MoodWidget({ config, today }) {
               </button>
             </form>
           )}
-          {done && !status && (
+          {done && !message && (
             <p class="muted small" role="status" data-testid="mood-done">
               Logged {FACES[done - 1]}
             </p>
@@ -175,10 +203,32 @@ export function MoodWidget({ config, today }) {
           </table>
         )}
       </div>
-      {status && (
+      {message && (
         <p class="muted small" role="status" data-testid="mood-status">
-          {status}
+          {message}
         </p>
+      )}
+      {refused.length > 0 && (
+        <ul class="mood-entries mood-refused" data-testid="mood-refused" aria-label="Entries the server did not accept">
+          {refused.map((m) => (
+            <li key={m.id} data-testid="mood-refused-entry">
+              <span aria-label={MOOD_LABELS[m.score - 1]}>{FACES[m.score - 1]}</span>
+              <span class="mood-text">
+                <span class="muted small">{timeInTz(new Date(m.at), config.tz)}</span> {m.note}
+                <span class="small" title={m.rejected.message}>
+                  {' '}
+                  {REFUSED[m.rejected.code] ?? m.rejected.message}
+                </span>
+              </span>
+              <button type="button" class="btn" data-testid="mood-refused-retry" onClick={() => tryAgain(m.id)}>
+                Try again
+              </button>
+              <button type="button" class="btn" data-testid="mood-refused-discard" onClick={() => dropPendingMood(m.id)}>
+                Discard
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
       {undo && (
         <p class="muted small" role="status" data-testid="mood-undo">
@@ -196,7 +246,7 @@ export function MoodWidget({ config, today }) {
               <span aria-label={MOOD_LABELS[m.score - 1]}>{FACES[m.score - 1]}</span>
               <span class="mood-text">
                 {m.note}
-                {m.pending && <span class="muted small"> (not sent yet)</span>}
+                {m.pending && <span class="muted small">{m.refused ? ' (not accepted)' : ' (not sent yet)'}</span>}
               </span>
               <button type="button" class="btn" aria-label="Delete this mood entry" data-testid="mood-delete" onClick={() => remove(m)}>
                 ×

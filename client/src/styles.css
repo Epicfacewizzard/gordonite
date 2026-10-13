@@ -1584,6 +1584,7 @@ body:not([data-editing]) .today .toolbar {
 .mood-entries li { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
 .mood-entries .mood-text { flex: 1; overflow-wrap: anywhere; }
 .mood-entries .btn { padding: 0 0.5rem; min-height: 0; }
+.mood-refused li { flex-wrap: wrap; }
 
 /* Dashboard layout: a band on top, then left / center / right columns (stacked on a phone) */
 .page.wide { max-width: 72rem; }
