@@ -47,8 +47,9 @@ function GlobalStatus() {
   }
   const onClick = () => {
     if (status === 'conflict') {
+      // The note's own page always works, tagged or not (a free note may have no tag at all).
       const s = [...sync.sessions.values()].find((x) => x.conflict);
-      if (s?.tags[0]) go(`/t/${s.tags[0]}`);
+      if (s) go(`/n/${s.id}`);
     } else {
       sync.retryAll();
     }

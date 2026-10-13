@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { api, ApiError, NetworkError } from '../api.js';
 import { sync } from '../sync.js';
 import { go, useSession, useToday } from '../hooks.js';
-import { NoteCard } from './Stream.jsx';
+import { NoteCard } from './NoteCard.jsx';
 import { EditorBar } from './EditorBar.jsx';
 
 /**

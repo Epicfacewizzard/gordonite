@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from 'preact/hooks';
 import { dateInTz, timeInTz } from '../../shared/dates.js';
 import { sync } from './sync.js';
+import { taskData } from './task-data.js';
 import { getOpeningPage } from './prefs.js';
 
 export function useRerender(subscribe) {
@@ -12,6 +13,24 @@ export function useRerender(subscribe) {
 export function useSession(session) {
   const [, bump] = useReducer((n) => n + 1, 0);
   useEffect(() => (session ?? sync).subscribe(bump), [session]);
+}
+
+/**
+ * The app's task list (see task-data.js): re-renders when it changes and keeps it current while this screen is shown.
+ * Read it with data.tasks() (null until the first answer), data.error(), and change what is shown with
+ * data.optimistic() and data.refresh().
+ */
+export function useTaskData() {
+  const [, bump] = useReducer((n) => n + 1, 0);
+  useEffect(() => {
+    const stopListening = taskData.subscribe(bump);
+    const stopWatching = taskData.watch();
+    return () => {
+      stopListening();
+      stopWatching();
+    };
+  }, []);
+  return taskData;
 }
 
 export function useHashRoute() {

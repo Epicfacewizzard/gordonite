@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api.js';
+import { appendUnique } from '../paging.js';
 
 // People are ordinary shared note pages, not a second contacts database.
 export function PeopleView() {
@@ -15,7 +16,7 @@ export function PeopleView() {
     try {
       const result = await api.notes({ tag: group, sub: true, q: q.trim(), sort: 'title', limit: 100, offset });
       if (mine !== run.current) return;
-      setNotes((old) => offset ? [...old, ...result.notes] : result.notes);
+      setNotes((old) => offset ? appendUnique(old, result.notes) : result.notes);
       setHasMore(result.hasMore); setError(null);
     } catch (e) { if (mine === run.current) setError(e.message); }
     finally { if (mine === run.current) setLoading(false); }

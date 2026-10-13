@@ -1,22 +1,15 @@
-import { useEffect, useState } from 'preact/hooks';
-import { api } from '../api.js';
-import { sync } from '../sync.js';
+import { useState } from 'preact/hooks';
 import { taskCommands } from '../task-commands.js';
-import { useToday, useNowTime } from '../hooks.js';
-import { addDays, dateInTz, formatDateShort, formatDateLabel, hasStarted, isOverdue } from '../../../shared/dates.js';
-import { findDatePhrases, parseTaskSchedule } from '../../../shared/taskdates.js';
-import { PRIORITY_LABEL, dueBar, priorityRank, extractTasks } from '../../../shared/tasks.js';
+import { useToday, useNowTime, useTaskData } from '../hooks.js';
+import { bucketOf, groupTasks, streamsOf, visibleSections, withinRange, isHiddenNow } from '../task-groups.js';
+import { addDays, formatDateShort, formatDateLabel, isOverdue } from '../../../shared/dates.js';
+import { findDatePhrases } from '../../../shared/taskdates.js';
+import { PRIORITY_LABEL, dueBar, taskKey as keyOf } from '../../../shared/tasks.js';
 import { TaskDetails } from './TaskSheet.jsx';
 import { getShiftDismiss, getDoneDays } from '../prefs.js';
 import { DateRangePicker } from './DateRangePicker.jsx';
 import { TaskTextEditor } from './TaskTextEditor.jsx';
 import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
-
-const keyOf = (t) => `${t.noteId}:${t.taskId}`;
-const byDate = (field) => (a, b) => `${a[field] || ''} ${a[`${field}Time`] || '23:59'}`.localeCompare(`${b[field] || ''} ${b[`${field}Time`] || '23:59'}`) || b.date.localeCompare(a.date);
-// Most pressing first (urgent & important, urgent, important, none); the other order breaks ties.
-const byPriorityThen = (tiebreak) => (a, b) => priorityRank(a.priority) - priorityRank(b.priority) || tiebreak(a, b);
-const isHiddenNow = (t, today) => t.hidden || (t.hideUntil && t.hideUntil > today);
 
 // A date typed in the text ("due fri") shown dimmer than the rest, so you can see it was understood.
 function TaskText({ text, date }) {
@@ -31,35 +24,24 @@ function TaskText({ text, date }) {
   return parts;
 }
 
-// Which part of the list a task belongs in. A task ticked on this page stays where it was.
-function bucketOf(t, today, touched, now) {
-  if (t.dismissedAt) return 'dismissed';
-  if (t.checked && !touched.has(keyOf(t))) return 'done';
-  if (isHiddenNow(t, today)) return 'hidden';
-  if (!hasStarted(t.start, t.startTime, today, now)) return 'later';
-  if (isOverdue(t.due, t.dueTime, today, now)) return 'overdue';
-  if (t.due === today) return 'today';
-  if (t.due) return 'upcoming';
-  return 'anytime';
-}
-
+// Which section a task is in, how each is ordered and how much the dashboard's box shows are rules of their own
+// (../task-groups.js); this screen only draws them.
 // `overdueOnly` (with `compact`) is the dashboard's right-hand column: just what is overdue.
 // `compact` is the version on the Today screen: only what needs attention now (overdue, today, the next week,
 // a few undated ones), no folded sections, and a link on to the full list.
-const COMPACT_UNDATED = 5;
-const COMPACT_DAYS = 7;
 
 // `scope` (with `compact`) is how much the dashboard's list shows: 'overdue', 'today' (overdue and due today), 'week'
 // (adds the next seven days) or 'all' (adds a few with no date). The full Tasks page always shows everything.
 export function TasksView({ config, compact = false, overdueOnly = false, scope = null }) {
   const level = !compact ? 'all' : overdueOnly ? 'overdue' : scope ?? 'all';
-  const showToday = level !== 'overdue';
-  const showUpcoming = level === 'week' || level === 'all';
-  const showUndated = level === 'all';
   const today = useToday(config.tz);
   const now = useNowTime(config.tz);
-  const [tasks, setTasks] = useState(null);
-  const [error, setError] = useState(null);
+  // What is listed comes from the app's one task list (task-data.js): the server's rows, corrected by this device's own
+  // copy of every note it holds changes to. This screen keeps only how it is shown (what is open, the range, the menus).
+  const data = useTaskData();
+  const tasks = data.tasks();
+  const [actionError, setActionError] = useState(null); // a change that did not stick
+  const error = actionError ?? data.error();
   const [open, setOpen] = useState({ done: false, hidden: false, later: false, dismissed: false });
   // The date range for the Done and Dismissed lists (the same control the note history uses). Starts at the length chosen
   // in Settings; 'Everything' starts with no limit.
@@ -77,59 +59,34 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
     });
   const [menu, setMenu] = useState(null); // { key, kind: 'date' | 'hide' | 'priority' }: a round button's menu
   const [editing, setEditing] = useState(null);
+  // Where the task being edited sat when editing began. A date typed into its words (`due fri`) is understood as it is
+  // typed, which would move the row to another section and take the editor from under the cursor; it moves when done.
+  const [editingBucket, setEditingBucket] = useState(null);
+  const startEditing = (t) => {
+    setEditingBucket(bucketOf(t, { today, now, touched }));
+    setEditing(keyOf(t));
+  };
   const finishEditing = () => {
-    const task = tasks?.find((t) => keyOf(t) === editing);
-    const session = task && sync.get(task.noteId);
-    const latest = session && extractTasks(session.provider ? session.provider() : session.currentDoc(), task.date).find((t) => t.id === task.taskId);
-    if (latest) setTasks((list) => list.map((item) => keyOf(item) === editing ? { ...item, ...latest } : item));
     setEditing(null);
+    setEditingBucket(null);
   };
   // Tasks ticked on this page stay listed (struck through) so a slip can be undone.
   const [touched, setTouched] = useState(() => new Set());
 
-  const load = () =>
-    api
-      .tasks()
-      .then((r) => {
-        setTasks(r.tasks);
-        setError(null);
-      })
-      .catch((e) => setError(e.message));
-  useEffect(() => {
-    load();
-  }, []);
-
-  const patchLocal = (task, patch) =>
-    setTasks((list) =>
-      list.map((t) => {
-        if (keyOf(t) !== keyOf(task)) return t;
-        const next = { ...t, ...patch };
-        // A cleared date falls back to a date typed in the text, exactly as the server will say.
-        const typed = parseTaskSchedule(t.text, t.date);
-        for (const k of ['due', 'start', 'dueTime', 'startTime']) {
-          if (k in patch) {
-            next[k] = patch[k] ?? typed[k];
-            next[`${k}From`] = patch[k] ? 'set' : typed[k] ? 'text' : null;
-          }
-        }
-        return next;
-      }),
-    );
-
-  // Optimistic: show the change at once, then write it through the note's save session (phone
-  // copy first, then the server, with the usual conflict protection). Put it back if that fails.
+  // Show the change at once, then make it through the note (kept on the phone first, then sent, with the usual
+  // conflict protection). Once it has been made the note's own copy shows it, so what was shown at once is let go; if it
+  // could not be made, that is let go too and what is really there comes back, with the reason.
   const apply = async (task, patch) => {
-    const before = tasks.find((t) => keyOf(t) === keyOf(task));
-    if (patch === null) setTasks((list) => list.filter((t) => keyOf(t) !== keyOf(task)));
-    else patchLocal(task, patch);
+    const release = data.optimistic(task.noteId, task.taskId, patch);
     try {
       const changed = patch === null ? await taskCommands.remove(task.noteId, task.taskId) : await taskCommands.update(task.noteId, task.taskId, patch);
       if (!changed) throw new Error('That task is no longer in its note.');
-      setError(null);
+      setActionError(null);
+      release();
     } catch (e) {
-      setTasks((list) => patch === null ? [...list, before] : list.map((t) => (keyOf(t) === keyOf(task) ? before : t)));
-      await load(); // show what the server really has, then say why the change did not stick
-      setError(e.message);
+      release();
+      await data.refresh();
+      setActionError(e.message);
     }
   };
 
@@ -139,27 +96,9 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
     apply(task, { checked: !task.checked });
   };
 
-  const buckets = { overdue: [], today: [], upcoming: [], anytime: [], later: [], hidden: [], done: [], dismissed: [] };
-  for (const t of tasks ?? []) buckets[bucketOf(t, today, touched, now)].push(t);
-  buckets.overdue.sort(byPriorityThen(byDate('due')));
-  buckets.today.sort(byPriorityThen(byDate('due')));
-  buckets.upcoming.sort(byPriorityThen(byDate('due')));
-  buckets.later.sort(byDate('start'));
-  buckets.anytime.sort(byPriorityThen(() => 0)); // sort is stable: the rest keep their order
-  const streams = new Map();
-  for (const t of buckets.anytime) {
-    const stream = t.tags[0] ?? '(untagged)';
-    if (!streams.has(stream)) streams.set(stream, []);
-    streams.get(stream).push(t);
-  }
-
-  const upcomingShown = compact ? buckets.upcoming.filter((t) => t.due <= addDays(today, COMPACT_DAYS)) : buckets.upcoming;
-  const undatedShown = compact ? buckets.anytime.slice(0, COMPACT_UNDATED) : buckets.anytime;
-  const undatedMore = compact ? buckets.anytime.length - undatedShown.length : 0;
-
-  // Tasks ticked on this page stay listed but no longer count as open.
-  const openCount = [...buckets.overdue, ...buckets.today, ...buckets.upcoming, ...buckets.anytime].filter((t) => !t.checked).length;
-  const listed = buckets.overdue.length + (showToday ? buckets.today.length : 0) + (showUpcoming ? upcomingShown.length : 0) + (showUndated ? undatedShown.length : 0);
+  const buckets = groupTasks(tasks, { today, now, touched, pinned: editing && editingBucket ? new Map([[editing, editingBucket]]) : null });
+  const streams = streamsOf(buckets.anytime);
+  const { showToday, showUpcoming, showUndated, upcomingShown, undatedShown, undatedMore, openCount, listed } = visibleSections(buckets, { level, compact, today });
   const EMPTY = { overdue: 'Nothing overdue.', today: 'Nothing overdue or due today.', week: 'Nothing overdue or coming up this week.' };
   const row = (t) => {
     const overdue = !t.checked && isOverdue(t.due, t.dueTime, today, now);
@@ -172,10 +111,8 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
           {t.dismissedAt ? <span class="dismissed-icon" role="img" aria-label="Dismissed task">⊠</span> : <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} onClick={(e) => { if (e.shiftKey && !t.checked && getShiftDismiss()) { e.preventDefault(); apply(t, { dismissedAt: new Date().toISOString() }); } }} title={t.checked ? undefined : 'Shift-click to dismiss'} aria-label={t.checked ? 'Completed task' : 'Task'} />}
         </label>
         <div class="task-body">
-          {editing === keyOf(t) ? <TaskTextEditor task={t}
-            onText={(text) => setTasks((list) => list.map((item) => keyOf(item) === keyOf(t) ? { ...item, text } : item))}
-            onDone={finishEditing} /> :
-            <button type="button" class="task-text task-text-button" onClick={() => { finishEditing(); setEditing(keyOf(t)); }} aria-label={`Edit task: ${t.text}`} data-testid="task-edit-text">
+          {editing === keyOf(t) ? <TaskTextEditor task={t} onDone={finishEditing} /> :
+            <button type="button" class="task-text task-text-button" onClick={() => { finishEditing(); startEditing(t); }} aria-label={`Edit task: ${t.text}`} data-testid="task-edit-text">
               <TaskText text={t.text} date={t.date} />
             </button>}
           <span class="task-meta">
@@ -232,17 +169,9 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
 
   // Done and Dismissed: only the tasks finished or dismissed inside the date range are listed; the rest are counted and
   // one tap brings them back. (A task with no recorded date, from before dates were kept, is always listed.)
-  const dayOf = (t) => {
-    const stamp = t.dismissedAt || t.completedAt;
-    return stamp ? dateInTz(new Date(stamp), config.tz) : null;
-  };
   const archived = (id, title, all) => {
     if (all.length === 0) return false;
-    const list = all.filter((t) => {
-      const day = dayOf(t);
-      return !day || ((!range.from || day >= range.from) && (!range.to || day <= range.to));
-    });
-    const outside = all.length - list.length;
+    const { list, outside } = withinRange(all, range, config.tz);
     return (
       <section class="task-group" data-testid={`section-${id}`}>
         <h2 class="section">
@@ -297,7 +226,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
       {error && (
         <div class="banner error" role="alert">
           <span>{error}</span>
-          <button type="button" class="btn" onClick={load}>
+          <button type="button" class="btn" onClick={() => { setActionError(null); data.refresh(); }}>
             Retry
           </button>
         </div>

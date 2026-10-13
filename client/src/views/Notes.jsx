@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { formatDateShort } from '../../../shared/dates.js';
 import { tagFolders, folderLabel, folderPathLabel } from '../tag-folders.js';
+import { appendUnique } from '../paging.js';
 
 const PAGE = 30;
 const FILTER_KEY = 'gordonite-notes-browser';
@@ -31,7 +32,9 @@ export function NotesView() {
   const [tags, setTags] = useState([]);
   const [tagOrder, setTagOrder] = useState({});
   const [list, setList] = useState({ status: 'loading', notes: [], hasMore: false, error: null });
+  const [moreBusy, setMoreBusy] = useState(false);
   const run = useRef(0);
+  const moreRunning = useRef(false);
   useEffect(() => {
     try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ q, tag, sub })); } catch { /* browsing still works */ }
   }, [q, tag, sub]);
@@ -56,13 +59,20 @@ export function NotesView() {
     return () => clearTimeout(timer);
   }, [q, tag, sub]);
 
+  // One request for the next page at a time (a second tap would ask for the same page), and rows are added by id.
   const more = async () => {
+    if (moreRunning.current) return;
+    moreRunning.current = true;
+    setMoreBusy(true);
     const mine = run.current;
     try {
       const r = await api.notes(params(list.notes.length));
-      if (mine === run.current) setList((l) => ({ ...l, notes: [...l.notes, ...r.notes], hasMore: r.hasMore }));
+      if (mine === run.current) setList((l) => ({ ...l, notes: appendUnique(l.notes, r.notes), hasMore: r.hasMore }));
     } catch (e) {
       setList((l) => ({ ...l, error: e.message }));
+    } finally {
+      moreRunning.current = false;
+      setMoreBusy(false);
     }
   };
 
@@ -139,8 +149,8 @@ export function NotesView() {
         ))}
       </ul>
       {list.hasMore && (
-        <button type="button" class="btn block" onClick={more} data-testid="notes-more">
-          Load more
+        <button type="button" class="btn block" disabled={moreBusy} onClick={more} data-testid="notes-more">
+          {moreBusy ? 'Loading…' : 'Load more'}
         </button>
       )}
       </section>

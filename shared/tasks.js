@@ -58,6 +58,9 @@ export function describeTask(item, noteDate) {
   };
 }
 
+/** What names one row of the task list: the note and the task in it. */
+export const taskKey = (t) => `${t.noteId}:${t.taskId}`;
+
 /** The taskItem node (JSON) with this id, wherever it is in the document, or null. */
 export function findTask(doc, taskId) {
   let found = null;
@@ -85,6 +88,36 @@ export function extractTasks(doc, noteDate) {
   };
   walk(doc);
   return out;
+}
+
+/**
+ * The rows of the combined task list for one note: one per task with text, with where the task lives. The server sends
+ * these (GET /api/tasks) and the client makes the same rows from a note it holds changes to, so a list can show a task
+ * the server has not seen yet and both always agree on what a row is. `revision` is the note's revision the rows come from.
+ */
+export function taskRecords({ id, doc, date, tags, revision = 0 }) {
+  return extractTasks(doc, date).map((t) => ({
+    noteId: id,
+    taskId: t.id,
+    text: t.text,
+    checked: t.checked,
+    dismissedAt: t.dismissedAt,
+    completedAt: t.completedAt,
+    due: t.due,
+    start: t.start,
+    dueTime: t.dueTime,
+    startTime: t.startTime,
+    dueTimeFrom: t.dueTimeFrom,
+    startTimeFrom: t.startTimeFrom,
+    hidden: t.hidden,
+    hideUntil: t.hideUntil,
+    priority: t.priority,
+    dueFrom: t.dueFrom,
+    startFrom: t.startFrom,
+    date,
+    tags,
+    revision,
+  }));
 }
 
 // Attributes that are only stored when they mean something, so untouched tasks stay exactly as before.

@@ -88,8 +88,20 @@ bump: older documents simply do not have them, and empty ones are never stored):
 * A date typed in the task text (`due fri`, see `shared/taskdates.js`) is read when tasks are listed and fills in
   where no date was picked. It is resolved against the note's own date so it never drifts. The text is never rewritten.
 * `GET /api/tasks` returns every task in live notes with the effective `due`/`start` and where each came from
-  (`dueFrom`/`startFrom`: `set`, `text` or null). Which section a task belongs in (overdue, today, ...) is decided on
-  the client from the device's "today".
+  (`dueFrom`/`startFrom`: `set`, `text` or null), and the `revision` of the note each row comes from. A row is made
+  by `taskRecords` in `shared/tasks.js`, which the client also uses, so both always agree on what a row is. Which
+  section a task belongs in (overdue, today, ...) is decided on the client from the device's "today".
+* **One task list for every screen** (`client/src/task-data.js`). The Tasks page and the dashboard's Tasks box read
+  the same list: the server's rows, corrected by this device's own copy of every note it holds changes to (unsent
+  edits, an open editor, or saved since the list was fetched). That note's whole set of rows is replaced, so a task
+  removed or retyped here is gone or changed straight away and a task typed into a note the server has not seen
+  appears too. It is derived, never a second copy anyone edits. The server is asked again when a screen showing tasks
+  appears, on focus, when the page becomes visible or comes back online, and (coalesced) after something that
+  changes which notes or tags exist, which `api.js` announces as `hq-data-changed` (a note deleted, restored,
+  re-tagged or reverted, a tag moved, an import). Never for a keystroke or a save. One request runs at a time; more
+  asked for meanwhile become one more. A failed request keeps the list on screen and says why. A change is shown
+  at once (`optimistic`) until its command has finished, then the note's own copy shows it. The screen keeps only
+  how it is shown: what is open, the date range, the menus. `tests/client/task-data.test.js`.
 * Ticking or dating a task from the Tasks page goes through the note's normal save session (`Session.editTask`):
   phone copy first, then the server against the note's revision, so a stale change gives the usual visible conflict.
   `sync.track()` keeps the status dot from showing saved while that is still on its way into the queue.
@@ -187,6 +199,16 @@ editor ──touch()──▶ Session ──300 ms──▶ IndexedDB (pending) 
   new day's entry just appears.
 * **Performance**: one live editor at a time; other notes are rendered by `render.js`. The stream loads 14 notes
   per page ("Load older notes").
+* **Where the view code is**: `views/NoteCard.jsx` is the one card a stream, the dashboard, an earlier day and a note's
+  own page all draw a note with. `task-groups.js` holds the rules for dividing the task list (which section, in what
+  order, how much the dashboard's box shows, which finished tasks fall in a date range) as pure functions, so they are
+  tested without drawing anything (`tests/client/task-groups.test.js`); `views/Tasks.jsx` only draws them and keeps
+  how the list is shown (what is open, the range, the menus). The task whose words are being edited stays in its section
+  until editing ends, because a date typed into its words is understood as it is typed.
+* **Lists that load more** keep their own paging (notes by offset, a stream by whole days) and share two rules
+  (`client/src/paging.js`): one request for the next page at a time (the button is disabled while it runs) and rows
+  are added by id, so a page that overlaps what is there changes nothing. The header's conflict indicator opens the
+  conflicted note's own page, which works for a note with no tag too.
 
 ## Why these choices
 

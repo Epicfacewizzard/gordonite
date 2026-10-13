@@ -27,7 +27,7 @@ export function TaskTextEditor({ task, onText, onDone }) {
             setError('That task is no longer in its note. Copy your text before closing.');
             return;
           }
-          callbacks.current.onText(taskText({ content }));
+          callbacks.current.onText?.(taskText({ content }));
         },
       });
       editorRef.current = editor;

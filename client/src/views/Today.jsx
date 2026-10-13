@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { sync } from '../sync.js';
 import { useSession, useToday } from '../hooks.js';
-import { NoteCard } from './Stream.jsx';
+import { NoteCard } from './NoteCard.jsx';
 import { EditorBar } from './EditorBar.jsx';
 import { TasksView } from './Tasks.jsx';
 import { getDashboard, getDashboardTasks } from '../prefs.js';

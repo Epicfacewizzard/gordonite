@@ -7,6 +7,17 @@ stage 1 (queued work and a testable save engine) and stage 2 (the document contr
 
 **Fixed**
 
+- **The Tasks list went stale.** It was fetched once when the page opened and patched by hand afterwards, so a task
+  added or ticked on another device did not show until a reload, and the dashboard's Tasks box ignored what was typed
+  into today's note beside it. There is now one task list for every screen (`client/src/task-data.js`): the server's
+  rows corrected by this device's own copy of the notes it has changed. It is asked again when the page is focused,
+  becomes visible or comes back online, and after a note is deleted, restored or re-tagged, a tag is moved, or an import
+  runs. A task typed into a note shows in the box within a second, before it is saved. Found by the 0.4.3 audit.
+- **Load more could add the same notes twice** when tapped again before the first answer came back (found by the
+  0.4.3 audit: 40 rows for 35 notes). The Notes list, People and a tag's stream now make one request for the next
+  page at a time, disable the button while it runs, and add rows by id.
+- **The header's conflict indicator did nothing for a note with no tag** (it opened the note's first tag, and there was
+  none). It now opens the conflicted note's own page.
 - **A mood entry waiting on the phone was thrown away by any server error.** A temporary 503, or a login that had run
   out, deleted the entry and still counted it as sent. An entry now leaves the queue only when the server acknowledges
   it or you discard it. If the server refuses an entry for good (a time in the future because the phone's clock is
@@ -35,6 +46,13 @@ stage 1 (queued work and a testable save engine) and stage 2 (the document contr
 
 **Internal**
 
+- **View structure (stage 5 of the plan).** `NoteCard` has its own file (`views/NoteCard.jsx`) instead of living in
+  the stream's; the rules for dividing the task list are pure functions in `client/src/task-groups.js`
+  (`tests/client/task-groups.test.js`, 11 tests); `client/src/paging.js` is the shared guard for lists that load more.
+  Behaviour is unchanged except that the task whose words are being edited now stays in its section until editing ends.
+- **The task list (stage 4 of the plan).** `GET /api/tasks` rows are built by `taskRecords` (`shared/tasks.js`), shared
+  with the client, and now carry the note's `revision`. `Tasks.jsx` lost its own fetched array and hand-patching;
+  it keeps only how the list is shown. `tests/client/task-data.test.js` (12 tests), `tests/e2e/task-list.test.js` (3).
 - **Task commands (stage 3 of the plan).** A change to a task has one set of rules whether or not the note's editor is
   open: `patchedTaskAttrs` in `shared/tasks.js` decides when a completion time is stamped, that a dismissed task cannot
   be completed, and which empty attributes are not stored; both the JSON path and the editor's transaction use it

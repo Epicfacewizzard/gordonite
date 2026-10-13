@@ -38,7 +38,16 @@ async function request(method, path, body, { timeout = TIMEOUT_MS } = {}) {
   } finally {
     clearTimeout(timer);
   }
-  return readJson(res);
+  const result = await readJson(res);
+  if (method !== 'GET' && changesWhichNotesExist(method, path)) announceChange();
+  return result;
+}
+
+// A note deleted, restored or changed in its tags or history, a tag moved, an import: the task list on screen may now
+// be wrong in a way no open note can tell it. Saving a note's text is not one (the note's own copy covers it).
+const changesWhichNotesExist = (method, path) => /^\/api\/(notes|tags\/move|import)(\/|\?|$)/.test(path) && !(method === 'PUT' && /^\/api\/notes\/[^/?]+$/.test(path));
+function announceChange() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('hq-data-changed'));
 }
 
 async function readJson(res) {

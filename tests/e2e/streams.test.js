@@ -28,6 +28,8 @@ describe('stage 3: tags and daily streams', () => {
       await page.locator('[data-testid="tag-link"]', { hasText: 'school/fall26' }).tap();
       await page.waitForSelector('[data-testid="stream"]');
       assert.equal(await page.getByTestId('title').textContent(), 'school/fall26');
+      // The stream's frame is there before its entries are (they load a moment later), so wait for the entry.
+      await editor(page).waitFor();
       assert.equal(await editor(page).count(), 1, "today's entry is editable");
       assert.equal(await editor(page).textContent(), '');
       await page.waitForTimeout(1200);

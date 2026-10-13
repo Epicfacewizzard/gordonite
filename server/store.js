@@ -3,7 +3,7 @@ import { uuid } from '../shared/ids.js';
 import { normalizeTag, MAX_DEPTH } from '../shared/tags.js';
 import { dateInTz, isValidDateString, isValidTime, timeInTz, hasStarted, isOverdue, isValidTimeZone } from '../shared/dates.js';
 import { DOC_FORMAT, attachmentsIn, hasOnlyStructureProblems, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
-import { extractTasks, updateTask } from '../shared/tasks.js';
+import { extractTasks, taskRecords, updateTask } from '../shared/tasks.js';
 import { markdownToDoc } from '../shared/markdown-import.js';
 import { docToMarkdown } from './markdown.js';
 
@@ -500,27 +500,7 @@ export class Store {
     const tasks = [];
     for (const row of rows) {
       const note = this.#toNote(row, tagsOf.get(row.id));
-      for (const t of extractTasks(note.doc, note.date)) {
-        tasks.push({
-          noteId: note.id,
-          taskId: t.id,
-          text: t.text,
-          checked: t.checked,
-          dismissedAt: t.dismissedAt,
-          completedAt: t.completedAt,
-          due: t.due,
-          start: t.start,
-          dueTime: t.dueTime, startTime: t.startTime,
-          dueTimeFrom: t.dueTimeFrom, startTimeFrom: t.startTimeFrom,
-          hidden: t.hidden,
-          hideUntil: t.hideUntil,
-          priority: t.priority,
-          dueFrom: t.dueFrom,
-          startFrom: t.startFrom,
-          date: note.date,
-          tags: note.tags.map((x) => x.path),
-        });
-      }
+      tasks.push(...taskRecords({ id: note.id, doc: note.doc, date: note.date, tags: note.tags.map((x) => x.path), revision: note.revision }));
     }
     return tasks;
   }

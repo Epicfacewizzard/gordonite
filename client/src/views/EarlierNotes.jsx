@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { sync } from '../sync.js';
 import { isEmptyDoc } from '../../../shared/doc.js';
-import { NoteCard } from './Stream.jsx';
+import { NoteCard } from './NoteCard.jsx';
 
 // How many earlier days show at first, and how many each "Show more" adds.
 const FIRST = 2;
