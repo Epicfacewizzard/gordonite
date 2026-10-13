@@ -494,6 +494,6 @@ export function createApp({ config, db, log = console, convertHeic }) {
   }
 
   const server = http.createServer(handler);
-  server.requestTimeout = 5 * 60_000;
+  server.requestTimeout = 15 * 60_000; // a big file over a slow link
   return { server, store, files };
 }

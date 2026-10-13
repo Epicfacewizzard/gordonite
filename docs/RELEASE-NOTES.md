@@ -1,5 +1,54 @@
 # Release notes
 
+## 0.5.0 — 2026-10-12 — Photos, PDFs and other files in notes (not yet deployed)
+
+Version **0.5.0** (a new feature: second number). Notes can hold **images, PDFs and other documents**. Tap the
+**paperclip** in the toolbar (on a phone this includes the camera), or paste a screenshot / drop files on a note. An
+image is drawn in the note (tap to open full size); a PDF or document is a card that opens or downloads. The new
+**Files** page (Settings → Files) lists everything stored, with search, a kind filter, "not in a note yet", open,
+download and remove, and files can be added there without a note (the in-app inbox). **iPhone HEIC photos are
+converted to JPEG** on upload, with the original kept. The assistant can list, read and add files, and the MCP bridge
+can take new PDFs and photos from a configured inbox folder. Full guide: [ATTACHMENTS.md](ATTACHMENTS.md).
+
+- **Storage:** schema **v6** (`attachments` table). Bytes live in `DATA_DIR/files/<sha256>` (new `FILES_DIR`,
+  `MAX_UPLOAD_MB`, default 100); the same bytes are stored once, a stored file is never rewritten. A file's kind is
+  decided from its bytes. SVG is not treated as an image; anything that is not an image or PDF is only ever served as
+  a sandboxed download.
+- **Document format 2** (adds the `attachment` block; a strict superset of format 1). Stored notes are not rewritten.
+  The server accepts format 1 and 2; an editor still on the old format cannot save over a note that has files (it
+  gets a "reload the app" error), so an already-open tab can never silently drop a file.
+- **The database backup does not contain the files.** Back up the `files` folder with the database, or use Data →
+  All files (zip). `node server/cli.js check-files [--hashes]` verifies every stored file. The JSON export lists the
+  files; the Markdown export includes the ones its notes use. Importing a JSON backup adds file records only for
+  files already present in the `files` folder and reports the rest as `attachmentsMissingFiles`.
+- **New runtime dependency:** `heic-convert` (and its four small dependencies, about 10 MB) for HEIC. The Docker image
+  now runs `npm ci --omit=dev` in the final stage (the browser libraries moved to `devDependencies`); the build needs
+  network once. Conversion runs in a worker thread, about 1.5 s for a 1.4 MB photo.
+- **Assistant:** `/api/assistant/attachments` (list, describe, read as base64, store) and `.../notes/:id/attach`;
+  files appear in Markdown as `![name](gordonite-file:ID)` / `[name](gordonite-file:ID)`. MCP tools `list_files`,
+  `get_file`, `attach_file`, and, with `"inboxDir"` in the private config, `list_inbox` and `upload_file` (which can
+  read only inside that folder). The bridge now has 18 tools.
+- **Where:** `server/files.js`, `server/heic-worker.js`, `server/app.js`, `server/store.js`, `server/db.js`,
+  `server/portability.js`, `server/markdown.js`, `shared/attachments.js`, `shared/doc.js`, `mcp/server.js`,
+  `client/src/editor/attachments.js`, `client/src/editor/render.js`, `client/src/views/Files.jsx` and others.
+- **Tests:** `tests/server/attachments.test.js` (22: sniffing, serving, ranges, sandboxing, dedupe, limits, HEIC with a
+  stand-in converter, format rules, stale editors, assistant, export/import, integrity),
+  `tests/server/mcp-files.test.js` (the inbox, including every attempt to read outside it) and
+  `tests/e2e/attachments.test.js` (6: paperclip, undo, ×, paste, drop, failed upload, Files page, tap behaviour).
+  Existing tests that hard-coded `docFormat 1` now use the constant. Unit tests 137/137.
+- **Verified by hand:** a real 1.4 MB HEIC photo converted to JPEG through the worker thread in a production-only
+  install layout (the Docker image's), original kept, integrity check clean.
+- **Known, not caused by this change** (they also fail on unmodified 0.4.4): `history-move.test.js` "desktop grip
+  drag corrects the recorded day", `task-text-edit.test.js` "text edits stay in the original task…", and a flake in
+  `streams.test.js` "home lists tags; opening a tag shows today as an editable entry…" (about 1 run in 6) and
+  `editing.test.js` "boundary behaviours" (about 1 in 10).
+- **Limits:** PDF text is not extracted or searched (found by name); no thumbnails or resizing; uploads need the
+  server (not queued offline); removed files are hidden, never purged; JPEG metadata (location) is kept as sent.
+- **Rollback:** schema v6 is applied on first start. The previous app refuses a newer schema, so a rollback needs the
+  verified pre-update backup the deploy script takes, as for 0.4.0 and earlier. Files already stored stay on disk.
+- **Not yet deployed.** Deploy with `scripts/deploy-casaos.ps1` from the home network; `/api/health` should then
+  report `0.5.0`.
+
 ## 0.4.4 — 2026-10-12 — Task history only on a note's own page (deployed to CasaOS)
 
 Version **0.4.4** (a small fix: third number). **Task history** no longer shows under notes on the dashboard (today's note and the earlier days beneath it) or in tag streams; it appears only on a note's own page (`#/n/<id>`), where it always was meant to live. Nothing is removed: tasks, history dates and Bring back are unchanged, and every note's history is still one tap away by opening the note.

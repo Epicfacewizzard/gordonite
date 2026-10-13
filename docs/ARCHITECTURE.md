@@ -8,7 +8,16 @@ notes(id, note_date, doc, doc_format, revision, last_op_id, created_at, updated_
 note_tags(note_id, tag_id, note_date, live, slot)  UNIQUE(tag_id, note_date) WHERE live = 1 AND slot = 1
 note_versions(id, note_id, revision, doc, doc_format, kind, created_at)
 meta(key, value)
+mood_entries(id, score, note, day, logged_at, created_at, deleted_at)
+attachments(id, sha256, name, mime, size, kind, original_sha256/name/mime/size, note_id, source, created_at, deleted_at)
 ```
+
+* **Files** (`attachments`, schema v6; see [ATTACHMENTS.md](ATTACHMENTS.md)). The bytes are on disk under
+  `DATA_DIR/files/<sha256[0:2]>/<sha256>`, named by their content hash, written once and never changed; the row says
+  what the file is called and what it is (decided from its bytes, never from the sender's claim). `note_id` is the
+  note that first saved a reference to it and is deliberately not a foreign key (a file outlives a purged note).
+  A HEIC photo is stored as a JPEG with the original kept (`original_*`). Removing is soft (`deleted_at`).
+  **The SQLite backup does not contain these bytes**; back the folder up with the database.
 
 * **Stable ids**: notes and tags have UUIDs (notes are created with a client-generated id, which is what
   makes "create" safe to retry); each task has a UUID **inside the note's document** (`taskItem.attrs.id`).
@@ -34,9 +43,12 @@ meta(key, value)
 * **Streams match exact tags** (`WHERE tag_id = ?`). No prefix matching. Stream pages are whole days, so a
   day with several notes is never split. `GET /api/notes?tag=&sub=1&untagged=1&q=&limit=&offset=` lists notes
   (most recently changed first) and can include a tag's sub-tags (`path/%`, with `_` escaped) or search the text.
-* **Document format**: `doc` is Tiptap/ProseMirror JSON; `doc_format` is its version (currently 1). `shared/doc.js`
+* **Document format**: `doc` is Tiptap/ProseMirror JSON; `doc_format` is its version (currently 2). `shared/doc.js`
   lists the allowed nodes/marks and has the `migrateDoc` hook for future formats; the server rejects documents
-  outside the whitelist. Exports carry the format number too.
+  outside the whitelist. Exports carry the format number too. Format 2 adds the `attachment` block and is a strict
+  superset of format 1 (nothing is rewritten on upgrade). The server accepts both numbers on save; a document that
+  says it is format 1 may not contain attachments, and an editor still on format 1 cannot save over a note that has
+  them (`409 client_outdated`) because it would drop them without knowing.
 * **WAL + `synchronous=FULL`**: a committed save survives a power cut. Foreign keys on; a busy timeout set.
 
 ## Moving tags
@@ -89,10 +101,15 @@ POST /api/tags/move   { from, into, order }   move a tag and everything under it
 GET  /api/notes/:id/versions[/:vid]         POST .../versions/:vid/restore
 GET  /api/export/json   /api/export/markdown        POST /api/import?mode=merge|replace
 GET/POST /api/backups   GET /api/backups/snapshot   GET /api/backups/file/:name
+POST /api/attachments?name=&noteId=   raw file bytes (header X-Gordonite-Upload: 1, not JSON)
+GET  /api/attachments?q=&kind=&noteId=&unattached=1   GET/DELETE /api/attachments/:id
+GET  /api/attachments/:id/file[?download=1]   GET /api/attachments/:id/original      GET /api/export/files
 ```
 
 Cross-site writes are refused (`Sec-Fetch-Site`, and JSON-only bodies force a CORS preflight that is never
-granted). There is no authentication; the VPN is the boundary.
+granted). The one non-JSON write, a file upload, sends raw bytes and is protected the same way by requiring a custom
+header, which a cross-site page cannot send without a preflight. There is no authentication of its own; the VPN is
+the boundary (an optional password can be set; see LOGIN.md).
 
 ## Saving protocol
 

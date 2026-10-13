@@ -1,5 +1,6 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { DOC_FORMAT } from '../../shared/doc.js';
 import { launch, withPhone, open, editor, waitSaved, tap, structure, caret } from './harness.js';
 
 let browser;
@@ -29,7 +30,7 @@ describe('stage 1: one reliable note', () => {
       assert.equal(app.docText(notes[0].id), 'First thought of the day');
       assert.match(notes[0].note_date, /^\d{4}-\d{2}-\d{2}$/, 'calendar date stored separately from the timestamps');
       assert.match(notes[0].created_at, /Z$/);
-      assert.equal(notes[0].doc_format, 1);
+      assert.equal(notes[0].doc_format, DOC_FORMAT);
 
       await page.reload();
       await page.waitForSelector('.note-text');

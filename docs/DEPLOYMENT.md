@@ -132,7 +132,17 @@ Nginx Proxy Manager / Caddy in front of the app.
 ### Reverse proxy settings
 
 Nothing special: it is plain request/response HTTP. Do not enable response caching for `/api/`.
-Allow request bodies up to what you will import (the app itself accepts 100 MB by default).
+Allow request bodies up to what you will import or upload (the app itself accepts 100 MB by default, for imports
+and for a single attached file). A file can take minutes over a slow link, so do not set a short proxy timeout.
+
+### Files
+
+Photos, PDFs and other attached files are stored in `<data folder>/files` (or `FILES_DIR`). Keep it on the same
+mounted volume as the database so it survives container replacement, and back it up with the database: **the
+SQLite backups do not contain the files** (see [ATTACHMENTS.md](ATTACHMENTS.md#backups)). The image installs one
+small runtime dependency (`heic-convert`, about 10 MB) to turn iPhone HEIC photos into JPEG; the build needs
+network access for that once. Schema v6 is applied automatically on first start. To go back to an app version
+before files existed, restore the database backup taken before the update (an older app refuses a newer schema).
 
 ## Backups on the server
 

@@ -70,10 +70,11 @@ export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active,
         {text}
       </a>
     );
-  const empty = !session.currentDoc().content?.some((n) => n.content?.length);
+  // A file is a block without text of its own, but it is something written: the note is not empty.
+  const empty = !session.currentDoc().content?.some((n) => n.content?.length || n.type === 'attachment');
 
   const activate = (e) => {
-    if (e.target.closest?.('a.wiki-link')) return;
+    if (e.target.closest?.('a.wiki-link, a.attachment-open')) return;
     // One of a task's round buttons (hide / due / priority): open its menu, without waking the editor.
     const taskButton = e.target.closest?.('[data-task-action]');
     if (taskButton) {

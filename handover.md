@@ -21,6 +21,27 @@ Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current 
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
 
+### 0.5.0 (built on branch `feature/attachments`; not merged, not deployed)
+
+**Photos, PDFs and other files in notes.** Paperclip in the toolbar (also paste/drop), Files page at Settings → Files,
+HEIC converted to JPEG with the original kept, assistant tools and an inbox-folder import. Read
+[docs/ATTACHMENTS.md](docs/ATTACHMENTS.md) first; the points that matter operationally:
+
+- **Schema v6** and **document format 2** (a strict superset; stored notes are not rewritten). The previous app
+  version refuses a v6 database, so a rollback needs the pre-update backup the deploy script takes.
+- **Files are NOT in the SQLite backups.** They are in `<data folder>/files` (`FILES_DIR`). Back that folder up with
+  the database. In the CasaOS setup it is inside the mounted data folder, so it survives updates. `node
+  server/cli.js check-files [--hashes]` verifies it.
+- **New runtime dependency** `heic-convert` (about 10 MB with its dependencies). The Dockerfile's final stage now runs
+  `npm ci --omit=dev`; the browser libraries moved to `devDependencies`. The first image build needs network access.
+  Docker is not available on the development PC, so the image build itself has only been simulated (a clean
+  production-only install plus a real conversion); the first deploy is the real test. If the build fails, the live
+  app is unaffected (the deploy script builds before recreating the container).
+- Bridge: 18 tools; `inboxDir` in the private config file enables `list_inbox` / `upload_file` (confined to that
+  folder). Existing assistant config files keep working unchanged.
+- Tests: unit 137/137; the browser suite has the same known/pre-existing failures as 0.4.4 (see the 0.5.0 release
+  notes). Not yet checked on a real phone: camera capture from the paperclip and HEIC from an iPhone.
+
 ### 0.4.3 (deployed 2026-10-12)
 
 On the dashboard, under today's note, the last **two** days' daily entries of the chosen tag show, greyed out and headed only by their date. **Tapping one opens it for editing in place** (caret where tapped; saved to that day, never into a new note). Only one editor is open at a time (today's, or the tapped day's); tapping today's note makes it the open one again. "Show older notes" adds three at a time and fetches older stream pages when the loaded ones run out. Empty days are skipped; only `daily` entries are listed; long entries fade until opened. The tag choices moved from under the note to beside the "Today's note" heading.

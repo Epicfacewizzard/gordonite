@@ -7,6 +7,7 @@ import { taskButtons } from './taskIcons.js';
 import { TaskHistory } from './task-history.js';
 import { WikiLinks } from './wiki-links.js';
 import { TaskVisibility } from './task-visibility.js';
+import { Attachment } from './attachments.js';
 import { moveTask } from './task-move.js';
 import { Selection } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
@@ -215,8 +216,11 @@ const TaskItemWithDates = TaskItem.extend({
   },
 });
 
-/** taskContext: { onTaskAction(kind, taskId), getToday(), getNoteDate() } for the buttons on tasks. */
-export function createExtensions(taskContext = {}) {
+/**
+ * taskContext: { onTaskAction(kind, taskId), getToday(), getNoteDate() } for the buttons on tasks;
+ * getNoteId() names the note for files uploaded into it.
+ */
+export function createExtensions({ getNoteId = null, ...taskContext } = {}) {
   return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3] },
@@ -236,6 +240,7 @@ export function createExtensions(taskContext = {}) {
     TaskHistory,
     WikiLinks,
     TaskVisibility,
+    Attachment.configure({ getNoteId }),
     TaskItemWithDates.configure({ nested: true, ...taskContext }),
     UniqueID.configure({ types: ['taskItem'], generateID: () => uuid() }),
   ];

@@ -102,6 +102,7 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
         onTaskAction: (kind, taskId) => live.current.onTaskAction?.(kind, taskId),
         getToday: () => live.current.today,
         getNoteDate: () => session.date,
+        getNoteId: () => session.id,
       }),
       content: writableDoc(session.currentDoc()),
       enableContentCheck: true,

@@ -103,7 +103,10 @@ export function DataView({ config }) {
       <section>
         <h2 class="section">Export</h2>
         <p class="muted">
-          <strong>Full backup (JSON)</strong> keeps everything, including task ids, history and the trash, and can be imported again. <strong>Markdown</strong> is for reading and other tools: one file per tag per day.
+          <strong>Full backup (JSON)</strong> keeps everything, including task ids, history and the trash, and can be imported again. <strong>Markdown</strong> is for reading and other tools: one file per tag per day, with the files it uses beside it.
+        </p>
+        <p class="muted">
+          Photos, PDFs and other files are stored next to the database (in the <code>files</code> folder of the data directory) and are <strong>not</strong> inside the JSON backup, which only lists them. <strong>All files (zip)</strong> downloads them; or copy the <code>files</code> folder along with the database.
         </p>
         <div class="row">
           <a class="btn" href="/api/export/json" download data-testid="export-json">
@@ -111,6 +114,9 @@ export function DataView({ config }) {
           </a>
           <a class="btn" href="/api/export/markdown" download data-testid="export-md">
             Markdown (zip)
+          </a>
+          <a class="btn" href="/api/export/files" download data-testid="export-files">
+            All files (zip)
           </a>
         </div>
       </section>

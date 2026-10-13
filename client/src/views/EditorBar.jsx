@@ -1,9 +1,29 @@
 import { moveTask } from '../editor/task-move.js';
-import { useState } from 'preact/hooks';
+import { useEffect, useReducer, useState } from 'preact/hooks';
 import { Toolbar } from '../editor/Toolbar.jsx';
+import { uploadStatus } from '../editor/attachments.js';
 import { updateTaskById, removeTaskById } from '../editor/NoteEditor.jsx';
 import { TaskSheet } from './TaskSheet.jsx';
 import { taskText } from '../../../shared/tasks.js';
+
+// "Uploading 2 files…" while files go up, and what went wrong if one did not. Sits just above the toolbar.
+function UploadStatus() {
+  const [, rerender] = useReducer((n) => n + 1, 0);
+  useEffect(() => uploadStatus.subscribe(rerender), []);
+  const { busy, error } = uploadStatus.get();
+  if (!busy && !error) return null;
+  return (
+    <div class={`upload-status${error && !busy ? ' error' : ''}`} role={error ? 'alert' : 'status'} data-testid="upload-status">
+      {busy > 0 ? <span>Uploading {busy} file{busy === 1 ? '' : 's'}…</span> : null}
+      {error ? <span>Could not add: {error}</span> : null}
+      {error && !busy ? (
+        <button type="button" class="link" onClick={() => uploadStatus.dismiss()}>
+          Dismiss
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * The formatting toolbar plus the task-dates sheet it opens. Used wherever a note is being edited
@@ -27,6 +47,7 @@ export function EditorBar({ editor, noteDate, today }) {
 
   return (
     <>
+      <UploadStatus />
       <Toolbar editor={editor} onTaskDates={openTaskDates} />
       {sheet && (
         <TaskSheet

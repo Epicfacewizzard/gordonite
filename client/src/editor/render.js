@@ -4,8 +4,28 @@
 import { describeTask, dueBar, taskMetaLabel } from '../../../shared/tasks.js';
 import { taskButtons } from './taskIcons.js';
 import { wikiLinks, wikiHref } from '../../../shared/wiki-links.js';
+import { fileHref, formatBytes, kindOfType } from '../../../shared/attachments.js';
 
-const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// A file in a note: an image is shown (tap to open it full size), anything else is a card that opens or
+// downloads it. The editor draws the same markup (with `removable`, which adds a button to take it out of the
+// note), so one stylesheet covers both and a note looks the same while writing and while reading.
+export function attachmentHtml(a, { removable = false } = {}) {
+  const href = fileHref(a.id);
+  const name = esc(a.name || 'file');
+  const kind = kindOfType(a.mime);
+  const remove = removable
+    ? `<button type="button" class="attachment-remove" data-attachment-remove aria-label="Remove ${name} from this note" title="Remove from this note">×</button>`
+    : '';
+  const attrs = `data-type="attachment" data-attachment-id="${esc(a.id)}"`;
+  if (kind === 'image') {
+    return `<figure class="attachment attachment-image" ${attrs}><a class="attachment-open" href="${href}" target="_blank" rel="noopener"><img src="${href}" alt="${name}" loading="lazy" decoding="async"></a><figcaption>${name}</figcaption>${remove}</figure>`;
+  }
+  const label = kind === 'pdf' ? 'PDF' : (/\.([A-Za-z0-9]{1,5})$/.exec(a.name ?? '')?.[1] ?? 'FILE').toUpperCase();
+  const size = formatBytes(a.size);
+  return `<figure class="attachment attachment-file" ${attrs}><a class="attachment-open attachment-card" href="${href}" target="_blank" rel="noopener"${kind === 'pdf' ? '' : ' download'}><span class="attachment-type">${esc(label)}</span><span class="attachment-name">${name}</span>${size ? `<span class="attachment-size">${esc(size)}</span>` : ''}</a>${remove}</figure>`;
+}
 
 function inline(nodes = []) {
   const links = wikiLinks(nodes.map((n) => n.type === 'hardBreak' ? '\n' : n.text).join(''));
@@ -50,6 +70,8 @@ function block(n, ctx) {
       return n.content?.length ? `<p>${inline(n.content)}</p>` : '<p><br></p>';
     case 'heading':
       return `<h${n.attrs.level}>${inline(n.content)}</h${n.attrs.level}>`;
+    case 'attachment':
+      return attachmentHtml(n.attrs ?? {});
     case 'bulletList':
       return `<ul>${blocks(n.content, ctx)}</ul>`;
     case 'listItem':

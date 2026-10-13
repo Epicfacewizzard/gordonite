@@ -37,6 +37,9 @@ Send `Authorization: Bearer <key>` and, for POST, `Content-Type: application/jso
 | `POST /api/assistant/notes/:id/tasks/:taskId` `{ checked?, due?, start?, hidden? }` | Tick, date or hide one task |
 | `GET /api/assistant/moods?days=14` | Recent mood entries (1-5, note, time) with the streak (see MOOD.md) |
 | `POST /api/assistant/moods` `{ score, note?, at? }` | Log a mood entry |
+| `GET /api/assistant/attachments`, `GET .../attachments/:id`, `GET .../attachments/:id/content` | List, describe and read stored files (photos, PDFs, documents; see ATTACHMENTS.md) |
+| `POST /api/assistant/attachments` `{ name, data, noteId? }` | Store a file (`data` is base64) |
+| `POST /api/assistant/notes/:id/attach` `{ attachmentId }` | Put a stored file at the end of a note |
 
 Example:
 
@@ -50,7 +53,9 @@ curl -s -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 
 Headings, paragraphs, **bold**, *italic*, bullet and numbered lists (nested by indent) and task lists (`- [ ]` / `- [x]`).
 A due date typed in a task works exactly as in the app: `- [ ] send the deck due fri`, `due 2026-11-01`, `starts oct 12`
-(relative words count from the note's date). Anything else (links, tables, code) is kept as plain text.
+(relative words count from the note's date). A stored file is a line of its own: `![name](gordonite-file:ID)` for an
+image or `[name](gordonite-file:ID)` for anything else, where `ID` is the file's id; reading a note shows its files
+this way and writing such a line places the file. Anything else (links, tables, code) is kept as plain text.
 
 ## Safety
 

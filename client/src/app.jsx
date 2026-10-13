@@ -14,6 +14,7 @@ import { LinkTarget } from './views/LinkTarget.jsx';
 import { NewNoteView } from './views/NewNote.jsx';
 import { LoginView } from './views/LoginView.jsx';
 import { TrashView } from './views/Trash.jsx';
+import { FilesView } from './views/Files.jsx';
 import { DataView } from './views/Data.jsx';
 import { STATUS_TEXT } from './views/parts.jsx';
 
@@ -138,7 +139,7 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route === '/tags' ? 'Tags' : 'Dashboard';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route === '/tags' ? 'Tags' : 'Dashboard';
   return (
     <header class="topbar">
       {!onHome && (
@@ -229,6 +230,8 @@ export function App() {
     view = <NoteView key={id} id={id} config={config} />;
   } else if (route === '/tasks') {
     view = <TasksView config={config} />;
+  } else if (route === '/files') {
+    view = <FilesView />;
   } else if (route === '/trash') {
     view = <TrashView config={config} />;
   } else if (route === '/data') {

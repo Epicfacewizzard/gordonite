@@ -38,6 +38,10 @@ async function request(method, path, body, { timeout = TIMEOUT_MS } = {}) {
   } finally {
     clearTimeout(timer);
   }
+  return readJson(res);
+}
+
+async function readJson(res) {
   let json = null;
   try {
     json = await res.json();
@@ -50,6 +54,29 @@ async function request(method, path, body, { timeout = TIMEOUT_MS } = {}) {
     throw new ApiError(res.status, json?.error?.code ?? json?.reason ?? `http_${res.status}`, json?.error?.message ?? `Server error ${res.status}`, json);
   }
   return json;
+}
+
+// Send a file's bytes as they are. The header is what the server requires in place of a JSON body (a page on
+// another site cannot send it). A large file or a slow link can take a while, so there is a long timeout.
+async function upload(file, { noteId, timeout = 10 * 60_000 } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeout);
+  let res;
+  try {
+    const query = `name=${encodeURIComponent(file.name || 'file')}${noteId ? `&noteId=${encodeURIComponent(noteId)}` : ''}`;
+    res = await fetch(`/api/attachments?${query}`, {
+      method: 'POST',
+      headers: { 'content-type': file.type || 'application/octet-stream', 'x-gordonite-upload': '1' },
+      body: file,
+      signal: ctrl.signal,
+      cache: 'no-store',
+    });
+  } catch {
+    throw new NetworkError(ctrl.signal.aborted ? 'The upload timed out' : 'Cannot reach the server');
+  } finally {
+    clearTimeout(timer);
+  }
+  return readJson(res);
 }
 
 const enc = encodeURIComponent;
@@ -90,5 +117,11 @@ export const api = {
   trash: () => request('GET', '/api/trash'),
   backups: () => request('GET', '/api/backups'),
   backupNow: () => request('POST', '/api/backups', {}, { timeout: 120_000 }),
+  uploadFile: (file, options) => upload(file, options),
+  files: (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));
+    return request('GET', `/api/attachments?${qs}`);
+  },
+  deleteFile: (id) => request('DELETE', `/api/attachments/${enc(id)}`),
   importAll: (data, mode) => request('POST', `/api/import?mode=${mode}`, data, { timeout: 300_000 }),
 };

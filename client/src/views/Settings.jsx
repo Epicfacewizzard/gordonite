@@ -71,6 +71,7 @@ export function SettingsView({ config, onConfigChanged }) {
   return (
     <div class="settings" data-testid="settings">
       <nav class="footer-links" aria-label="Data management">
+        <a href="#/files" data-testid="files-link">Files</a>
         <a href="#/trash">Trash</a>
         <a href="#/data">Data &amp; backups</a>
       </nav>

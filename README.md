@@ -65,6 +65,12 @@ and reliable data; keep navigation and styling replaceable without changing note
 * **People** shows cards, searches the note titles/body and filters by child tags of `05-people`, with each card
   opening its ordinary note page. This is not yet a structured contacts database. Obsidian `[[links]]` are still
   plain text; linking is the next separate change.
+* **Photos, PDFs and other files** go into a note with the paperclip in the toolbar (or by pasting a screenshot or
+  dropping files on the note). Images are drawn in the note, PDFs and documents are cards that open or download.
+  Settings → **Files** lists every stored file (search, filter, add without a note, remove). iPhone HEIC photos are
+  converted to JPEG when added, keeping the original. The files are **not** in the database backup: copy the `files`
+  folder with it, or use Data → All files (zip). Assistants can list, read and add files, and take new PDFs from a
+  configured inbox folder. See [docs/ATTACHMENTS.md](docs/ATTACHMENTS.md).
 * **Task history** below a note lists its completed and dismissed tasks, grouped by the recorded date in your
   home timezone. It appears only on the note's own page, not in the Today dashboard or tag streams. Choose From/Through dates, filter by status, use All dates, or Show older tasks to expand the
   range. Bring back reopens a task in place. New checkbox completions record `completedAt` in the same undo
@@ -158,6 +164,8 @@ npm run build && npm start      # serves API + built client on http://localhost:
 | `PORT` / `HOST` | `8080` / `0.0.0.0` | listen address |
 | `DATA_DIR` | `./data` (`/data` in the image) | database lives here (`hq.sqlite`) |
 | `BACKUP_DIR` | `<DATA_DIR>/backups` | where automatic backups go |
+| `FILES_DIR` | `<DATA_DIR>/files` | where photos, PDFs and other attached files are stored (not part of the database backup; see [docs/ATTACHMENTS.md](docs/ATTACHMENTS.md)) |
+| `MAX_UPLOAD_MB` | `100` | the largest single file that can be added to a note |
 | `HOME_TZ` | `America/Edmonton` | IANA zone that decides note dates and "today" |
 | `BACKUP_INTERVAL_HOURS` | `6` | automatic backup interval; `0` disables |
 | `BACKUP_KEEP_LATEST` / `_DAILY` / `_WEEKLY` | `6` / `14` / `8` | retention: newest N, plus newest of each of the last N days and weeks |
@@ -195,6 +203,10 @@ On CasaOS, build the image once over SSH (`docker build -t personal-hq:0.1.0 .`)
 * Restore (app stopped): `node server/cli.js restore <file> --yes`, which first saves the current database as a
   `prerestore` backup. In-app JSON import offers *merge* (never overwrites) and *replace* (takes a backup first).
 * Restoration is tested: see *Testing* below.
+* **Attached files (photos, PDFs) live beside the database, not inside it.** Back up the `files` folder with the
+  database (it never changes once written, so a plain copy or rsync is enough), or download Data → All files
+  (zip). `node server/cli.js check-files [--hashes]` verifies every stored file. Details in
+  [docs/ATTACHMENTS.md](docs/ATTACHMENTS.md#backups).
 
 ## How saving works (the short version)
 
@@ -246,6 +258,9 @@ for what to verify on the S24 before relying on mobile editing.
 * Trash is emptied only by retention (no "delete permanently" button). Tags cannot be renamed or deleted in the UI.
 * Backspace at the start of a heading leaves the heading (it does not turn into a paragraph).
 * Markdown export is one-way and omits task ids/history; use the JSON export for full fidelity.
+* Files: PDFs are shown and downloaded but their text is not searched (files are found by name); uploads need the
+  server (they are not queued offline); removing a file hides it but never purges its bytes. See
+  [docs/ATTACHMENTS.md](docs/ATTACHMENTS.md#limits-and-known-gaps).
 * Docker/CasaOS files are untested (see above). Browser storage is per address: pick one stable URL
   ([HTTPS](docs/DEPLOYMENT.md#https-and-a-stable-address)) and keep using it, or unsent edits made under another address won't be seen.
 
@@ -274,7 +289,7 @@ show an explanation. Navigation uses note IDs, but references are not yet perman
 Folder disambiguation, heading navigation and backlinks remain future work.
 
 ```
-server/    HTTP API, SQLite store, backups, import/export, CLI      (Node built-ins only)
+server/    HTTP API, SQLite store, files, backups, import/export, CLI (Node built-ins; heic-convert for photos)
 shared/    document format, tag rules, dates, ids (used by server and client)
 client/    Preact app: sync engine (sync.js), IndexedDB store (pending.js), editor, views
 tests/     server/ client/ e2e/
