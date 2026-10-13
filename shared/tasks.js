@@ -58,6 +58,18 @@ export function describeTask(item, noteDate) {
   };
 }
 
+/** The taskItem node (JSON) with this id, wherever it is in the document, or null. */
+export function findTask(doc, taskId) {
+  let found = null;
+  const walk = (node) => {
+    if (found) return;
+    if (node.type === 'taskItem' && node.attrs?.id === taskId) found = node;
+    else for (const child of node.content ?? []) walk(child);
+  };
+  walk(doc);
+  return found;
+}
+
 /**
  * Tasks in document order. Tasks without an id or any text are skipped.
  * { id, ...describeTask } for each.
@@ -94,19 +106,33 @@ export function cleanTaskAttrs(doc) {
 }
 
 /**
- * A copy of the document with a patch applied to one task ({ checked, due, start, hidden }; a null date
- * or hidden: false removes it), or null if no task has that id.
+ * What a task's attributes are after a patch, or null when the patch must not be applied (a dismissed task cannot be
+ * completed). This is the one place that decides it: when a completion time is stamped (the moment `checked` really
+ * changes, cleared when it is unticked), that a patch's own `completedAt` / `dismissedAt` wins, and that empty optional
+ * attributes are not stored. The JSON path (updateTask) and the editor's path both use it, so a change gives the
+ * same task whether or not the note's editor is open. `patch.content` (the task's text) is not an attribute and is
+ * left to the caller.
  */
-export function updateTask(doc, taskId, patch) {
+export function patchedTaskAttrs(attrs, patch, now = new Date().toISOString()) {
+  if (patch.checked === true && (patch.dismissedAt ?? attrs.dismissedAt) && patch.dismissedAt !== null) return null;
+  const { content, ...changes } = patch;
+  const stamp = 'checked' in changes && changes.checked !== !!attrs.checked ? { completedAt: changes.checked ? now : null } : {};
+  return tidyAttrs({ ...attrs, ...stamp, ...changes });
+}
+
+/**
+ * A copy of the document with a patch applied to one task ({ checked, due, start, hidden }; a null date
+ * or hidden: false removes it), or null if no task has that id. `now` is only for tests.
+ */
+export function updateTask(doc, taskId, patch, { now } = {}) {
   let found = false;
   const walk = (node) => {
     if (node.type === 'taskItem' && node.attrs?.id === taskId) {
       found = true;
-      if (patch.checked === true && (patch.dismissedAt ?? node.attrs.dismissedAt) && patch.dismissedAt !== null) return node;
-      const timestamps = 'checked' in patch && patch.checked !== !!node.attrs.checked ? { completedAt: patch.checked ? new Date().toISOString() : null } : {};
-      const { content, ...attrs } = patch;
-      node = { ...node, attrs: tidyAttrs({ ...node.attrs, ...timestamps, ...attrs }) };
-      if (content) node.content = [...content, ...(node.content ?? []).filter((c) => c.type === 'taskList')];
+      const attrs = patchedTaskAttrs(node.attrs, patch, now);
+      if (!attrs) return node; // refused: the task is there, and stays exactly as it was
+      node = { ...node, attrs };
+      if (patch.content) node.content = [...patch.content, ...(node.content ?? []).filter((c) => c.type === 'taskList')];
     }
     return node.content ? { ...node, content: node.content.map(walk) } : node;
   };

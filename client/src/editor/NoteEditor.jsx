@@ -3,8 +3,8 @@ import { useEffect, useRef } from 'preact/hooks';
 import { Editor } from '@tiptap/core';
 import { createExtensions } from './extensions.js';
 import { cleanTaskAttrs } from '../../../shared/tasks.js';
-import { closeHistory } from '@tiptap/pm/history';
 import { writableDoc } from './task-visibility.js';
+import { putTaskPatch, putTaskRemoval } from './task-ops.js';
 
 // Toggle a task by its stable id. Goes through the editor so it is a normal,
 // undoable transaction (the same one the checkbox itself dispatches).
@@ -24,45 +24,21 @@ export function toggleTaskById(editor, taskId) {
     .run();
 }
 
-// Change a task's picked dates / hidden flag by its stable id. Like toggling, this is one ordinary,
-// undoable transaction. A null date (or hidden: false) clears it.
+// Change a task's picked dates / hidden flag / text by its stable id. Like toggling, this is one ordinary, undoable
+// transaction; what a change means is decided in shared/tasks.js (patchedTaskAttrs). A null date (or hidden: false)
+// clears it. True when the task is in the note.
 export function updateTaskById(editor, taskId, patch) {
-  let found = null;
-  editor.state.doc.descendants((node, pos) => {
-    if (node.type.name === 'taskItem' && node.attrs.id === taskId) found = { node, pos };
-    return !found;
-  });
-  if (!found) return false;
-  if (patch.checked === true && (patch.dismissedAt ?? found.node.attrs.dismissedAt) && patch.dismissedAt !== null) return false;
-  return editor
-    .chain()
-    .command(({ tr }) => {
-      if ('dismissedAt' in patch || 'completedAt' in patch) closeHistory(tr);
-      const { content, ...attrs } = patch;
-      tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...attrs });
-      if (content) {
-        const children = [];
-        found.node.forEach((child) => { if (child.type.name === 'taskList') children.push(child); });
-        tr.replaceWith(found.pos + 1, found.pos + found.node.nodeSize - 1,
-          [...content.map((child) => editor.schema.nodeFromJSON(child)), ...children]);
-      }
-      return true;
-    })
-    .run();
+  const tr = editor.state.tr;
+  if (!putTaskPatch(tr, editor.schema, taskId, patch)) return false;
+  if (tr.docChanged) editor.view.dispatch(tr);
+  return true;
 }
 
 export function removeTaskById(editor, taskId) {
-  let found = null;
-  editor.state.doc.descendants((node, pos) => {
-    if (node.type.name === 'taskItem' && node.attrs.id === taskId) found = { node, pos };
-    return !found;
-  });
-  if (!found) return false;
-  const $pos = editor.state.doc.resolve(found.pos);
-  const soleItem = $pos.parent.childCount === 1;
-  const from = soleItem ? $pos.before($pos.depth) : found.pos;
-  const to = soleItem ? from + $pos.parent.nodeSize : found.pos + found.node.nodeSize;
-  return editor.chain().command(({ tr }) => { closeHistory(tr); tr.deleteRange(from, to); return true; }).run();
+  const tr = editor.state.tr;
+  if (!putTaskRemoval(tr, taskId)) return false;
+  editor.view.dispatch(tr);
+  return true;
 }
 
 // Document position for "N characters of text from the start". Used to put the caret where the
@@ -146,15 +122,16 @@ export const NoteEditor = memo(function NoteEditor({ session, onEditor, onProble
     const markEmpty = () => host.current?.classList.toggle('is-empty', editor.isEmpty);
     markEmpty();
     // cleanTaskAttrs drops empty optional task attributes, so tasks without dates are stored exactly as before.
-    session.attach(() => cleanTaskAttrs(editor.getJSON()));
-    // While this editor is open, a change to a task (from a button or a menu) goes through it, as one undoable edit.
-    session.taskPatcher = (taskId, patch) => updateTaskById(editor, taskId, patch);
-    session.taskRemover = (taskId) => removeTaskById(editor, taskId);
+    // While this editor is open, a change to one of the note's tasks (from a button or a menu) goes through it, as one
+    // undoable edit; the session lets go of it when this releases, and only if it has not been replaced since.
+    const release = session.attachEditor({
+      provider: () => cleanTaskAttrs(editor.getJSON()),
+      updateTask: (taskId, patch) => updateTaskById(editor, taskId, patch),
+      removeTask: (taskId) => removeTaskById(editor, taskId),
+    });
     onEditor?.(editor);
     return () => {
-      session.taskPatcher = null;
-      session.taskRemover = null;
-      session.detach();
+      release();
       onEditor?.(null);
       editor.destroy();
     };

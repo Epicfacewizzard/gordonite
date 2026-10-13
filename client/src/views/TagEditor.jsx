@@ -56,7 +56,7 @@ export function TagEditor({ session, onChanged }) {
     apply(async () => {
       if (saved) {
         const res = await api.addTag(session.id, path);
-        session.tags = res.tags.map((t) => t.path);
+        session.applyServerTags(res.tags.map((t) => t.path));
         return res.tags;
       }
       const next = [...tags, { id: null, path }];
@@ -72,7 +72,7 @@ export function TagEditor({ session, onChanged }) {
     apply(async () => {
       if (saved) {
         const res = await api.removeTag(session.id, tag.id);
-        session.tags = res.tags.map((t) => t.path);
+        session.applyServerTags(res.tags.map((t) => t.path));
         return res.tags;
       }
       const next = tags.filter((t) => t.path !== tag.path);

@@ -35,6 +35,15 @@ stage 1 (queued work and a testable save engine) and stage 2 (the document contr
 
 **Internal**
 
+- **Task commands (stage 3 of the plan).** A change to a task has one set of rules whether or not the note's editor is
+  open: `patchedTaskAttrs` in `shared/tasks.js` decides when a completion time is stamped, that a dismissed task cannot
+  be completed, and which empty attributes are not stored; both the JSON path and the editor's transaction use it
+  (`client/src/editor/task-ops.js`). Screens ask by note id and task id (`client/src/task-commands.js`) instead of
+  fetching and adopting notes themselves, an open editor attaches with `session.attachEditor(...)` (a late tear-down
+  cannot disconnect its replacement), and tag changes go through `session.applyServerTags`. One small difference is
+  removed: completing a dismissed task through an open editor used to answer "that task is no longer in its note"; it
+  now says the task is there and changes nothing, as the other path always did.
+  `tests/client/task-parity.test.js` (14 tests) compares the two paths on generated documents.
 - The save engine (`client/src/sync.js`) takes its API, local store, timers, clock, id source and page-lifecycle hooks
   as inputs, with the page's own as the defaults, so its protocol is tested without a browser:
   `tests/client/sync-save.test.js` (15 tests: a 503 then success with back-off, a lost reply, an expired login, a

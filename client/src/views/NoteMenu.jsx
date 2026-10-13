@@ -70,7 +70,7 @@ function TagsPane({ session, tag, onTagsChanged }) {
     try {
       const res = await fn();
       setTags(res.tags);
-      session.tags = res.tags.map((t) => t.path);
+      session.applyServerTags(res.tags.map((t) => t.path));
       onTagsChanged(res.tags);
     } catch (err) {
       setError(err instanceof ApiError || err.message ? err.message : String(err));

@@ -6,6 +6,21 @@ let browser;
 before(async () => { browser = await launch(); });
 after(async () => { await browser.close(); });
 const makeDoc = (ids) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Keep these notes intact.' }] }, { type: 'taskList', content: ids.map((id, i) => ({ type: 'taskItem', attrs: { id, checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: `Task ${i + 1}`, marks: [{ type: 'bold' }] }] }] })) }] });
+// A synthetic tap issued in the instant the page redraws (a save finishing, a task coming back) is sometimes never
+// delivered by the browser: no selection change and no editor event, found by logging both. A person cannot tap that
+// fast; the test can. So tap, check that the caret really landed in the task, and tap again if it did not. Anything
+// typed or deleted afterwards would otherwise hit whatever had the caret.
+async function tapIntoTask(page, locator, text) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await page.waitForTimeout(150);
+    await locator.tap();
+    const landed = await page
+      .waitForFunction((t) => getSelection().anchorNode?.parentElement?.closest('.note-text li')?.textContent.includes(t), text, { timeout: 1000 })
+      .then(() => true, () => false);
+    if (landed) return;
+  }
+  throw new Error(`the caret never went into "${text}"`);
+}
 async function seed(app, doc, tags = ['test'], title = 'Test note') {
   const id = uuid();
   const result = await app.api('PUT', `/api/notes/${id}`, { baseRevision: 0, kind: 'note', date: '2026-10-05', title, doc, docFormat: 1, tags });
@@ -63,18 +78,13 @@ test('task dismissal and deletion in the editor are undoable and survive a conne
   await page.getByTestId('archive-calendar').tap();
   await page.getByTestId('task-archive').getByRole('button', { name: 'All dates', exact: true }).tap();
   await page.getByTestId('task-archive').getByRole('button', { name: 'Bring back', exact: true }).tap();
-  await editor.locator('li p').tap();
+  await tapIntoTask(page, editor.locator('li p'), 'Task 1');
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await page.keyboard.type('New active task');
   assert.equal(await editor.locator('li[data-dismissed-at]').count(), 0, 'restored task and new task are active');
   await waitSaved(page);
-  // A synthetic tap issued in the very instant a save finishes is sometimes never delivered by the browser (no
-  // selection change, no editor event: found by logging both), so the caret stays in the new task and the delete
-  // below would remove the wrong one. A person cannot tap that fast; the test can, so pause, then check it landed.
-  await page.waitForTimeout(300);
-  await editor.locator('li p').first().tap();
-  await page.waitForFunction(() => getSelection().anchorNode?.parentElement?.closest('li')?.textContent.includes('Task 1'), null, { timeout: 5000 });
+  await tapIntoTask(page, editor.locator('li p').first(), 'Task 1');
   await page.getByTestId('tb-taskdates').tap();
   await context.setOffline(true);
   await page.getByTestId('task-delete').tap();

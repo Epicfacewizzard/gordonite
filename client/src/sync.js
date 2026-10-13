@@ -93,6 +93,7 @@ export class Session extends Emitter {
     this.localError = null; // IndexedDB failed: edits are only held in memory
     this.generation = 0; // bumped when content is replaced from outside the editor
     this.provider = null;
+    this.adapter = null; // the open editor's task operations (see attachEditor)
     this.retryCount = 0;
     this.captureTimer = null;
     this.captureMaxTimer = null;
@@ -122,12 +123,34 @@ export class Session extends Emitter {
 
   // ----- editor hooks -----
 
+  /**
+   * The note's editor, while it is open. `adapter`:
+   *   provider()               the editor's current document (JSON)
+   *   updateTask(taskId, patch)   change one task as an undoable editor edit; true when the task is in the note
+   *   removeTask(taskId)          remove one task as an undoable editor edit; true when the task was there
+   * Returns the function that lets go of it. Letting go captures what the editor holds first, and does nothing if a
+   * newer editor has attached since (an editor torn down late must not disconnect its replacement).
+   */
+  attachEditor(adapter) {
+    this.adapter = adapter;
+    this.provider = adapter.provider;
+    return () => {
+      if (this.adapter !== adapter) return;
+      this.captureNow();
+      this.adapter = null;
+      this.provider = null;
+    };
+  }
+
+  /** Attach something that only provides the document (no task changes through it). */
   attach(provider) {
+    this.adapter = null;
     this.provider = provider;
   }
 
   detach() {
     this.captureNow();
+    this.adapter = null;
     this.provider = null;
   }
 
@@ -353,6 +376,12 @@ export class Session extends Emitter {
     return this;
   }
 
+  /** The server changed this note's tags (one added or removed); show them. */
+  applyServerTags(paths) {
+    this.tags = paths;
+    this.emit();
+  }
+
   /** Change the tags of a note that is not on the server yet (they are sent when it is first saved). */
   setLocalTags(paths) {
     this.tags = paths;
@@ -374,13 +403,13 @@ export class Session extends Emitter {
    * disagree, and it is one undoable edit), otherwise straight through the save session.
    */
   applyTaskPatch(taskId, patch) {
-    if (this.provider && this.taskPatcher) return this.taskPatcher(taskId, patch);
+    if (this.adapter) return this.adapter.updateTask(taskId, patch);
     return this.editTask(taskId, patch);
   }
 
-  /** Same, for any task change: { checked, due, start, hidden } (null date or hidden: false clears it). */
+  /** Remove a task (and any nested under it) the same way. False if the task is gone. */
   removeTask(taskId) {
-    if (this.provider && this.taskRemover) return this.taskRemover(taskId);
+    if (this.adapter) return this.adapter.removeTask(taskId);
     return this.editTask(taskId, null);
   }
 

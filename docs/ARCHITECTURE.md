@@ -93,6 +93,16 @@ bump: older documents simply do not have them, and empty ones are never stored):
 * Ticking or dating a task from the Tasks page goes through the note's normal save session (`Session.editTask`):
   phone copy first, then the server against the note's revision, so a stale change gives the usual visible conflict.
   `sync.track()` keeps the status dot from showing saved while that is still on its way into the queue.
+* **Task commands** (`client/src/task-commands.js`): a screen changes a task by naming the note and the task
+  (`update`, `remove`, `text`); it need not know whether the note is loaded on the device, whether its editor is open,
+  or how the change travels. With the editor open it is one undoable editor edit (`client/src/editor/task-ops.js`, a
+  ProseMirror transaction); without one it is made on the JSON document (`shared/tasks.js`). **Both take their decisions
+  from `patchedTaskAttrs`**: when a completion time is stamped, that a dismissed task cannot be completed, which empty
+  attributes are not stored. `tests/client/task-parity.test.js` runs the same patches down both paths on generated
+  documents and compares the results. A view never assigns fields on a session: an editor attaches with
+  `session.attachEditor({ provider, updateTask, removeTask })`, which returns the function that lets go of it (and does
+  nothing if a newer editor has attached since), and tag changes the server confirmed come in through
+  `session.applyServerTags`.
 
 ## Today screen and settings
 
@@ -155,7 +165,13 @@ editor ──touch()──▶ Session ──300 ms──▶ IndexedDB (pending) 
 
 * `sync.js` holds one **Session** per note, outside the components, so saving continues when an editor unmounts.
   A session knows the revision its text is based on, the newest unconfirmed document, the unresolved
-  request ids, and any conflict.
+  request ids, and any conflict. A `SyncManager` is given its API, local store, timers, clock, id source and page
+  lifecycle hooks (the page's own are the defaults), so the protocol is tested without a browser:
+  `tests/client/sync-save.test.js`. A failed request is classified in one place (`client/src/failure.js`: network,
+  login, retry, conflict, rejected); nothing queued on the device is ever discarded because of a failure.
+* Mood entries have their own, simpler queue (`client/src/moods.js`): each entry carries its own id so a repeat is
+  harmless, and it leaves the queue only when the server acknowledges it or the person discards it. Entries the server
+  refuses for good are kept visible with Try again and Discard.
 * A response changes bookkeeping and the badge only. The editor is *never* set from server data while it is
   open. (`adopt()` refuses to move the base revision of an open editor, which would hide a conflict.)
 * **Network failure or timeout (15-20 s)** → status *offline*, retry with backoff (2, 4, 8, 15, 30 s) and

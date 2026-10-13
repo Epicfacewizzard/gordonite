@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { sync } from '../sync.js';
+import { taskCommands } from '../task-commands.js';
 import { useToday, useNowTime } from '../hooks.js';
 import { addDays, dateInTz, formatDateShort, formatDateLabel, hasStarted, isOverdue } from '../../../shared/dates.js';
 import { findDatePhrases, parseTaskSchedule } from '../../../shared/taskdates.js';
@@ -122,15 +123,8 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
     if (patch === null) setTasks((list) => list.filter((t) => keyOf(t) !== keyOf(task)));
     else patchLocal(task, patch);
     try {
-      await sync.track(
-        (async () => {
-          await sync.ready;
-          const { note } = await api.getNote(task.noteId);
-          const session = sync.adopt(note);
-          const changed = patch === null ? session.removeTask(task.taskId) : session.applyTaskPatch(task.taskId, patch);
-          if (!changed) throw new Error('That task is no longer in its note.');
-        })(),
-      );
+      const changed = patch === null ? await taskCommands.remove(task.noteId, task.taskId) : await taskCommands.update(task.noteId, task.taskId, patch);
+      if (!changed) throw new Error('That task is no longer in its note.');
       setError(null);
     } catch (e) {
       setTasks((list) => patch === null ? [...list, before] : list.map((t) => (keyOf(t) === keyOf(task) ? before : t)));
