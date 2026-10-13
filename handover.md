@@ -135,6 +135,22 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 
 Source vault: `C:\Users\Epicf\OneDrive - University of Calgary\Obsidian Vault`. The authorized `00 Inbox`, `05 People`, `10 School` and `20 CSS` folders were transferred (109 notes, 25 new tags); existing server notes were preserved and a repeat dry run found all unchanged. The vault was not modified. `scripts/import-vault.js` prepares a dry-run payload by default; `--apply` merges and preserves changed existing content through recovery rather than overwriting. Expanded vault import shipped with the 2026-10-07 deployment (see the release notes).
 
+Not yet imported from the vault: `01 Daily`, `30 Personal`, `40 Reference`, `50 Projects`, `90 Archive`, `99 System` (the
+live server has tags with those names from the earlier 2026-09-27 transfer, so check what is already there before
+importing more). The OneDrive vault copy is old (its own "MOVED" note says the live vault is `C:\Users\Epicf\Vault`,
+which is not on this PC); its `00 Inbox` is still used as the agents' drop folder.
+
+## Condo files import (2026-10-12)
+
+The shared OneDrive folder `Condo Docs Shared - 1311 Sage Meadows Gardens` was copied into the app after 0.5.0 was
+deployed (read-only on the folder; nothing there was moved, renamed or deleted). 81 files in the folder became 80
+stored files (two identical equipment manuals are stored once; 52 HEIC photos were converted to JPEG with the originals
+kept) in two notes tagged `30-personal/condo`: **Condo – 1311 Sage Meadows Gardens** (24 documents, in sections:
+lease and rental, move-in inspection reports, condo corporation, insurance, unit and equipment) and **Condo – move-in
+photos** (55 photos and one video). All 80 were checked to be retrievable at the stored size. The section grouping was
+chosen from file names and can be rearranged. It was done by a throwaway script (not committed) that remembers its
+uploads, with a rehearsal against a local server first.
+
 ## Next work (owner's requests; do not implement automatically from this document)
 
 1. Investigate the three failing browser tests above.
