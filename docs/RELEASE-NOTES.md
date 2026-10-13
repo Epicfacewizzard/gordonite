@@ -1,6 +1,6 @@
 # Release notes
 
-## 0.4.3 — 2026-10-12 — The last few days under today's note, editable in place; tag choices beside the heading (version raised; not yet deployed)
+## 0.4.3 — 2026-10-12 — The last few days under today's note, editable in place; tag choices beside the heading (deployed to CasaOS)
 
 Version **0.4.3** (a small change: third number). On the **dashboard**, under today's note, the last **two** days' entries of the same tag now show, **greyed out**, each headed by its date (no "Earlier" label). **Tap one and it opens for editing right there**, with the cursor where you tapped, and anything you type is saved to that day, not into a new note. Only one note is open for editing at a time (today's, or the one you tapped); the others stay greyed and light. Tapping today's note makes it the open one again. **Show older notes** adds three more each time and fetches older pages when it runs out. Days with nothing written are skipped, only the tag's **daily** entries are listed (not free-standing notes), and a long entry is cut off with a fade until it is opened. The tag choices (the current tag and starred tags) moved from under the note to **beside the "Today’s note" heading**.
 
@@ -8,7 +8,7 @@ Version **0.4.3** (a small change: third number). On the **dashboard**, under to
 - **Tests:** `tests/e2e/earlier-notes.test.js` (9 tests: order and skipping, no label, edit in place and where it saves, going back to today's note, ticking a task, paging across stream pages, tag choices beside the heading, follows the chosen tag and daily-only, long entries, nothing repeated). Server/unit suite 114/114.
 - **Test fix:** `tests/e2e/resilience.test.js` seeded notes for a hard-coded "today" of 2026-10-05, so eight of its tests stopped working once the real date moved on. It now uses the real current date.
 - **Known, not caused by this change** (they fail identically on unmodified 0.4.2): `history-move.test.js` "desktop grip drag corrects the recorded day", `task-text-edit.test.js` "text edits stay in the original task…", and `task-lifecycle.test.js` "task dismissal and deletion in the editor…" (the last passed in one earlier run, so it may depend on time or order). Not investigated here.
-- **Deploy:** nothing has been deployed. Use `scripts/deploy-casaos.ps1` as for earlier releases.
+- **Deployed** on 2026-10-12 to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1`, run by the owner from the home network; the server's `/api/health` then reported `0.4.3`. The app code is the same in `856def5` and the handover-only commit after it. Pushed to GitHub `main` after deployment.
 
 ## 0.4.2 — 2026-10-09 — Starred tags beside the New note button; more room for today's note (version raised; not yet deployed)
 

@@ -16,13 +16,12 @@ Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current 
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.4.2** (`af8868f`) |
-| Version running on the server | **0.4.2** (read from `/api/health` on 2026-10-12) |
-| Newest work, **not pushed and not deployed** | **0.4.3**, branch `feature/today-previous-days`, commits `a02aa7e` (test fix) and `856def5` (feature) |
+| Version on `origin/main` | **0.4.3** (pushed 2026-10-12; includes `a02aa7e` test fix and `856def5` feature) |
+| Version running on the server | **0.4.3** (`/api/health` reported `0.4.3` on 2026-10-12, after the owner ran the deploy script) |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
 
-### 0.4.3 (built and tested, waiting to be deployed)
+### 0.4.3 (deployed 2026-10-12)
 
 On the dashboard, under today's note, the last **two** days' daily entries of the chosen tag show, greyed out and headed only by their date. **Tapping one opens it for editing in place** (caret where tapped; saved to that day, never into a new note). Only one editor is open at a time (today's, or the tapped day's); tapping today's note makes it the open one again. "Show older notes" adds three at a time and fetches older stream pages when the loaded ones run out. Empty days are skipped; only `daily` entries are listed; long entries fade until opened. The tag choices moved from under the note to beside the "Today's note" heading.
 
@@ -67,11 +66,11 @@ npm run preview:local        # persistent local preview with its own data (scrip
 
 Production preview and browser tests serve `client/dist`; **build after client edits**. A page that only changes its `#hash` does not reload: use a new query string or Ctrl+Shift+R to see a new build.
 
-## Deploying (what is outstanding)
+## Deploying
 
 `scripts/deploy-casaos.ps1` builds a clean `git archive` of the last commit, runs the unit tests, copies it to the server, builds the image there and recreates the container with the **existing** Compose configuration (assistant token, mount, port and user preserved). It needs the server password interactively (copy, login, sudo), so it must be run by the owner in a normal PowerShell window; an assistant cannot answer those prompts. `-DryRun` builds and verifies without touching the server; `-Inspect` is read-only.
 
-**Outstanding: deploy 0.4.3.** The dry run on 2026-10-12 built release `856def5` (2.8 MB) and 114/114 unit tests passed. After deploying, check `http://192.168.1.50:8082/api/health` reports `0.4.3`, then update the 0.4.3 release-notes heading from "not yet deployed" to deployed. Previous releases were pushed to GitHub `main` before deploying; **0.4.3 has not been pushed**, so the script prints a harmless "HEAD is not the same as origin/main" note.
+**Latest deployment: 0.4.3 on 2026-10-12**, run by the owner with the script above (the dry run had built release `856def5`, 2.8 MB, with 114/114 unit tests passing); `/api/health` then reported `0.4.3`. It was pushed to GitHub `main` afterwards, so the script's "HEAD is not the same as origin/main" note applied at deploy time and no longer does. The on-server image tags and release folder were not inspected.
 
 Take a verified backup first (Settings → Data & backups → Back up now), and keep the old image tag for rollback. A plain container restart does not apply a new image; recreate with:
 
@@ -105,7 +104,7 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 
 ## Repository and housekeeping
 
-- The OneDrive checkout (`C:\Users\Epicf\OneDrive - University of Calgary\Gordonite`) is on branch **`work-from-other-session`** (`6a5876b`), **behind `origin/main`**, with one uncommitted local change in `mcp/server.js` that predates the 0.4.3 work and was left alone. Do not build new work on it: `git fetch` and start from `origin/main`.
+- The OneDrive checkout (`C:\Users\Epicf\OneDrive - University of Calgary\Gordonite`) is on branch **`work-from-other-session`** (`6a5876b`), **behind `origin/main`**, with one uncommitted local change in `mcp/server.js` that predates the 0.4.3 work and was left alone. Its branch is not `main`; switch or re-clone before starting new work. Do not build new work on it: `git fetch` and start from `origin/main`.
 - 0.4.3 was built in a separate worktree under the session scratchpad (`...\scratchpad\gordonite-main`, a temp folder that may be cleaned up). The branch `feature/today-previous-days` lives in the main repository's `.git` and survives; run `git worktree prune` if the folder disappears.
 - The repository is inside OneDrive. `git gc` packing loose objects makes OneDrive ask to confirm deleting hundreds of hex-named files (`.git/objects/..`); that is safe (**Delete all items**; the objects are in the pack and `git fsck` is clean). Moving the repository outside OneDrive (for example `C:\dev\Gordonite`) would stop this and keep `node_modules` out of the cloud.
 - A stray folder `C:\proc\nonexistent\x` (a test database and one backup) was created on the system drive by a mistaken probe on 2026-10-05. It holds nothing else and can be deleted by hand; the assistant tool refuses to remove that path.
@@ -117,10 +116,9 @@ Source vault: `C:\Users\Epicf\OneDrive - University of Calgary\Obsidian Vault`. 
 
 ## Next work (owner's requests; do not implement automatically from this document)
 
-1. Deploy 0.4.3 and push the branch/merge to `main`.
-2. Investigate the three failing browser tests above.
-3. Stable HTTPS; an off-server copy of the backups.
-4. Separate Personal, School and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text stays in its source document.
-5. More dashboard widgets (goals, calendar) need design before they are built.
+1. Investigate the three failing browser tests above.
+2. Stable HTTPS; an off-server copy of the backups.
+3. Separate Personal, School and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text stays in its source document.
+4. More dashboard widgets (goals, calendar) need design before they are built.
 
 Read `docs/ARCHITECTURE.md` and `docs/EDITOR.md` before changing saving or editing behaviour. Follow the owner's latest request over old planning documents, keep dependencies modest, and explain changes in plain language.
