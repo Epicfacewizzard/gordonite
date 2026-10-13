@@ -65,6 +65,10 @@ and reliable data; keep navigation and styling replaceable without changing note
 * **People** shows cards, searches the note titles/body and filters by child tags of `05-people`, with each card
   opening its ordinary note page. This is not yet a structured contacts database. Obsidian `[[links]]` are still
   plain text; linking is the next separate change.
+* **Undo and getting things back.** Undo (the toolbar, or Ctrl/Cmd+Z) reaches 100 to 120 steps back while a note is
+  open; ⋯ → History keeps the newest 100 saved versions of every note; a deleted note stays in Trash for 30 days; a
+  removed file and a deleted mood entry have an Undo. The full list, and what cannot be undone, is in
+  [docs/UNDO.md](docs/UNDO.md).
 * **Photos, PDFs and other files** go into a note with the paperclip in the toolbar (or by pasting a screenshot or
   dropping files on the note). Images are drawn in the note, PDFs and documents are cards that open or download.
   Settings → **Files** lists every stored file (search, filter, add without a note, remove). iPhone HEIC photos are

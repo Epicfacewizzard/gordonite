@@ -21,6 +21,13 @@ Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current 
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
 
+### 0.5.1 (built on branch `feature/restore-removed-files`; not merged, not deployed)
+
+Undo for the two deletes that had none: a file removed on the Files page (Undo link, or *Show removed files* →
+*Bring back*) and a deleted mood entry (15-second Undo). Both are soft deletes that already existed, so there is no
+schema change. [docs/UNDO.md](docs/UNDO.md) lists every undo and recovery path and what cannot be undone. The editor's
+undo is **100 to 120 steps** (verified by `tests/e2e/undo-depth.test.js`).
+
 ### 0.5.0 (deployed 2026-10-12)
 
 **Photos, PDFs and other files in notes.** Paperclip in the toolbar (also paste/drop), Files page at Settings → Files,
@@ -135,10 +142,23 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 
 Source vault: `C:\Users\Epicf\OneDrive - University of Calgary\Obsidian Vault`. The authorized `00 Inbox`, `05 People`, `10 School` and `20 CSS` folders were transferred (109 notes, 25 new tags); existing server notes were preserved and a repeat dry run found all unchanged. The vault was not modified. `scripts/import-vault.js` prepares a dry-run payload by default; `--apply` merges and preserves changed existing content through recovery rather than overwriting. Expanded vault import shipped with the 2026-10-07 deployment (see the release notes).
 
-Not yet imported from the vault: `01 Daily`, `30 Personal`, `40 Reference`, `50 Projects`, `90 Archive`, `99 System` (the
-live server has tags with those names from the earlier 2026-09-27 transfer, so check what is already there before
-importing more). The OneDrive vault copy is old (its own "MOVED" note says the live vault is `C:\Users\Epicf\Vault`,
-which is not on this PC); its `00 Inbox` is still used as the agents' drop folder.
+**Comparison, 2026-10-12 (read-only; the vault copy on this PC against the live server).** The vault is almost entirely
+in the app already (an earlier note here wrongly said whole folders were never imported; the import covers every
+top-level folder except `99 System`). Of the 214 Markdown files: **197 are on the server identical**; **4 differ**
+(`01 Daily/2026-10-03` was edited in the app afterwards; `90 Archive/Imported 2026-09-27/EXECUTIVE_ACTION_TRACKER` was
+de-tasked in the app; `50 Projects/CSS Ticketing System` and `50 Projects/HQ App - Build Plan` are different revisions
+of the same note, a few lines or words each way, and were never edited in the app); **5 are not on the server**
+(the four `File-…` transcripts waiting in `00 Inbox`, written 2026-10-07 after the last import, and
+`50 Projects/HQ - System Design`); **8 are deliberately not imported** (`99 System/Templates` x4 and the four root
+files `AGENTS.md`, `CLAUDE.md`, `Home.md`, the "MOVED" note). The **9 non-Markdown files (about 30 MB)** are not in the
+app because it could not hold files before 0.5.0: in `00 Inbox` a PDF, a ZIP, two `.srt` and a `.csv`; in `10 School`
+a DOCX and a PDF; in `20 CSS` an XLSX; in `30 Personal` a 23 MB WAV. The comparer was a throwaway script (it reuses
+`import-vault.js`'s id and tag rules). `scripts/import-vault.js --apply` is safe for the rest: merge mode adds what is
+missing and keeps a differing vault version as a version in History (kind `import`), and the server takes a
+pre-import backup first. Nothing was applied.
+
+The OneDrive vault copy is old (its own "MOVED" note says the live vault is `C:\Users\Epicf\Vault`, which is not on
+this PC); its `00 Inbox` is still used as the agents' drop folder.
 
 ## Condo files import (2026-10-12)
 

@@ -8,12 +8,12 @@ import { Store, HttpError, checkId } from './store.js';
 import { createBackup, backupPath, backupStatus } from './backup.js';
 import { exportAll, exportMarkdownZip, exportFilesZip, importAll } from './portability.js';
 import { FileStore } from './files.js';
-import { addMood, listMoods, deleteMood } from './moods.js';
+import { addMood, listMoods, deleteMood, restoreMood } from './moods.js';
 import { createAuth } from './auth.js';
 import { DOC_FORMAT } from '../shared/doc.js';
 import { dateInTz, addDays } from '../shared/dates.js';
 
-export const APP_VERSION = '0.5.0';
+export const APP_VERSION = '0.5.1';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -268,6 +268,7 @@ export function createApp({ config, db, log = console, convertHeic }) {
   route('GET', '/api/moods', async ({ res, query }) => sendJson(res, 200, listMoods(db, config, { from: query.get('from'), to: query.get('to') })));
   route('PUT', '/api/moods/:id', async ({ res, params, body }) => sendJson(res, 200, addMood(db, config, body, params.id)));
   route('DELETE', '/api/moods/:id', async ({ res, params }) => sendJson(res, 200, deleteMood(db, params.id)));
+  route('POST', '/api/moods/:id/restore', async ({ res, params }) => sendJson(res, 200, restoreMood(db, params.id)));
 
   // ----- tags & streams -----
   route('GET', '/api/tags', async ({ res }) => sendJson(res, 200, { tags: store.listTags(), order: store.getTagOrder() }));
@@ -346,7 +347,8 @@ export function createApp({ config, db, log = console, convertHeic }) {
     { raw: true },
   );
   route('GET', '/api/attachments', async ({ res, query }) => {
-    const listed = files.list({ noteId: query.get('noteId'), unattached: query.get('unattached') === '1', q: query.get('q') ?? '', kind: query.get('kind'), limit: query.get('limit'), offset: query.get('offset') });
+    // ?removed=1 lists the files that were removed, so one can be brought back.
+    const listed = files.list({ noteId: query.get('noteId'), unattached: query.get('unattached') === '1', q: query.get('q') ?? '', kind: query.get('kind'), removed: query.get('removed') === '1', limit: query.get('limit'), offset: query.get('offset') });
     sendJson(res, 200, { ...listed, total: files.stats() });
   });
   route('GET', '/api/attachments/:id', async ({ res, params }) => {
@@ -367,6 +369,12 @@ export function createApp({ config, db, log = console, convertHeic }) {
   route('DELETE', '/api/attachments/:id', async ({ res, params }) => {
     if (!files.remove(checkId(params.id, 'file id'))) throw new HttpError(404, 'file_not_found', 'No such file');
     sendJson(res, 200, { ok: true });
+  });
+  // Undo a removal: the file is shown again, in the Files page and in every note that has it.
+  route('POST', '/api/attachments/:id/restore', async ({ res, params }) => {
+    const attachment = files.restore(checkId(params.id, 'file id'));
+    if (!attachment) throw new HttpError(404, 'file_not_found', 'That file is not among the removed files');
+    sendJson(res, 200, { attachment });
   });
 
   // ----- export / import -----

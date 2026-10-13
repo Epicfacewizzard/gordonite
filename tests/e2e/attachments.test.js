@@ -149,6 +149,24 @@ describe('files in notes', () => {
       await page.getByTestId('file-remove-confirm').tap();
       await page.waitForFunction(() => document.querySelectorAll('[data-testid="file-list"] li').length === 0);
       assert.equal((await app.api('GET', '/api/attachments')).json.attachments.length, 2);
+
+      // a removal can be undone straight away
+      await page.getByTestId('files-undo').tap();
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="file-list"] li').length === 1);
+      assert.equal((await app.api('GET', '/api/attachments')).json.attachments.length, 3);
+
+      // or brought back later, from the removed files
+      await page.getByTestId('file-remove').tap();
+      await page.getByTestId('file-remove-confirm').tap();
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="file-list"] li').length === 0);
+      await page.getByTestId('files-removed').check();
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="file-list"] li[data-removed]').length === 1);
+      assert.match(await page.locator('[data-testid="file-list"] li').innerText(), /Insurance Policy\.pdf[\s\S]*removed/);
+      await page.getByTestId('file-restore').tap();
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="file-list"] li').length === 0);
+      assert.equal((await app.api('GET', '/api/attachments')).json.attachments.length, 3);
+      await page.getByTestId('files-removed').click(); // with nothing left to restore the toggle goes away once it is off
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="file-list"] li:not([data-removed])').length === 1);
     }));
 
   test('a note that is only a file is not shown as empty, and a tap on the file opens it instead of the editor', () =>

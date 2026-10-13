@@ -104,6 +104,8 @@ GET/POST /api/backups   GET /api/backups/snapshot   GET /api/backups/file/:name
 POST /api/attachments?name=&noteId=   raw file bytes (header X-Gordonite-Upload: 1, not JSON)
 GET  /api/attachments?q=&kind=&noteId=&unattached=1   GET/DELETE /api/attachments/:id
 GET  /api/attachments/:id/file[?download=1]   GET /api/attachments/:id/original      GET /api/export/files
+GET  /api/attachments?removed=1   POST /api/attachments/:id/restore   undo a removal (soft delete)
+POST /api/moods/:id/restore       undo a mood delete (soft delete)
 ```
 
 Cross-site writes are refused (`Sec-Fetch-Site`, and JSON-only bodies force a CORS preflight that is never

@@ -138,6 +138,44 @@ describe('upload and download', () => {
   });
 });
 
+describe('removing a file can be undone', () => {
+  let t;
+  before(async () => {
+    t = await startServer();
+  });
+  after(() => t.close());
+
+  test('a removed file is listed as removed, and bringing it back shows it everywhere again', async () => {
+    const a = (await t.upload('Oops.pdf', Buffer.from('%PDF-oops'))).json.attachment;
+    const id = uuid();
+    assert.equal((await saveWith(t, id, docOf(para('has a file'), attachmentNode(a)), { tags: ['undo-files'] })).status, 200);
+
+    assert.equal((await t.api('DELETE', `/api/attachments/${a.id}`)).status, 200);
+    assert.equal((await fetch(`${t.url}/api/attachments/${a.id}/file`)).status, 404, 'a removed file is not served');
+    assert.ok(!(await t.api('GET', '/api/attachments')).json.attachments.some((x) => x.id === a.id));
+    const removed = (await t.api('GET', '/api/attachments?removed=1')).json;
+    assert.ok(removed.attachments.some((x) => x.id === a.id && typeof x.removedAt === 'string'));
+    assert.ok(removed.total.removed >= 1);
+    assert.equal((await t.api('GET', `/api/notes/${id}`)).json.note.doc.content[1].attrs.id, a.id, 'the note still refers to it');
+
+    const back = await t.api('POST', `/api/attachments/${a.id}/restore`, {});
+    assert.equal(back.status, 200);
+    assert.equal(back.json.attachment.id, a.id);
+    assert.equal(back.json.attachment.removedAt, undefined);
+    assert.equal(back.json.attachment.noteId, id, 'it is still the note\'s file');
+    assert.equal((await fetch(`${t.url}/api/attachments/${a.id}/file`)).status, 200);
+    assert.ok((await t.api('GET', '/api/attachments')).json.attachments.some((x) => x.id === a.id));
+    assert.ok(!(await t.api('GET', '/api/attachments?removed=1')).json.attachments.some((x) => x.id === a.id));
+  });
+
+  test('only a removed file can be brought back', async () => {
+    const a = (await t.upload('Fine.pdf', Buffer.from('%PDF-fine'))).json.attachment;
+    assert.equal((await t.api('POST', `/api/attachments/${a.id}/restore`, {})).status, 404, 'it was never removed');
+    assert.equal((await t.api('POST', `/api/attachments/${uuid()}/restore`, {})).status, 404);
+    assert.equal((await t.api('POST', '/api/attachments/short/restore', {})).status, 400);
+  });
+});
+
 describe('HEIC photos are converted to JPEG and the original is kept', () => {
   let t;
   before(async () => {

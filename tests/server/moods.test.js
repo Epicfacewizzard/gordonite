@@ -82,6 +82,20 @@ describe('mood entries over the API', () => {
     assert.equal((await app.api('PUT', `/api/moods/${id}`, { score: 1 })).json.created, false, 'a late retry does not bring it back');
     assert.equal((await app.api('DELETE', `/api/moods/${uuid()}`)).status, 404);
   });
+
+  test('undoing a delete brings the entry back, and doing it twice is harmless', async () => {
+    const id = uuid();
+    await app.api('PUT', `/api/moods/${id}`, { score: 2, note: 'oops', at: at(0, 1) });
+    await app.api('DELETE', `/api/moods/${id}`);
+    assert.ok(!(await app.api('GET', '/api/moods')).json.moods.some((m) => m.id === id));
+    const back = await app.api('POST', `/api/moods/${id}/restore`, {});
+    assert.equal(back.status, 200);
+    assert.equal(back.json.mood.note, 'oops');
+    assert.ok((await app.api('GET', '/api/moods')).json.moods.some((m) => m.id === id), 'counted again');
+    assert.equal(app.db.prepare('SELECT deleted_at FROM mood_entries WHERE id = ?').get(id).deleted_at, null);
+    assert.equal((await app.api('POST', `/api/moods/${id}/restore`, {})).status, 200, 'restoring an entry that is not deleted is fine');
+    assert.equal((await app.api('POST', `/api/moods/${uuid()}/restore`, {})).status, 404);
+  });
 });
 
 describe('assistant door', () => {

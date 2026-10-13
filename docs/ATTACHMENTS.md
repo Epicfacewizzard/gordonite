@@ -12,8 +12,10 @@ card that opens it), they are searchable by name, and the assistant can list, re
 * **The Files page** (Settings → Files, `#/files`) lists everything stored: search by name, filter by kind (images,
   PDFs, other), show only files not in a note yet, open, download, or remove. Files added there without a note are the
   in-app inbox: later you, or the assistant, can put them in a note.
-* **Removing** a file on the Files page hides it everywhere. Notes that showed it then show it as missing. The bytes
-  stay on disk and the database row is only marked removed (nothing purges them automatically).
+* **Removing** a file on the Files page (it asks first) hides it everywhere. Notes that showed it then show it as
+  missing. The bytes stay on disk and the database row is only marked removed (nothing purges them automatically), so
+  it can be **undone**: tap **Undo** right after, or later tick **Show removed files** and press **Bring back**. There
+  is no time limit. Bringing it back shows it again in every note that had it. See [UNDO.md](UNDO.md).
 * **Photos from an iPhone (HEIC/HEIF)** are converted to JPEG when they are added, so they show in any browser. The
   original is kept and can be downloaded ("Original" on the Files page).
 * **Limits:** 100 MB per file (`MAX_UPLOAD_MB`). The assistant can read files up to 25 MB.
@@ -74,6 +76,7 @@ With the assistant key on (see [ASSISTANT.md](ASSISTANT.md)):
 | `GET /api/assistant/attachments?q=&kind=&noteId=&unattached=1&limit=` | List files |
 | `GET /api/assistant/attachments/:id` | One file's details |
 | `GET /api/assistant/attachments/:id/content` | The bytes as base64 (up to 25 MB; `?original=1` for a converted photo's original) |
+| *(none)* | The assistant cannot remove or bring back files; that is only on the Files page |
 | `POST /api/assistant/attachments` `{ name, data (base64), noteId? }` | Store a file |
 | `POST /api/assistant/notes/:id/attach` `{ attachmentId }` | Put a stored file at the end of a note |
 
@@ -93,7 +96,7 @@ agent takes new PDFs and photos from a drop folder into Gordonite. See [MCP.md](
   few MB per view; images load lazily.
 * Uploads need the server (they are not queued while offline, unlike text). A failed upload says so and changes
   nothing; try again when connected.
-* Removed files are hidden, not purged; there is no "restore removed file" button (the row can be un-hidden in the
-  database). Orphaned bytes are never deleted automatically.
+* Removed files are hidden, not purged (so they can always be brought back); the bytes of files nothing uses are never
+  deleted automatically.
 * Photo metadata (location, camera) inside a JPEG is kept as sent.
 * The zips are built in memory; very large libraries should be backed up by copying the folder.

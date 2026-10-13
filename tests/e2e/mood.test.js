@@ -74,6 +74,14 @@ test('the hidden history still works when switched on: today, the 7-day table, t
     await page.reload();
     await page.waitForFunction(() => document.querySelectorAll('[data-testid="mood-entry"]').length === 2);
 
+    // a delete can be undone straight away
+    await page.getByTestId('mood-delete').first().tap();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid="mood-entry"]').length === 1);
+    await page.getByTestId('mood-undo-button').tap();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid="mood-entry"]').length === 2);
+    assert.equal(entries(app).filter((e) => e.deleted_at).length, 0, 'nothing is deleted after the undo');
+    assert.equal(await page.getByTestId('mood-undo').count(), 0);
+
     // delete one: gone from the list, kept (soft-deleted) on the server
     await page.getByTestId('mood-delete').first().tap();
     await page.waitForFunction(() => document.querySelectorAll('[data-testid="mood-entry"]').length === 1);

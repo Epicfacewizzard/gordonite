@@ -1,5 +1,21 @@
 # Release notes
 
+## 0.5.1 — 2026-10-12 — Undo for a removed file and a deleted mood entry (not yet deployed)
+
+Version **0.5.1** (a small change: third number). Two deletes had no way back in the app; now they do.
+
+- **A file removed on the Files page** can be **undone**: an Undo link right after, or tick *Show removed files* and
+  press *Bring back* at any later time (removed files are only hidden, never erased). Bringing one back shows it
+  again in every note that had it. `GET /api/attachments?removed=1` and `POST /api/attachments/:id/restore`.
+- **A deleted mood entry** shows **Undo** on the Mood box for 15 seconds. `POST /api/moods/:id/restore`.
+- **New guide, [UNDO.md](UNDO.md):** every way to get something back and how far each goes. The editor's undo
+  reaches **100 to 120 steps** (it is set to 100 and its engine trims in batches of about 20); typing without a
+  pause of half a second is one step. This is pinned by `tests/e2e/undo-depth.test.js`.
+- **Tests:** server `attachments.test.js` (2 new), `moods.test.js` (1 new); browser `attachments.test.js` (the Files
+  page now covers Undo and Bring back), `mood.test.js` (Undo), `undo-depth.test.js` (new).
+- **No schema change** (it uses the existing `deleted_at` columns); nothing about backups or rollback changes.
+- **Not yet deployed.**
+
 ## 0.5.0 — 2026-10-12 — Photos, PDFs and other files in notes (deployed to CasaOS)
 
 Version **0.5.0** (a new feature: second number). Notes can hold **images, PDFs and other documents**. Tap the

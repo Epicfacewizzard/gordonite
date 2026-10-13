@@ -103,6 +103,7 @@ const publicShape = (r) => ({
   createdAt: r.created_at,
   converted: !!r.original_sha256,
   ...(r.original_sha256 ? { originalName: r.original_name, originalMime: r.original_mime, originalSize: r.original_size } : {}),
+  ...(r.deleted_at ? { removedAt: r.deleted_at } : {}),
 });
 
 export class FileStore {
@@ -210,10 +211,11 @@ export class FileStore {
     };
   }
 
-  list({ noteId = null, unattached = false, q = '', kind = null, limit = 50, offset = 0 } = {}) {
+  // `removed: true` lists the files that were removed (most recently removed first) instead of the live ones.
+  list({ noteId = null, unattached = false, q = '', kind = null, removed = false, limit = 50, offset = 0 } = {}) {
     limit = Math.min(Math.max(Number(limit) || 50, 1), 200);
     offset = Math.max(Number(offset) || 0, 0);
-    const where = ['deleted_at IS NULL'];
+    const where = [removed ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'];
     const args = [];
     if (noteId) {
       where.push('note_id = ?');
@@ -230,14 +232,23 @@ export class FileStore {
       where.push("name LIKE ? ESCAPE '\\'");
       args.push(`%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
     }
+    const order = removed ? 'deleted_at DESC, id' : 'created_at DESC, id';
     const rows = this.db
-      .prepare(`SELECT * FROM attachments WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id LIMIT ? OFFSET ?`)
+      .prepare(`SELECT * FROM attachments WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`)
       .all(...args, limit + 1, offset);
     return { attachments: rows.slice(0, limit).map(publicShape), hasMore: rows.length > limit };
   }
 
   remove(id) {
     return this.db.prepare('UPDATE attachments SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL').run(nowIso(), id).changes > 0;
+  }
+
+  /** Bring a removed file back (everything that showed it shows it again). Null if it was not removed. */
+  restore(id) {
+    const r = this.db.prepare('SELECT * FROM attachments WHERE id = ? AND deleted_at IS NOT NULL').get(id);
+    if (!r) return null;
+    this.db.prepare('UPDATE attachments SET deleted_at = NULL WHERE id = ?').run(id);
+    return publicShape({ ...r, deleted_at: null });
   }
 
   // A note that saved a reference to files claims the ones no note has claimed yet.
@@ -249,7 +260,8 @@ export class FileStore {
 
   stats() {
     const r = this.db.prepare('SELECT COUNT(*) AS count, COALESCE(SUM(size), 0) AS bytes FROM attachments WHERE deleted_at IS NULL').get();
-    return { count: r.count, bytes: r.bytes };
+    const removed = this.db.prepare('SELECT COUNT(*) AS count FROM attachments WHERE deleted_at IS NOT NULL').get().count;
+    return { count: r.count, bytes: r.bytes, removed };
   }
 
   /** Every file the database knows about is present with the right size (and, with hashes, the right content). */

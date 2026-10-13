@@ -23,7 +23,9 @@ export function MoodWidget({ config, today }) {
   const [note, setNote] = useState('');
   const [status, setStatus] = useState('');
   const [done, setDone] = useState(null); // the score just logged, shown briefly as a confirmation
+  const [undo, setUndo] = useState(null); // the entry just deleted, with a short window to bring it back
   const doneTimer = useRef(null);
+  const undoTimer = useRef(null);
   const from = addDays(today, -(WINDOW_DAYS - 1));
 
   const load = async () => {
@@ -42,7 +44,13 @@ export function MoodWidget({ config, today }) {
     window.addEventListener('online', load);
     return () => window.removeEventListener('online', load);
   }, [today]);
-  useEffect(() => () => clearTimeout(doneTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(doneTimer.current);
+      clearTimeout(undoTimer.current);
+    },
+    [],
+  );
 
   const log = async (chosen = picked) => {
     if (!chosen) return;
@@ -66,8 +74,24 @@ export function MoodWidget({ config, today }) {
     setSaved((s) => ({ ...s, moods: s.moods.filter((m) => m.id !== entry.id) }));
     try {
       await api.deleteMood(entry.id);
+      // A tap in the wrong place should not cost an entry: offer to bring it back for a while.
+      setUndo({ id: entry.id, score: entry.score });
+      clearTimeout(undoTimer.current);
+      undoTimer.current = setTimeout(() => setUndo(null), 15_000);
     } catch {
       setStatus('Could not delete that one. Try again when the connection is back.');
+    }
+    await load();
+  };
+  const undoDelete = async () => {
+    const back = undo;
+    if (!back) return;
+    clearTimeout(undoTimer.current);
+    setUndo(null);
+    try {
+      await api.restoreMood(back.id);
+    } catch {
+      setStatus('Could not bring that one back. Try again when the connection is back.');
     }
     await load();
   };
@@ -154,6 +178,14 @@ export function MoodWidget({ config, today }) {
       {status && (
         <p class="muted small" role="status" data-testid="mood-status">
           {status}
+        </p>
+      )}
+      {undo && (
+        <p class="muted small" role="status" data-testid="mood-undo">
+          Deleted {FACES[undo.score - 1]}.{' '}
+          <button type="button" class="link" data-testid="mood-undo-button" onClick={undoDelete}>
+            Undo
+          </button>
         </p>
       )}
       {history && todays.length > 0 && (

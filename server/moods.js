@@ -59,6 +59,14 @@ export function listMoods(db, cfg, { from = null, to = null } = {}) {
   };
 }
 
+/** Undo a delete: the entry counts again (in the table, the streak and the averages). Idempotent. */
+export function restoreMood(db, id) {
+  const row = db.prepare('SELECT * FROM mood_entries WHERE id = ?').get(checkId(id, 'mood id'));
+  if (!row) throw new HttpError(404, 'not_found', 'Mood entry not found');
+  if (row.deleted_at) db.prepare('UPDATE mood_entries SET deleted_at = NULL WHERE id = ?').run(row.id);
+  return { mood: toMood(row) };
+}
+
 export function deleteMood(db, id) {
   const res = db.prepare('UPDATE mood_entries SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ?').run(new Date().toISOString(), checkId(id, 'mood id'));
   if (res.changes === 0) throw new HttpError(404, 'not_found', 'Mood entry not found');

@@ -99,6 +99,7 @@ export const api = {
   moods: (from, to) => request('GET', `/api/moods${from ? `?from=${from}&to=${to}` : ''}`),
   saveMood: (id, body) => request('PUT', `/api/moods/${enc(id)}`, body),
   deleteMood: (id) => request('DELETE', `/api/moods/${enc(id)}`),
+  restoreMood: (id) => request('POST', `/api/moods/${enc(id)}/restore`, {}),
   notes: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));
     return request('GET', `/api/notes?${qs}`);
@@ -123,5 +124,6 @@ export const api = {
     return request('GET', `/api/attachments?${qs}`);
   },
   deleteFile: (id) => request('DELETE', `/api/attachments/${enc(id)}`),
+  restoreFile: (id) => request('POST', `/api/attachments/${enc(id)}/restore`, {}),
   importAll: (data, mode) => request('POST', `/api/import?mode=${mode}`, data, { timeout: 300_000 }),
 };
