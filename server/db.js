@@ -85,6 +85,32 @@ const MIGRATIONS = [
   );
   CREATE INDEX mood_entries_day ON mood_entries (day, logged_at) WHERE deleted_at IS NULL;
   `,
+  // v6: attached files (images, PDFs, other documents). The bytes live on disk under DATA_DIR/files, named by
+  // their SHA-256, and are never changed; this table says what each is called and where it is used.
+  // note_id is the note that first saved a reference to it (NULL = not in any note yet); it is not a foreign
+  // key because a file outlives a purged note. A photo converted on upload (HEIC -> JPEG) keeps its original.
+  // Deleting a file is soft (deleted_at); the bytes stay on disk.
+  `
+  CREATE TABLE attachments (
+    id              TEXT PRIMARY KEY,
+    sha256          TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    mime            TEXT NOT NULL,
+    size            INTEGER NOT NULL,
+    kind            TEXT NOT NULL,            -- image | pdf | file
+    original_sha256 TEXT,
+    original_name   TEXT,
+    original_mime   TEXT,
+    original_size   INTEGER,
+    note_id         TEXT,
+    source          TEXT NOT NULL DEFAULT 'upload',  -- upload | assistant | import
+    created_at      TEXT NOT NULL,
+    deleted_at      TEXT
+  );
+  CREATE INDEX attachments_created ON attachments (created_at DESC) WHERE deleted_at IS NULL;
+  CREATE INDEX attachments_note ON attachments (note_id) WHERE deleted_at IS NULL;
+  CREATE INDEX attachments_sha ON attachments (sha256);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -1,6 +1,7 @@
-// Readable Markdown for Personal HQ documents (format 1).
+// Readable Markdown for Personal HQ documents (formats 1 and 2).
 // This export is for reading and for other tools. It is lossy (task ids and
 // revision history are not included); the JSON export is the full-fidelity one.
+import { fileRef, isImageType } from '../shared/attachments.js';
 
 const MARK_ORDER = ['bold', 'italic'];
 const DELIM = { bold: '**', italic: '*' };
@@ -37,39 +38,50 @@ function renderInline(nodes, marks = MARK_ORDER) {
 
 const escapeLineStart = (s) => s.replace(/^(#{1,6}\s|[-+]\s|>|\d+[.)]\s)/, '\\$1');
 
-function renderBlock(node) {
+// A file: ![name](href) for an image, [name](href) for anything else. `href` maps a file's attrs to where it is:
+// the assistant sees gordonite-file:ID, an export points at the file saved beside the notes.
+const defaultHref = (a) => fileRef(a.id);
+function renderFile(node, href) {
+  const a = node.attrs ?? {};
+  const label = String(a.name ?? 'file').replace(/([\\[\]])/g, '\\$1');
+  return `${isImageType(a.mime) ? '!' : ''}[${label}](${href(a)})`;
+}
+
+function renderBlock(node, href = defaultHref) {
   switch (node.type) {
     case 'paragraph':
       return escapeLineStart(renderInline(node.content ?? []));
     case 'heading':
       return `${'#'.repeat(node.attrs.level)} ${renderInline(node.content ?? [])}`;
     case 'bulletList':
-      return (node.content ?? []).map((li) => renderItem('- ', li)).join('\n');
+      return (node.content ?? []).map((li) => renderItem('- ', li, href)).join('\n');
     case 'taskList':
-      return (node.content ?? []).map((ti) => renderItem(`- [${ti.attrs?.checked ? 'x' : ' '}] `, ti)).join('\n');
+      return (node.content ?? []).map((ti) => renderItem(`- [${ti.attrs?.checked ? 'x' : ' '}] `, ti, href)).join('\n');
+    case 'attachment':
+      return renderFile(node, href);
     default:
       return '';
   }
 }
 
-function renderItem(prefix, item) {
+function renderItem(prefix, item, href) {
   const [first, ...rest] = item.content ?? [];
   const head = first ? renderInline(first.content ?? []) : '';
   const schedule = ['due', 'start'].filter((key) => item.attrs?.[key] || item.attrs?.[`${key}Time`]).map((key) => ` (${key} ${item.attrs[key] || 'note date'}${item.attrs[`${key}Time`] ? ' at ' + item.attrs[`${key}Time`] : ''})`).join('');
   const lines = [prefix + head + schedule + (item.attrs?.dismissedAt ? ` (dismissed ${item.attrs.dismissedAt})` : '')];
   for (const child of rest) {
-    for (const line of renderBlock(child).split('\n')) lines.push(`  ${line}`);
+    for (const line of renderBlock(child, href).split('\n')) lines.push(`  ${line}`);
   }
   return lines.join('\n');
 }
 
-export function docToMarkdown(doc) {
+export function docToMarkdown(doc, { fileHref } = {}) {
   // List-only runs stay tight; other blocks are separated by a blank line.
-  const blocks = (doc.content ?? []).map(renderBlock);
+  const blocks = (doc.content ?? []).map((block) => renderBlock(block, fileHref));
   return `${blocks.join('\n\n').trimEnd()}\n`;
 }
 
-export function noteToMarkdownFile(note) {
+export function noteToMarkdownFile(note, options) {
   const front = [
     '---',
     `id: ${note.id}`,
@@ -81,5 +93,5 @@ export function noteToMarkdownFile(note) {
     '---',
     '',
   ].join('\n');
-  return front + docToMarkdown(note.doc);
+  return front + docToMarkdown(note.doc, options);
 }

@@ -27,6 +27,10 @@ export function loadConfig(env = process.env) {
     dataDir,
     dbFile: path.join(dataDir, 'hq.sqlite'),
     backupDir: path.resolve(env.BACKUP_DIR || path.join(dataDir, 'backups')),
+    // Attached files (images, PDFs...). Content-addressed, so a file is stored once however often it is added.
+    filesDir: path.resolve(env.FILES_DIR || path.join(dataDir, 'files')),
+    // The largest single file the app will take (the upload is held in memory while it is checked).
+    maxUploadBytes: int('MAX_UPLOAD_MB', 100, { min: 1 }) * 1024 * 1024,
     staticDir: path.resolve(env.STATIC_DIR || path.join(root, 'client', 'dist')),
     tz,
     assistantToken: assistantToken || null,

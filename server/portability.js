@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { tx } from './db.js';
 import { createBackup } from './backup.js';
 import { HttpError, checkId } from './store.js';
@@ -6,7 +8,8 @@ import { makeZip } from './zip.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
 import { isValidDateString, isValidTimeZone } from '../shared/dates.js';
-import { DOC_FORMAT, migrateDoc, validateDoc } from '../shared/doc.js';
+import { DOC_FORMAT, attachmentsIn, migrateDoc, validateDoc } from '../shared/doc.js';
+import { cleanFileName, isPlausibleMime, kindOfType } from '../shared/attachments.js';
 
 export const EXPORT_FORMAT = 'hq-export';
 export const EXPORT_FORMAT_VERSION = 1;
@@ -77,29 +80,95 @@ export function exportAll(db, cfg) {
     moods: db
       .prepare('SELECT id, score, note, day, logged_at AS loggedAt, created_at AS createdAt, deleted_at AS deletedAt FROM mood_entries ORDER BY logged_at, id')
       .all(),
+    // What the files are called and where they are used. The bytes are not in this JSON: take them with the files
+    // zip (Data page) or by copying the files folder next to the database.
+    attachments: db
+      .prepare(
+        `SELECT id, sha256, name, mime, size, kind, original_sha256 AS originalSha256, original_name AS originalName,
+                original_mime AS originalMime, original_size AS originalSize, note_id AS noteId, source, created_at AS createdAt
+         FROM attachments WHERE deleted_at IS NULL ORDER BY created_at, id`,
+      )
+      .all(),
   };
+}
+
+// ---------- the files themselves ----------
+
+// The zips are built in memory, so there is a ceiling. Past it, copy the files folder instead.
+const MAX_ZIP_BYTES = 1024 * 1024 * 1024;
+
+function zipFileEntries(rows, files, folder, budget = MAX_ZIP_BYTES) {
+  const entries = [];
+  const skipped = [];
+  let total = 0;
+  const seen = new Set();
+  for (const r of rows) {
+    const info = files.fileFor(r.id);
+    if (!info) {
+      skipped.push({ id: r.id, name: r.name, why: 'file is missing on disk' });
+      continue;
+    }
+    if (total + info.size > budget) {
+      skipped.push({ id: r.id, name: r.name, why: 'over the size limit for one zip' });
+      continue;
+    }
+    const entry = `${folder}/${r.id}-${cleanFileName(r.name)}`;
+    if (seen.has(entry)) continue;
+    seen.add(entry);
+    total += info.size;
+    entries.push({ name: entry, data: fs.readFileSync(info.path), row: r });
+  }
+  return { entries, skipped, total };
+}
+
+/** Every file in one zip: files/<id>-<name> plus index.json (id, name, type, size, note). */
+export function exportFilesZip(db, files) {
+  const rows = db.prepare('SELECT id, name, mime, size, kind, note_id, created_at FROM attachments WHERE deleted_at IS NULL ORDER BY created_at, id').all();
+  const { entries, skipped } = zipFileEntries(rows, files, 'files');
+  if (skipped.some((x) => x.why.startsWith('over'))) {
+    throw new HttpError(413, 'too_big', `Your files total more than ${Math.round(MAX_ZIP_BYTES / 1024 / 1024)} MB, which is too much for one download. Copy the "files" folder beside the database instead.`);
+  }
+  const index = {
+    exportedAt: new Date().toISOString(),
+    files: entries.map((e) => ({ path: e.name, id: e.row.id, name: e.row.name, mime: e.row.mime, size: e.row.size, noteId: e.row.note_id, createdAt: e.row.created_at })),
+    missing: skipped,
+  };
+  return makeZip([...entries.map(({ name, data }) => ({ name, data })), { name: 'index.json', data: JSON.stringify(index, null, 1) }]);
 }
 
 // ---------- readable Markdown export (zip of tag/date.md files) ----------
 
-export function exportMarkdownZip(store, db) {
+export function exportMarkdownZip(store, db, fileStore = null) {
   const rows = db.prepare('SELECT id FROM notes WHERE deleted_at IS NULL ORDER BY note_date').all();
-  const files = [];
+  const out = [];
+  const used = new Map(); // attachment id -> its attrs, for the files saved beside the notes
   for (const { id } of rows) {
     const note = store.getNote(id);
-    const text = noteToMarkdownFile(note);
+    for (const a of attachmentsIn(note.doc)) used.set(a.id, a);
     // A note with several tags appears under each tag; the id in its front matter ties them together.
     // A free note can share a day with other notes (and may have no tag), so its file name carries its id.
     const stem = note.kind === 'note' ? `${note.date}-${note.id.slice(0, 8)}` : note.date;
     const folders = note.tags.length ? note.tags.map((t) => t.path) : ['untagged'];
-    for (const folder of folders) files.push({ name: `${folder}/${stem}.md`, data: text });
+    for (const folder of folders) {
+      // Files sit in attachments/ at the top; a note in a/b/ is two folders deep.
+      const up = '../'.repeat(folder.split('/').length);
+      const fileHref = (a) => `${up}attachments/${encodeURIComponent(`${a.id}-${cleanFileName(a.name)}`)}`;
+      out.push({ name: `${folder}/${stem}.md`, data: noteToMarkdownFile(note, { fileHref }) });
+    }
   }
-  files.push({
+  let fileNote = '';
+  if (fileStore && used.size) {
+    const wanted = [...used.values()].map((a) => ({ id: a.id, name: a.name }));
+    const { entries, skipped } = zipFileEntries(wanted, fileStore, 'attachments');
+    out.push(...entries.map(({ name, data }) => ({ name, data })));
+    if (skipped.length) fileNote = `\n${skipped.length} attached file(s) are not in this export: ${skipped.map((x) => x.name).join(', ')}.\n`;
+  }
+  out.push({
     name: 'README.txt',
     data:
-      'Personal HQ Markdown export.\n\nOne file per tag per day: <tag>/<date>.md. A note with several tags is\nrepeated under each tag (same "id" in the front matter). Task ids and version\nhistory are not included; use the JSON export for a full-fidelity backup.\n',
+      'Personal HQ Markdown export.\n\nOne file per tag per day: <tag>/<date>.md. A note with several tags is\nrepeated under each tag (same "id" in the front matter). Task ids and version\nhistory are not included; use the JSON export for a full-fidelity backup.\nFiles attached to notes are in attachments/, linked from the notes that use them.\n' + fileNote,
   });
-  return makeZip(files);
+  return makeZip(out);
 }
 
 // ---------- import ----------
@@ -163,6 +232,8 @@ export function importAll(db, cfg, data, mode) {
   const report = {
     mode,
     preImportBackup,
+    attachmentsAdded: 0,
+    attachmentsMissingFiles: 0,
     notesCreated: 0,
     notesIdentical: 0,
     notesKeptBothVersions: 0,
@@ -201,6 +272,39 @@ export function importAll(db, cfg, data, mode) {
     }
   };
 
+  // File records come across only when their bytes are already here (copied with the files folder, or the same
+  // server). Records for files this server does not have are skipped and counted, never created empty.
+  const addAttachments = () => {
+    const insert = db.prepare(
+      `INSERT OR IGNORE INTO attachments (id, sha256, name, mime, size, kind, original_sha256, original_name, original_mime, original_size, note_id, source, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,'import',?)`,
+    );
+    const present = (sha) => typeof sha === 'string' && /^[0-9a-f]{64}$/.test(sha) && fs.existsSync(path.join(cfg.filesDir, sha.slice(0, 2), sha));
+    for (const a of data.attachments ?? []) {
+      if (!a || !/^[A-Za-z0-9_-]{8,64}$/.test(a.id) || !Number.isInteger(a.size) || !isPlausibleMime(a.mime)) continue;
+      if (!present(a.sha256)) {
+        report.attachmentsMissingFiles++;
+        continue;
+      }
+      const original = present(a.originalSha256) ? a : null;
+      const res = insert.run(
+        a.id,
+        a.sha256,
+        cleanFileName(a.name),
+        a.mime,
+        a.size,
+        kindOfType(a.mime),
+        original?.originalSha256 ?? null,
+        original ? cleanFileName(a.originalName) : null,
+        original?.originalMime ?? null,
+        original?.originalSize ?? null,
+        typeof a.noteId === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(a.noteId) ? a.noteId : null,
+        typeof a.createdAt === 'string' && !Number.isNaN(Date.parse(a.createdAt)) ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
+      );
+      report.attachmentsAdded += Number(res.changes);
+    }
+  };
+
   tx(db, () => {
     const tagIdFor = new Map(); // import tag id -> local tag id
 
@@ -234,6 +338,7 @@ export function importAll(db, cfg, data, mode) {
         report.notesCreated++;
       }
       addMoods();
+      addAttachments();
       return;
     }
 
@@ -290,6 +395,7 @@ export function importAll(db, cfg, data, mode) {
       report.notesCreated++;
     }
     addMoods();
+    addAttachments();
   });
   const savedTz = db.prepare("SELECT value FROM meta WHERE key = 'home_tz'").get()?.value;
   if (savedTz && isValidTimeZone(savedTz)) cfg.tz = savedTz;

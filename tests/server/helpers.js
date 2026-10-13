@@ -16,12 +16,13 @@ export const task = (text, checked = false, id = uuid()) => ({
   content: [para(text)],
 });
 
-export async function startServer(env = {}) {
+// options.convertHeic: stand-in for the HEIC converter (the real one decodes with WebAssembly and takes a second).
+export async function startServer(env = {}, { convertHeic } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hq-test-'));
   const config = loadConfig({ DATA_DIR: dir, BACKUP_INTERVAL_HOURS: '0', STATIC_DIR: path.join(dir, 'no-client'), ...env });
   const db = openDb(config.dbFile);
   const silent = { log() {}, error() {} };
-  const { server, store } = createApp({ config, db, log: silent });
+  const { server, store, files } = createApp({ config, db, log: silent, convertHeic });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const url = `http://127.0.0.1:${server.address().port}`;
 
@@ -47,7 +48,24 @@ export async function startServer(env = {}) {
     config,
     db,
     store,
+    files,
     api,
+    // POST the bytes of a file the way the app does.
+    async upload(name, bytes, { query = "", headers = {} } = {}) {
+      const res = await fetch(url + `/api/attachments?name=${encodeURIComponent(name)}${query}`, {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream", "x-gordonite-upload": "1", ...headers },
+        body: bytes,
+      });
+      const text = await res.text();
+      let json = null;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        /* not JSON */
+      }
+      return { status: res.status, json };
+    },
     // Stop the app but keep its data directory (like stopping the container).
     async stop() {
       await new Promise((r) => server.close(r));

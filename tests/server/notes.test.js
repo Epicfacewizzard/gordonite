@@ -4,7 +4,7 @@ import { startServer, save, para, docOf, task } from './helpers.js';
 import { uuid } from '../../shared/ids.js';
 import { dateInTz } from '../../shared/dates.js';
 import { normalizeTag } from '../../shared/tags.js';
-import { validateDoc } from '../../shared/doc.js';
+import { validateDoc, DOC_FORMAT } from '../../shared/doc.js';
 import { loadConfig } from '../../server/config.js';
 
 const plainTextOf = (node) => (node.content ?? []).map((c) => c.text ?? plainTextOf(c)).join('');
@@ -55,7 +55,7 @@ describe('notes API', () => {
     assert.equal(s.json.notes.length, 1);
     assert.equal(s.json.notes[0].id, id);
     assert.equal(s.json.notes[0].date, '2026-10-05');
-    assert.equal(s.json.notes[0].docFormat, 1);
+    assert.equal(s.json.notes[0].docFormat, DOC_FORMAT);
     assert.deepEqual(s.json.notes[0].doc, docOf(para('hello')));
   });
 
@@ -291,7 +291,7 @@ describe('notes API', () => {
     const { openDb } = await import('../../server/db.js');
     const db2 = openDb(t.config.dbFile);
     const row = db2.prepare('SELECT doc, doc_format FROM notes WHERE id = ?').get(id);
-    assert.equal(row.doc_format, 1);
+    assert.equal(row.doc_format, DOC_FORMAT);
     assert.match(row.doc, /persist me/);
     db2.close();
   });

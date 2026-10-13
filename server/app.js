@@ -6,13 +6,14 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { Store, HttpError, checkId } from './store.js';
 import { createBackup, backupPath, backupStatus } from './backup.js';
-import { exportAll, exportMarkdownZip, importAll } from './portability.js';
+import { exportAll, exportMarkdownZip, exportFilesZip, importAll } from './portability.js';
+import { FileStore } from './files.js';
 import { addMood, listMoods, deleteMood } from './moods.js';
 import { createAuth } from './auth.js';
 import { DOC_FORMAT } from '../shared/doc.js';
 import { dateInTz, addDays } from '../shared/dates.js';
 
-export const APP_VERSION = '0.4.4';
+export const APP_VERSION = '0.5.0';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -63,14 +64,80 @@ async function readBody(req, limit) {
   }
 }
 
-export function createApp({ config, db, log = console }) {
+// The whole body as bytes (an uploaded file), refusing anything over `limit`.
+async function readRaw(req, limit) {
+  const tooLarge = () => new HttpError(413, 'too_large', `That file is larger than the ${Math.round(limit / 1024 / 1024)} MB limit`);
+  const declared = Number(req.headers['content-length']);
+  if (Number.isFinite(declared) && declared > limit) throw tooLarge();
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > limit) throw tooLarge();
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+// Content-Disposition with a plain ASCII fallback and the real (UTF-8) name for browsers that understand it.
+function disposition(kind, name) {
+  const ascii = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  const utf8 = encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${kind}; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+}
+
+// Serve one stored file. Images and PDFs show in the browser; everything else is only ever a download, as opaque
+// bytes, so a stored page or script can never run from this origin. Files are named by their content hash, so they
+// are cached for good and can be fetched in ranges (PDF viewers do).
+function sendFile(req, res, info, { download = false } = {}) {
+  const show = !download && (info.kind === 'image' || info.kind === 'pdf');
+  const headers = {
+    'content-type': show ? info.mime : 'application/octet-stream',
+    'content-disposition': disposition(show ? 'inline' : 'attachment', info.name),
+    'accept-ranges': 'bytes',
+    etag: `"${info.sha}"`,
+    'cache-control': 'private, max-age=31536000, immutable',
+    'x-content-type-options': 'nosniff',
+  };
+  if (!show) headers['content-security-policy'] = "sandbox; default-src 'none'";
+  if (req.headers['if-none-match'] === headers.etag) {
+    res.writeHead(304, { etag: headers.etag, 'cache-control': headers['cache-control'] });
+    return res.end();
+  }
+  let start = 0;
+  let end = info.size - 1;
+  let status = 200;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+  if (range && (range[1] || range[2]) && info.size > 0) {
+    if (range[1] === '') {
+      start = Math.max(info.size - Number(range[2]), 0); // the last N bytes
+    } else {
+      start = Number(range[1]);
+      if (range[2] !== '') end = Math.min(Number(range[2]), end);
+    }
+    if (start > end || start >= info.size) {
+      res.writeHead(416, { 'content-range': `bytes */${info.size}` });
+      return res.end();
+    }
+    status = 206;
+    headers['content-range'] = `bytes ${start}-${end}/${info.size}`;
+  }
+  headers['content-length'] = info.size === 0 ? 0 : end - start + 1;
+  res.writeHead(status, headers);
+  if (info.size === 0) return res.end();
+  fs.createReadStream(info.path, { start, end }).on('error', () => res.destroy()).pipe(res);
+}
+
+export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);
+  const files = new FileStore(db, config, convertHeic ? { convertHeic } : {});
   const auth = createAuth(db);
   const routes = [];
-  const route = (method, pattern, handler) => {
+  // options.raw: the handler reads the body itself (an upload) instead of getting it parsed as JSON.
+  const route = (method, pattern, handler, options = {}) => {
     const keys = [];
     const re = new RegExp(`^${pattern.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)'))}$`);
-    routes.push({ method, re, keys, handler });
+    routes.push({ method, re, keys, handler, raw: options.raw === true });
   };
 
   // The assistant's key. Off (404) unless ASSISTANT_TOKEN is set; compared as hashes so timing reveals nothing.
@@ -172,6 +239,30 @@ export function createApp({ config, db, log = console }) {
   route('POST', '/api/assistant/notes/:id/tasks/:taskId', async ({ res, params, body }) => {
     sendJson(res, 200, store.assistantUpdateTask(params.id, params.taskId, body));
   });
+  // Files (see docs/ATTACHMENTS.md). Bytes travel as base64 in JSON, like everything else on this door.
+  const ASSISTANT_FILE_LIMIT = 25 * 1024 * 1024;
+  const listArgs = (query) => ({ noteId: query.get('noteId'), unattached: query.get('unattached') === '1', q: query.get('q') ?? '', kind: query.get('kind'), limit: query.get('limit'), offset: query.get('offset') });
+  route('GET', '/api/assistant/attachments', async ({ res, query }) => sendJson(res, 200, files.list(listArgs(query))));
+  route('GET', '/api/assistant/attachments/:id', async ({ res, params }) => {
+    const attachment = files.get(checkId(params.id, 'file id'));
+    if (!attachment) throw new HttpError(404, 'file_not_found', 'No such file');
+    sendJson(res, 200, { attachment });
+  });
+  route('GET', '/api/assistant/attachments/:id/content', async ({ res, params, query }) => {
+    const info = files.fileFor(checkId(params.id, 'file id'), { original: query.get('original') === '1' });
+    if (!info) throw new HttpError(404, 'file_not_found', 'No such file');
+    if (info.size > ASSISTANT_FILE_LIMIT) throw new HttpError(413, 'too_large', `That file is ${Math.round(info.size / 1024 / 1024)} MB; the assistant door sends files up to 25 MB`);
+    sendJson(res, 200, { id: params.id, name: info.name, mime: info.mime, size: info.size, encoding: 'base64', data: fs.readFileSync(info.path).toString('base64') });
+  });
+  route('POST', '/api/assistant/attachments', async ({ res, body }) => {
+    if (typeof body.data !== 'string' || !body.data) throw new HttpError(400, 'bad_file', '"data" must be the file as base64');
+    const noteId = body.noteId ? checkId(body.noteId, 'note id') : null;
+    const attachment = await files.add(Buffer.from(body.data, 'base64'), { name: body.name, noteId, source: 'assistant' });
+    sendJson(res, 200, { attachment });
+  });
+  route('POST', '/api/assistant/notes/:id/attach', async ({ res, params, body }) => {
+    sendJson(res, 200, store.assistantAttach(params.id, body.attachmentId));
+  });
 
   // ----- mood entries (see docs/MOOD.md) -----
   route('GET', '/api/moods', async ({ res, query }) => sendJson(res, 200, listMoods(db, config, { from: query.get('from'), to: query.get('to') })));
@@ -240,12 +331,54 @@ export function createApp({ config, db, log = console }) {
   });
   route('GET', '/api/trash', async ({ res }) => sendJson(res, 200, { notes: store.listTrash() }));
 
+  // ----- files: images, PDFs and other documents (see docs/ATTACHMENTS.md) -----
+  // The body is the file itself. ?name= is its name; ?noteId= the note it is for, if known (a saved note that
+  // refers to the file claims it anyway).
+  route(
+    'POST',
+    '/api/attachments',
+    async ({ req, res, query }) => {
+      const noteId = query.get('noteId');
+      if (noteId) checkId(noteId, 'note id');
+      const data = await readRaw(req, config.maxUploadBytes);
+      sendJson(res, 200, { attachment: await files.add(data, { name: query.get('name') ?? '', noteId: noteId || null, source: 'upload' }) });
+    },
+    { raw: true },
+  );
+  route('GET', '/api/attachments', async ({ res, query }) => {
+    const listed = files.list({ noteId: query.get('noteId'), unattached: query.get('unattached') === '1', q: query.get('q') ?? '', kind: query.get('kind'), limit: query.get('limit'), offset: query.get('offset') });
+    sendJson(res, 200, { ...listed, total: files.stats() });
+  });
+  route('GET', '/api/attachments/:id', async ({ res, params }) => {
+    const attachment = files.get(checkId(params.id, 'file id'));
+    if (!attachment) throw new HttpError(404, 'file_not_found', 'No such file');
+    sendJson(res, 200, { attachment });
+  });
+  route('GET', '/api/attachments/:id/file', async ({ req, res, params, query }) => {
+    const info = files.fileFor(checkId(params.id, 'file id'));
+    if (!info) throw new HttpError(404, 'file_not_found', 'No such file');
+    sendFile(req, res, info, { download: query.get('download') === '1' });
+  });
+  route('GET', '/api/attachments/:id/original', async ({ req, res, params }) => {
+    const info = files.fileFor(checkId(params.id, 'file id'), { original: true });
+    if (!info) throw new HttpError(404, 'file_not_found', 'No such file');
+    sendFile(req, res, info, { download: true });
+  });
+  route('DELETE', '/api/attachments/:id', async ({ res, params }) => {
+    if (!files.remove(checkId(params.id, 'file id'))) throw new HttpError(404, 'file_not_found', 'No such file');
+    sendJson(res, 200, { ok: true });
+  });
+
   // ----- export / import -----
   route('GET', '/api/export/json', async ({ res }) => {
     sendDownload(res, `personal-hq-export-${fileStamp()}.json`, 'application/json', Buffer.from(JSON.stringify(exportAll(db, config), null, 1)));
   });
   route('GET', '/api/export/markdown', async ({ res }) => {
-    sendDownload(res, `personal-hq-markdown-${fileStamp()}.zip`, 'application/zip', exportMarkdownZip(store, db));
+    sendDownload(res, `personal-hq-markdown-${fileStamp()}.zip`, 'application/zip', exportMarkdownZip(store, db, files));
+  });
+  // Every attached file in one zip (with an index.json). The JSON export lists them but does not carry the bytes.
+  route('GET', '/api/export/files', async ({ res }) => {
+    sendDownload(res, `personal-hq-files-${fileStamp()}.zip`, 'application/zip', exportFilesZip(db, files));
   });
   route('POST', '/api/import', async ({ res, query, body }) => {
     sendJson(res, 200, importAll(db, config, body, query.get('mode') ?? 'merge'));
@@ -320,7 +453,11 @@ export function createApp({ config, db, log = console }) {
       if (req.method !== 'GET') {
         const site = req.headers['sec-fetch-site'];
         if (site && site !== 'same-origin' && site !== 'none') throw new HttpError(403, 'cross_site', 'Cross-site request refused');
-        if (!/^application\/json\b/i.test(req.headers['content-type'] ?? '')) {
+        if (req.method === 'POST' && url.pathname === '/api/attachments') {
+          // An upload is raw bytes. A cross-site page cannot send a custom header without a CORS preflight,
+          // which this server never grants, so this header takes the place of the JSON content type here.
+          if (req.headers['x-gordonite-upload'] !== '1') throw new HttpError(415, 'upload_header_required', 'Uploads must send the X-Gordonite-Upload: 1 header');
+        } else if (!/^application\/json\b/i.test(req.headers['content-type'] ?? '')) {
           throw new HttpError(415, 'json_required', 'Content-Type must be application/json');
         }
       }
@@ -337,7 +474,7 @@ export function createApp({ config, db, log = console }) {
         const m = r.re.exec(url.pathname);
         if (!m) continue;
         const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-        const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await readBody(req, config.maxBodyBytes);
+        const body = req.method === 'GET' || req.method === 'DELETE' || r.raw ? {} : await readBody(req, config.maxBodyBytes);
         await r.handler({ req, res, params, query: url.searchParams, body });
         return;
       }
@@ -358,5 +495,5 @@ export function createApp({ config, db, log = console }) {
 
   const server = http.createServer(handler);
   server.requestTimeout = 5 * 60_000;
-  return { server, store };
+  return { server, store, files };
 }

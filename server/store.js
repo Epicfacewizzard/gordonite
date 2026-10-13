@@ -2,7 +2,7 @@ import { tx } from './db.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag, MAX_DEPTH } from '../shared/tags.js';
 import { dateInTz, isValidDateString, isValidTime, timeInTz, hasStarted, isOverdue, isValidTimeZone } from '../shared/dates.js';
-import { DOC_FORMAT, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
+import { DOC_FORMAT, attachmentsIn, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
 import { extractTasks, updateTask } from '../shared/tasks.js';
 import { markdownToDoc } from '../shared/markdown-import.js';
 import { docToMarkdown } from './markdown.js';
@@ -241,11 +241,32 @@ export class Store {
     return value;
   }
 
+  // Markdown from the assistant -> blocks. A line that is just ![name](gordonite-file:ID) (or [name](...)) becomes
+  // the attachment with that id, when it exists; anything else about files stays plain text.
+  #blocks(value) {
+    const blocks = markdownToDoc(this.#markdown(value), { resolveAttachment: (id) => this.attachmentAttrs(id) }).content;
+    // A file cannot have the cursor placed after it, so a note never ends on one: leave a line to write on.
+    return blocks.at(-1)?.type === 'attachment' ? [...blocks, { type: 'paragraph' }] : blocks;
+  }
+
+  /** The attributes a note stores for a file (what an attachment node carries), or null if there is no such file. */
+  attachmentAttrs(id) {
+    const r = this.db.prepare('SELECT id, name, mime, size FROM attachments WHERE id = ? AND deleted_at IS NULL').get(id);
+    return r ? { id: r.id, name: r.name, mime: r.mime, size: r.size } : null;
+  }
+
+  // The note that first saves a reference to a file becomes its home (shown in the Files page).
+  #claimFiles(noteId, doc) {
+    const ids = [...new Set(attachmentsIn(doc).map((a) => a.id))];
+    if (!ids.length) return;
+    this.db.prepare(`UPDATE attachments SET note_id = ? WHERE note_id IS NULL AND id IN (${ids.map(() => '?').join(',')})`).run(noteId, ...ids);
+  }
+
   assistantCreateNote({ title, markdown, tags, date }) {
     const id = uuid();
     const res = this.saveNote(id, {
       baseRevision: 0,
-      doc: markdownToDoc(this.#markdown(markdown)),
+      doc: { type: 'doc', content: this.#blocks(markdown) },
       docFormat: DOC_FORMAT,
       kind: 'note',
       tags: Array.isArray(tags) ? tags : [],
@@ -259,7 +280,7 @@ export class Store {
   // Add to the end of a note. The earlier text is kept as a version first, so it can be restored from History.
   assistantAppend(id, markdown) {
     const note = this.#liveNote(id);
-    const blocks = markdownToDoc(this.#markdown(markdown)).content;
+    const blocks = this.#blocks(markdown);
     const existing = note.doc.content ?? [];
     const blank = existing.length === 1 && existing[0].type === 'paragraph' && !existing[0].content?.length;
     const res = this.saveNote(id, {
@@ -270,6 +291,23 @@ export class Store {
       keepPrevious: true,
     });
     return { id, revision: res.revision };
+  }
+
+  // Put a file that is already stored (see the file routes) at the end of a note. The earlier text is kept as a version.
+  assistantAttach(id, attachmentId) {
+    const note = this.#liveNote(id);
+    const attrs = this.attachmentAttrs(checkId(attachmentId, 'file id'));
+    if (!attrs) throw new HttpError(404, 'file_not_found', 'No such file. Upload it first, then attach it');
+    const existing = note.doc.content ?? [];
+    const blank = existing.length === 1 && existing[0].type === 'paragraph' && !existing[0].content?.length;
+    const res = this.saveNote(id, {
+      baseRevision: note.revision,
+      doc: { ...note.doc, content: [...(blank ? [] : existing), { type: 'attachment', attrs }, { type: 'paragraph' }] },
+      docFormat: DOC_FORMAT,
+      opId: uuid(),
+      keepPrevious: true,
+    });
+    return { id, revision: res.revision, attachment: attrs };
   }
 
   // Edits to text that is already there. Both need the revision the assistant last read, so they cannot overwrite a
@@ -351,7 +389,7 @@ export class Store {
     const level = top[start].attrs.level;
     let end = top.findIndex((n, i) => i > start && n.type === 'heading' && n.attrs.level <= level);
     if (end < 0) end = top.length;
-    const blocks = markdown.trim() ? markdownToDoc(markdown).content : [];
+    const blocks = markdown.trim() ? markdownToDoc(markdown, { resolveAttachment: (fileId) => this.attachmentAttrs(fileId) }).content : [];
     const content = [...top.slice(0, includeHeading ? start : start + 1), ...blocks, ...top.slice(end)];
     const res = this.saveNote(id, { baseRevision: note.revision, doc: { ...note.doc, content: content.length ? content : [{ type: 'paragraph' }] }, docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
     return { id, revision: res.revision };
@@ -370,7 +408,7 @@ export class Store {
       .get(path, date);
     if (row) return { ...this.assistantAppend(row.id, markdown), tag: path, date };
     const id = uuid();
-    const res = this.saveNote(id, { baseRevision: 0, doc: markdownToDoc(this.#markdown(markdown)), docFormat: DOC_FORMAT, kind: 'daily', tags: [path], date, opId: uuid() });
+    const res = this.saveNote(id, { baseRevision: 0, doc: { type: 'doc', content: this.#blocks(markdown) }, docFormat: DOC_FORMAT, kind: 'daily', tags: [path], date, opId: uuid() });
     return { id, revision: res.revision, tag: path, date, created: true };
   }
 
@@ -386,6 +424,8 @@ export class Store {
       updatedAt: note.updatedAt,
       markdown: docToMarkdown(note.doc),
       tasks: extractTasks(note.doc, note.date),
+      // Files in the note. Their lines in "markdown" are ![name](gordonite-file:ID) / [name](gordonite-file:ID).
+      attachments: attachmentsIn(note.doc),
     };
   }
 
@@ -602,8 +642,9 @@ export class Store {
   saveNote(id, body) {
     checkId(id, 'note id');
     if (!body || typeof body !== 'object') throw new HttpError(400, 'bad_body', 'Missing body');
-    if (body.docFormat !== DOC_FORMAT) throw new HttpError(400, 'bad_format', `docFormat must be ${DOC_FORMAT}`);
-    const docErr = validateDoc(body.doc);
+    // Format 1 is still accepted (a tab opened before an upgrade): a format-1 document is a valid format-2 one.
+    if (body.docFormat !== DOC_FORMAT && body.docFormat !== 1) throw new HttpError(400, 'bad_format', `docFormat must be ${DOC_FORMAT}`);
+    const docErr = validateDoc(body.doc, body.docFormat);
     if (docErr) throw new HttpError(400, 'bad_doc', docErr);
     const baseRevision = Number.isInteger(body.baseRevision) ? body.baseRevision : 0;
     const opId = typeof body.opId === 'string' ? body.opId.slice(0, 64) : null;
@@ -623,6 +664,10 @@ export class Store {
         return { status: 'conflict', reason: 'deleted', note: this.#notes([note])[0] };
       }
 
+      if (body.docFormat < DOC_FORMAT && attachmentsIn(JSON.parse(note.doc)).length > 0) {
+        // An editor from before files existed would drop them from the note without knowing it.
+        throw new HttpError(409, 'client_outdated', 'This note has files attached. Reload the app to edit it.');
+      }
       const nextTitle = note.kind === 'note' && hasTitle ? title : note.title;
       if (note.doc === docStr && nextTitle === note.title) {
         return { status: 'ok', revision: note.revision, updatedAt: note.updated_at, unchanged: true };
@@ -658,6 +703,7 @@ export class Store {
         )
         .run(docStr, DOC_FORMAT, revision, opId, now, snapKind ? now : note.last_snapshot_at, nextTitle, id);
       if (snapKind) this.#pruneVersions(id);
+      this.#claimFiles(id, body.doc);
       return { status: 'ok', revision, updatedAt: now };
     });
   }
@@ -689,6 +735,7 @@ export class Store {
       .run(id, body.date, docStr, DOC_FORMAT, opId, now, now, now, kind, kind === 'note' ? title : null);
     const link = this.db.prepare('INSERT INTO note_tags (note_id, tag_id, note_date, live, slot) VALUES (?,?,?,1,?)');
     for (const t of tags) link.run(id, t.id, body.date, kind === 'daily' ? 1 : 0);
+    this.#claimFiles(id, body.doc);
     return { status: 'ok', revision: 1, updatedAt: now, created: true };
   }
 

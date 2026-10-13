@@ -5,6 +5,7 @@
 // Everything else is kept as plain text rather than dropped: links keep their words, `code` loses the backticks,
 // quotes lose the >, tables keep their cells, [[wiki links]] stay as written.
 import { uuid } from './ids.js';
+import { FILE_REF_LINE } from './attachments.js';
 
 const text = (t, marks = []) => ({ type: 'text', text: t, ...(marks.length ? { marks: marks.map((type) => ({ type })) } : {}) });
 
@@ -76,8 +77,12 @@ function buildLists(items, from, baseIndent) {
   return [lists, i];
 }
 
-/** A note document from Markdown. Never throws on odd input; unknown syntax stays as text. */
-export function markdownToDoc(md) {
+/**
+ * A note document from Markdown. Never throws on odd input; unknown syntax stays as text.
+ * options.resolveAttachment(id) -> attachment attrs | null: a line that is only ![name](gordonite-file:ID) becomes
+ * that attachment (a block); without a resolver, or for an unknown id, it stays as text.
+ */
+export function markdownToDoc(md, { resolveAttachment = null } = {}) {
   let src = String(md ?? '').replace(/\r\n?/g, '\n');
   src = src.replace(/^---\n[\s\S]*?\n---[ \t]*(\n|$)/, ''); // front matter
   const lines = src.split('\n');
@@ -106,6 +111,14 @@ export function markdownToDoc(md) {
     }
     if (inFence) {
       if (raw.trim()) blocks.push({ type: 'paragraph', content: [text(raw.trim())] }); // code stays as plain lines
+      continue;
+    }
+    const ref = resolveAttachment ? FILE_REF_LINE.exec(raw) : null;
+    const attrs = ref ? resolveAttachment(ref[2]) : null;
+    if (attrs) {
+      flushPara();
+      flushItems();
+      blocks.push({ type: 'attachment', attrs });
       continue;
     }
     const line = raw.replace(/^\s{0,3}>\s?/, ''); // quote marker
