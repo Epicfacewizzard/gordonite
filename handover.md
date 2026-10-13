@@ -16,12 +16,12 @@ Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current 
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.4.4** (pushed 2026-10-12; `5fa921b`: task history only on a note's own page) |
-| Version running on the server | **0.4.4** (`/api/health` reported `0.4.4` on 2026-10-12, after the owner ran the deploy script) |
+| Version on `origin/main` | **0.5.0** (`bf48e8b`: photos, PDFs and other files in notes; pushed 2026-10-12 after it was deployed) |
+| Version running on the server | **0.5.0** (`/api/health` reported `0.5.0` on 2026-10-12, after the owner ran the deploy script; schema v6) |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
 
-### 0.5.0 (built on branch `feature/attachments`; not merged, not deployed)
+### 0.5.0 (deployed 2026-10-12)
 
 **Photos, PDFs and other files in notes.** Paperclip in the toolbar (also paste/drop), Files page at Settings → Files,
 HEIC converted to JPEG with the original kept, assistant tools and an inbox-folder import. Read
@@ -34,9 +34,9 @@ HEIC converted to JPEG with the original kept, assistant tools and an inbox-fold
   server/cli.js check-files [--hashes]` verifies it.
 - **New runtime dependency** `heic-convert` (about 10 MB with its dependencies). The Dockerfile's final stage now runs
   `npm ci --omit=dev`; the browser libraries moved to `devDependencies`. The first image build needs network access.
-  Docker is not available on the development PC, so the image build itself has only been simulated (a clean
-  production-only install plus a real conversion); the first deploy is the real test. If the build fails, the live
-  app is unaffected (the deploy script builds before recreating the container).
+  The real image built on the server without trouble, and a real HEIC photo was converted inside the running
+  container afterwards (checked through the live API; the test file was hidden again). The pre-update backup is
+  `hq-manual-20261013-045146.sqlite` (schema v5); the rollback image is `gordonite:rollback-before-bf48e8b`.
 - Bridge: 18 tools; `inboxDir` in the private config file enables `list_inbox` / `upload_file` (confined to that
   folder). Existing assistant config files keep working unchanged.
 - Tests: unit 137/137; the browser suite has the same known/pre-existing failures as 0.4.4 (see the 0.5.0 release

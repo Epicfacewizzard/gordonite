@@ -79,6 +79,6 @@ if [ "$KEY_BEFORE" -ge 1 ] && [ "$KEY_AFTER" -lt 1 ]; then
 fi
 sudo docker ps --filter name=gordonite --format 'container: {{.Names}}  {{.Status}}  image {{.Image}}'
 echo
-echo "Done. Rollback of the app (only if needed; the database is now schema v5, so restore the backup above with it):"
+echo "Done. Rollback of the app (only if needed; the database schema is newer than the old app understands, so restore the backup above with it):"
 echo "  sudo docker image tag gordonite:rollback-before-$REV gordonite:0.1.0"
 echo "  sudo docker compose -f $COMPOSE up -d --no-build --pull never --force-recreate gordonite"

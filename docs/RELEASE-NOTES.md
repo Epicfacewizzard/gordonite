@@ -1,6 +1,6 @@
 # Release notes
 
-## 0.5.0 — 2026-10-12 — Photos, PDFs and other files in notes (not yet deployed)
+## 0.5.0 — 2026-10-12 — Photos, PDFs and other files in notes (deployed to CasaOS)
 
 Version **0.5.0** (a new feature: second number). Notes can hold **images, PDFs and other documents**. Tap the
 **paperclip** in the toolbar (on a phone this includes the camera), or paste a screenshot / drop files on a note. An
@@ -46,8 +46,14 @@ can take new PDFs and photos from a configured inbox folder. Full guide: [ATTACH
   server (not queued offline); removed files are hidden, never purged; JPEG metadata (location) is kept as sent.
 - **Rollback:** schema v6 is applied on first start. The previous app refuses a newer schema, so a rollback needs the
   verified pre-update backup the deploy script takes, as for 0.4.0 and earlier. Files already stored stay on disk.
-- **Not yet deployed.** Deploy with `scripts/deploy-casaos.ps1` from the home network; `/api/health` should then
-  report `0.5.0`.
+- **Deployed** on 2026-10-12 to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1` (release `bf48e8b`,
+  137/137 unit tests), run by the owner from the home network; `/api/health` then reported `0.5.0` and the
+  configuration reported document format 2, and the mood API and logo checks returned 200. The real image built
+  on the server (including `npm ci --omit=dev` for the HEIC converter). Afterwards a real 1.0 MB HEIC photo was
+  uploaded to the live API: it came back as a JPEG, its original was retrievable, and the test file was removed
+  again. Verified pre-update backup: `hq-manual-20261013-045146.sqlite` (schema v5, 222 notes, 42 tags, 79
+  versions). Rollback image: `gordonite:rollback-before-bf48e8b` (retag as `gordonite:0.1.0`, recreate the service,
+  and restore that backup, because an older app refuses a v6 database). Pushed to GitHub `main` after deployment.
 
 ## 0.4.4 — 2026-10-12 — Task history only on a note's own page (deployed to CasaOS)
 
