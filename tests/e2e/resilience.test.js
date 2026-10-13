@@ -1,11 +1,14 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { launch, withPhone, open, editor, waitSaved, waitStatus, tap, seedNote, paragraphDoc } from './harness.js';
+import { dateInTz } from '../../shared/dates.js';
+import { launch, TZ, withPhone, open, editor, waitSaved, waitStatus, tap, seedNote, paragraphDoc } from './harness.js';
 
 let browser;
 before(async () => (browser = await launch()));
 after(async () => browser.close());
 
+// "Today" is the real current date in the home time zone (a fixed date goes stale and the note stops being today's entry).
+const today = () => dateInTz(new Date(), TZ);
 const type = (page, text) => page.keyboard.type(text);
 const TODAY_TEXT = (app) => app.notes().map((n) => app.docText(n.id));
 
@@ -86,7 +89,7 @@ describe('stage 4: interrupted connections', () => {
 
   test('edits to an existing note made offline survive a reload and are applied on reconnect', () =>
     withPhone(browser, async ({ page, app }) => {
-      const id = await seedNote(app, { date: '2026-10-05', doc: paragraphDoc('saved earlier') });
+      const id = await seedNote(app, { date: today(), doc: paragraphDoc('saved earlier') });
       await open(page);
       assert.equal(await editor(page).textContent(), 'saved earlier');
       await blockApi(page);
@@ -173,14 +176,14 @@ describe('stage 4: interrupted connections', () => {
 describe('stage 4: conflicts keep both versions', () => {
   // The phone has unsent edits while another device saves a different version.
   async function makeConflict({ page, app }, { phoneText = ' <phone>', desktopDoc = paragraphDoc('base text <desktop>') } = {}) {
-    const id = await seedNote(app, { date: '2026-10-05', doc: paragraphDoc('base text') });
+    const id = await seedNote(app, { date: today(), doc: paragraphDoc('base text') });
     await open(page);
     await blockPuts(page);
     await editor(page).tap();
     await page.keyboard.press('Control+End');
     await type(page, phoneText);
     await waitStatus(page, 'offline');
-    const r = await app.api('PUT', `/api/notes/${id}`, { baseRevision: 1, doc: desktopDoc, docFormat: 1, tags: ['daily-jots'], date: '2026-10-05' });
+    const r = await app.api('PUT', `/api/notes/${id}`, { baseRevision: 1, doc: desktopDoc, docFormat: 1, tags: ['daily-jots'], date: today() });
     assert.equal(r.status, 200);
     await reconnect(page, '**/api/notes/*');
     await page.waitForSelector('[data-testid="conflict-panel"]');
@@ -244,14 +247,14 @@ describe('stage 4: conflicts keep both versions', () => {
 
   test('pending edits found on reopening, after the note changed elsewhere, become a conflict (not an overwrite)', () =>
     withPhone(browser, async ({ page, app }) => {
-      const id = await seedNote(app, { date: '2026-10-05', doc: paragraphDoc('shared start') });
+      const id = await seedNote(app, { date: today(), doc: paragraphDoc('shared start') });
       await open(page);
       await blockApi(page);
       await editor(page).tap();
       await page.keyboard.press('Control+End');
       await type(page, ' + phone words');
       await waitStatus(page, 'offline');
-      await app.api('PUT', `/api/notes/${id}`, { baseRevision: 1, doc: paragraphDoc('shared start + desktop words'), docFormat: 1, tags: ['daily-jots'], date: '2026-10-05' });
+      await app.api('PUT', `/api/notes/${id}`, { baseRevision: 1, doc: paragraphDoc('shared start + desktop words'), docFormat: 1, tags: ['daily-jots'], date: today() });
       await page.unroute('**/api/**');
       await page.reload(); // reopen the app: recovered edits meet the changed note
       await page.waitForSelector('[data-testid="conflict-panel"]', { timeout: 15_000 });
@@ -263,7 +266,7 @@ describe('stage 4: conflicts keep both versions', () => {
 
   test('note deleted elsewhere while editing: text is kept and can restore the note', () =>
     withPhone(browser, async ({ page, app }) => {
-      const id = await seedNote(app, { date: '2026-10-05', doc: paragraphDoc('will be deleted') });
+      const id = await seedNote(app, { date: today(), doc: paragraphDoc('will be deleted') });
       await open(page);
       await blockPuts(page);
       await editor(page).tap();
@@ -283,7 +286,7 @@ describe('stage 4: conflicts keep both versions', () => {
   test("two devices create today's note: the second is not duplicated, its text is kept, and can be combined", () =>
     withPhone(browser, async ({ page, app }) => {
       await open(page); // phone shows an empty entry for today
-      await seedNote(app, { date: '2026-10-05', doc: paragraphDoc('created on the desktop first') });
+      await seedNote(app, { date: today(), doc: paragraphDoc('created on the desktop first') });
       await editor(page).tap();
       await type(page, 'phone also started today');
       await page.waitForSelector('[data-testid="conflict-panel"][data-reason="slot"]');
@@ -305,7 +308,7 @@ describe('stage 4: conflicts keep both versions', () => {
 describe('stage 4: backups and export through the UI', () => {
   test('back up now, download links, markdown/JSON export and a merge import work', () =>
     withPhone(browser, async ({ page, app }) => {
-      await seedNote(app, { date: '2026-10-05', doc: paragraphDoc('keep this safe') });
+      await seedNote(app, { date: today(), doc: paragraphDoc('keep this safe') });
       await page.goto(`${app.url}/#/data`);
       await page.waitForSelector('[data-testid="backup-now"]');
       assert.equal(await page.getByTestId('last-backup').textContent(), 'never');
