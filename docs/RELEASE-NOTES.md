@@ -1,6 +1,6 @@
 # Release notes
 
-## 0.5.1 — 2026-10-12 — Undo for a removed file and a deleted mood entry (not yet deployed)
+## 0.5.1 — 2026-10-12 — Undo for a removed file and a deleted mood entry (deployed to CasaOS)
 
 Version **0.5.1** (a small change: third number). Two deletes had no way back in the app; now they do.
 
@@ -14,7 +14,15 @@ Version **0.5.1** (a small change: third number). Two deletes had no way back in
 - **Tests:** server `attachments.test.js` (2 new), `moods.test.js` (1 new); browser `attachments.test.js` (the Files
   page now covers Undo and Bring back), `mood.test.js` (Undo), `undo-depth.test.js` (new).
 - **No schema change** (it uses the existing `deleted_at` columns); nothing about backups or rollback changes.
-- **Not yet deployed.**
+- **Deployed** on 2026-10-12 to `http://192.168.1.50:8082` with `scripts/deploy-casaos.ps1` (release `37bf398`,
+  140/140 unit tests), run by the owner from the home network (the first attempt was closed by the server while it
+  waited at the password prompt and changed nothing; the second went through); `/api/health` then reported `0.5.1`,
+  and the mood API and logo checks returned 200. Afterwards, on the live server: a removed test photo was brought
+  back through `POST /api/attachments/:id/restore`, served again, and removed once more; the mood restore route
+  answered. Verified pre-update backup: `hq-manual-20261013-054257.sqlite` (schema v6, 230 notes, 43 tags, 89
+  versions). Rollback image: `gordonite:rollback-before-37bf398`; because there is no schema change, going back to
+  0.5.0 only needs the image retag and recreate, not a database restore. Pushed to GitHub `main` after deployment.
+- **Browser test result at release:** 128 of 131 pass; the three failures are the known ones listed under 0.5.0.
 
 ## 0.5.0 — 2026-10-12 — Photos, PDFs and other files in notes (deployed to CasaOS)
 

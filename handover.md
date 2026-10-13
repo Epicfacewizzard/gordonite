@@ -16,12 +16,12 @@ Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current 
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.5.0** (`bf48e8b`: photos, PDFs and other files in notes; pushed 2026-10-12 after it was deployed) |
-| Version running on the server | **0.5.0** (`/api/health` reported `0.5.0` on 2026-10-12, after the owner ran the deploy script; schema v6) |
+| Version on `origin/main` | **0.5.1** (`37bf398`: undo for a removed file and a deleted mood entry; pushed 2026-10-12 after it was deployed) |
+| Version running on the server | **0.5.1** (`/api/health` reported `0.5.1` on 2026-10-12, after the owner ran the deploy script; schema v6) |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
 
-### 0.5.1 (built on branch `feature/restore-removed-files`; not merged, not deployed)
+### 0.5.1 (deployed 2026-10-12)
 
 Undo for the two deletes that had none: a file removed on the Files page (Undo link, or *Show removed files* →
 *Bring back*) and a deleted mood entry (15-second Undo). Both are soft deletes that already existed, so there is no
@@ -155,7 +155,16 @@ app because it could not hold files before 0.5.0: in `00 Inbox` a PDF, a ZIP, tw
 a DOCX and a PDF; in `20 CSS` an XLSX; in `30 Personal` a 23 MB WAV. The comparer was a throwaway script (it reuses
 `import-vault.js`'s id and tag rules). `scripts/import-vault.js --apply` is safe for the rest: merge mode adds what is
 missing and keeps a differing vault version as a version in History (kind `import`), and the server takes a
-pre-import backup first. Nothing was applied.
+pre-import backup first.
+
+**Then applied (same day).** `scripts/import-vault.js --apply` created 5 notes and kept the 4 differing vault versions
+in History (server backup `hq-preimport-20261013-053642.sqlite`); re-running the comparison showed **206 of 206
+identical** (only the 8 deliberately excluded files remain). The 9 non-Markdown files were uploaded and each put at the
+end of the note beside it in the vault (the Week 5 DOCX and PDF, `CSS Inventory.xlsx`, the September FAT `.wav`, and
+the two `.srt`), with the three loose Inbox files in a new note, **Inbox files from the vault** (tag `00-inbox`);
+each edited note kept its earlier text as a version, and all 9 were checked to open at the stored size. The vault was
+not modified. Trimming the OneDrive vault down to `00 Inbox` is now possible without losing anything that is only
+there (the two `.srt` and the loose files are in the app; the originals are still in the vault).
 
 The OneDrive vault copy is old (its own "MOVED" note says the live vault is `C:\Users\Epicf\Vault`, which is not on
 this PC); its `00 Inbox` is still used as the agents' drop folder.
