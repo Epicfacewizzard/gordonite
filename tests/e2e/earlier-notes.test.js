@@ -200,6 +200,20 @@ describe("Dashboard: the last few days under today's note", () => {
       assert.ok(open_ > closed, `opens in full for editing (${Math.round(open_)}px)`);
     }));
 
+  test("task history is not shown on the dashboard, only on a note's own page", () =>
+    withPhone(browser, async ({ page, app }) => {
+      const done = (text) => ({ type: 'taskList', content: [{ type: 'taskItem', attrs: { id: uuid(), checked: true, completedAt: new Date().toISOString() }, content: [paragraph(text)] }] });
+      await seed(app, { blocks: [done('done today')], date: today() });
+      const earlier = await seed(app, { blocks: [done('done yesterday')], date: daysAgo(1) });
+      await open(page, app);
+      await page.getByTestId('prev-note').first().waitFor();
+      assert.equal(await page.getByTestId('task-archive').count(), 0, 'no task history under today’s note or the earlier days');
+
+      await page.goto(`${app.url}/#/n/${earlier}`);
+      await page.getByTestId('task-archive').waitFor();
+      assert.equal(await page.getByTestId('task-archive').count(), 1, "the note's own page still has it");
+    }));
+
   test("today's own note is not repeated under itself, and nothing shows when there is no earlier day", () =>
     withPhone(browser, async ({ page, app }) => {
       await seed(app, { text: 'written today', date: today() });

@@ -23,6 +23,7 @@ async function seed(app) {
     ] }] },
   });
   assert.equal(r.status, 200);
+  return id;
 }
 const texts = (page, section) => page.getByTestId(`section-${section}`).locator('.task-text').allInnerTexts().then((t) => t.map((x) => x.trim()));
 
@@ -68,8 +69,8 @@ test('Settings sets how far back they start; Everything starts with no limit', (
 
 test('a note\'s own task history starts with the same length', () =>
   withPhone(browser, async ({ page, app }) => {
-    await seed(app);
-    await page.goto(`${app.url}/#/t/school`);
+    const id = await seed(app);
+    await page.goto(`${app.url}/#/n/${id}`);
     const archive = page.getByTestId('task-archive').first();
     await archive.waitFor();
     await archive.locator('summary').tap();
@@ -78,7 +79,7 @@ test('a note\'s own task history starts with the same length', () =>
     assert.doesNotMatch(body, /done last month/, 'older than the default week');
     await page.goto(`${app.url}/#/settings`);
     await page.getByTestId('done-days').selectOption('0');
-    await page.goto(`${app.url}/#/t/school`);
+    await page.goto(`${app.url}/#/n/${id}`);
     const again = page.getByTestId('task-archive').first();
     await again.waitFor();
     await again.locator('summary').tap();

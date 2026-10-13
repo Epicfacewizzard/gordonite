@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.4.4 — 2026-10-12 — Task history only on a note's own page (not yet deployed)
+
+Version **0.4.4** (a small fix: third number). **Task history** no longer shows under notes on the dashboard (today's note and the earlier days beneath it) or in tag streams; it appears only on a note's own page (`#/n/<id>`), where it always was meant to live. Nothing is removed: tasks, history dates and Bring back are unchanged, and every note's history is still one tap away by opening the note.
+
+- **Where:** `client/src/views/Stream.jsx` (`NoteCard` renders `TaskArchive` only when `standalone`). No server change beyond the version number.
+- **Tests:** `tests/e2e/tasks.test.js` and `tests/e2e/done-range.test.js` now open task history from the note's own page, and `tasks.test.js` asserts it is absent in a stream.
+- **Not yet deployed.** Deploy with `scripts/deploy-casaos.ps1` from the home network; `/api/health` should then report `0.4.4`.
+
 ## 0.4.3 — 2026-10-12 — The last few days under today's note, editable in place; tag choices beside the heading (deployed to CasaOS)
 
 Version **0.4.3** (a small change: third number). On the **dashboard**, under today's note, the last **two** days' entries of the same tag now show, **greyed out**, each headed by its date (no "Earlier" label). **Tap one and it opens for editing right there**, with the cursor where you tapped, and anything you type is saved to that day, not into a new note. Only one note is open for editing at a time (today's, or the one you tapped); the others stay greyed and light. Tapping today's note makes it the open one again. **Show older notes** adds three more each time and fetches older pages when it runs out. Days with nothing written are skipped, only the tag's **daily** entries are listed (not free-standing notes), and a long entry is cut off with a fade until it is opened. The tag choices (the current tag and starred tags) moved from under the note to **beside the "Today’s note" heading**.
