@@ -1456,3 +1456,13 @@ body:not([data-editing]) .today .toolbar {
 .dash-region > .today-nav { flex: 0 0 auto; }
 .dash-region > [data-testid="widget-pinned"] { flex: 1 1 10rem; margin-bottom: 8px; }
 .dash-region > [data-testid="widget-pinned"] .chips { margin: 0; }
+
+/* Today's note: its heading with the tag choices beside it, then the earlier days under it (greyed until tapped) */
+.widget-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 8px; }
+.widget-head .section { margin: 0; }
+.widget-head .today-source { margin: 0; min-width: 0; }
+.earlier { margin-top: 14px; }
+.earlier-item { opacity: 0.6; transition: opacity 0.12s; }
+.earlier-item:hover, .earlier-item:focus-within, .earlier-item.is-active { opacity: 1; }
+.earlier-item:not(.is-active) .note-text.static { max-height: 9.5rem; overflow: hidden; }
+.earlier-item.clamped:not(.is-active) .note-text.static { -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }

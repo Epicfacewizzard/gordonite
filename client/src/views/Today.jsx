@@ -7,6 +7,7 @@ import { EditorBar } from './EditorBar.jsx';
 import { TasksView } from './Tasks.jsx';
 import { getDashboard, getDashboardTasks } from '../prefs.js';
 import { MoodWidget } from './Mood.jsx';
+import { EarlierNotes } from './EarlierNotes.jsx';
 
 // The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
 // context (today's date, config, tags, the chosen daily tag) and draws its own part. To add one, write the
@@ -54,12 +55,17 @@ function TasksWidget({ config }) {
 }
 
 // Today's entry of the chosen daily tag, ready to write in (created on the first keystroke, like in a stream).
-// Under it, the tag it comes from can be changed in one tap: the current tag and every starred tag are offered.
+// Beside its heading, the tag it comes from can be changed in one tap: the current tag and every starred tag are
+// offered. Under it, the last couple of days' entries of that tag (EarlierNotes), greyed until tapped: a tap opens that
+// day for editing right there, and only one note is ever open for editing. A button brings in older days.
 function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTag }) {
   useSession();
   const [pickError, setPickError] = useState('');
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
+  const [earlier, setEarlier] = useState(null); // this tag's first page of notes, for the earlier days under today's
   const [editor, setEditor] = useState(null);
+  const [activeId, setActiveId] = useState(null); // the note being edited; null means today's
+  const [focusRequest, setFocusRequest] = useState(null);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
@@ -75,6 +81,7 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
         const existing = res.notes.find((n) => n.date === today && n.kind === 'daily');
         // A tag with its daily entry switched off has nothing to write in here.
         const session = existing ? sync.get(existing.id) : res.tag.daily ? sync.draft(dailyTag, today) : null;
+        setEarlier({ notes: res.notes, hasMore: res.hasMore });
         setState({ status: session ? 'ready' : 'off', id: session?.id ?? null, error: null });
       } catch (err) {
         if (!cancelled) setState({ status: 'error', id: null, error: err.message });
@@ -86,6 +93,13 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
   }, [dailyTag, today, nonce]);
 
   const session = state.id ? sync.get(state.id) : null;
+  const editingId = activeId ?? session?.id ?? null;
+  const editing = editingId ? sync.get(editingId) : null; // today's note, or an earlier day the person tapped
+  const activate = (id, req) => {
+    setActiveId(id);
+    setFocusRequest(req ? { ...req, n: Date.now() } : null);
+  };
+  const changed = () => setNonce((n) => n + 1);
   // The current tag, every starred tag, and any tag used since this page was opened (so there is always a way back).
   // Alphabetical, so the choices do not jump around when one is picked. A tag whose daily entry is switched off has
   // nothing to write in, so it is left out (unless it is the current one, which always shows).
@@ -103,7 +117,27 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
 
   return (
     <section class="widget" data-testid="widget-note">
-      <h2 class="section">Today’s note</h2>
+      <div class="widget-head">
+        <h2 class="section">Today’s note</h2>
+        {dailyTag && (
+          <div class="today-source small" data-testid="daily-tag-from">
+            <ul class="chips today-source-chips" role="radiogroup" aria-label="Which tag today’s note comes from">
+              {choices.map((path) => (
+                <li key={path} class="chip">
+                  <button type="button" role="radio" aria-checked={path === dailyTag} data-testid="daily-tag-choice" data-tag={path} onClick={() => pick(path)}>
+                    {path}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      {pickError && (
+        <p class="error small" role="alert">
+          {pickError}
+        </p>
+      )}
       {state.status === 'error' && (
         <div class="banner error" role="alert" data-testid="load-error">
           <span>Can’t reach the server: {state.error}. Text already typed on this phone is safe.</span>
@@ -114,29 +148,41 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
       )}
       {state.status === 'off' && (
         <p class="muted" data-testid="note-off">
-          “{dailyTag}” has no entry for today (its daily entry is switched off). Pick another tag below.
+          “{dailyTag}” has no entry for today (its daily entry is switched off). Pick another tag above.
         </p>
       )}
       {session && !session.discarded && (
-        <>
-          <NoteCard session={session} tag={dailyTag} today={today} tz={config.tz} active onChanged={() => setNonce((n) => n + 1)} onEditor={setEditor} />
-          <div class="toolbar-spacer" />
-          <EditorBar editor={editor} noteDate={session.date} today={today} />
-        </>
+        <NoteCard
+          session={session}
+          tag={dailyTag}
+          today={today}
+          tz={config.tz}
+          active={editingId === session.id}
+          onActivate={activate}
+          onChanged={changed}
+          onEditor={editingId === session.id ? setEditor : undefined}
+          focusRequest={editingId === session.id ? focusRequest : null}
+        />
       )}
-      {dailyTag && (
-        <div class="today-source small" data-testid="daily-tag-from">
-          <ul class="chips today-source-chips" role="radiogroup" aria-label="Which tag today’s note comes from">
-            {choices.map((path) => (
-              <li key={path} class="chip">
-                <button type="button" role="radio" aria-checked={path === dailyTag} data-testid="daily-tag-choice" data-tag={path} onClick={() => pick(path)}>
-                  {path}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {pickError && <span class="error" role="alert">{pickError}</span>}
-        </div>
+      {earlier && state.status !== 'error' && (
+        <EarlierNotes
+          tag={dailyTag}
+          today={today}
+          tz={config.tz}
+          initial={earlier}
+          activeId={activeId}
+          focusRequest={focusRequest}
+          onActivate={activate}
+          onEditor={setEditor}
+          onChanged={changed}
+        />
+      )}
+      {/* the room kept for the fixed editor bar goes last, so it does not leave a gap above the earlier days */}
+      {editing && !editing.discarded && (
+        <>
+          <div class="toolbar-spacer" />
+          <EditorBar editor={editor} noteDate={editing.date} today={today} />
+        </>
       )}
     </section>
   );
