@@ -211,6 +211,7 @@ On CasaOS, build the image once over SSH (`docker build -t personal-hq:0.1.0 .`)
   database (it never changes once written, so a plain copy or rsync is enough), or download Data → All files
   (zip). `node server/cli.js check-files [--hashes]` verifies every stored file. Details in
   [docs/ATTACHMENTS.md](docs/ATTACHMENTS.md#backups).
+* `node server/cli.js check-docs` lists stored notes (and saved versions) that break the document rules. Read-only.
 
 ## How saving works (the short version)
 

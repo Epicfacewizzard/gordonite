@@ -1,6 +1,60 @@
 # Release notes
 
-## Unreleased — inbox listing skips its README; three old failing browser tests repaired (nothing to deploy)
+## 0.5.2 — 2026-10-13 — Queued moods are kept until the server confirms them; a note with bold across a line break saves (built and tested, not yet deployed)
+
+Version **0.5.2** (a fix release). It is the first batch of [ARCHITECTURE-IMPROVEMENT-PLAN.md](ARCHITECTURE-IMPROVEMENT-PLAN.md):
+stage 1 (queued work and a testable save engine) and stage 2 (the document contract). No new screens, no schema change.
+
+**Fixed**
+
+- **A mood entry waiting on the phone was thrown away by any server error.** A temporary 503, or a login that had run
+  out, deleted the entry and still counted it as sent. An entry now leaves the queue only when the server acknowledges
+  it or you discard it. If the server refuses an entry for good (a time in the future because the phone's clock is
+  wrong, say) it stays visible on the Mood box with **Try again** and **Discard**, and the entries after it are still
+  sent. A login that ran out says so ("Log in to send this") and the entries wait. If the device cannot store the
+  entry at all, the box says to keep the page open until it is sent, instead of claiming it is safe.
+- **Two open tabs could overwrite each other's waiting mood entries**; the queue now reads the stored list before every
+  change.
+- **Bold or italic applied across a line break (Shift+Enter) made the note impossible to save.** The editor puts the
+  mark on the line break as well as on the text, and the server's rules refused marks on anything but text; the dot
+  went to "failed" and kept retrying. The text was never lost (it stayed on the phone) but it never reached the server.
+  Marks are now accepted on line breaks. Found by the new generated tests, then reproduced in the browser.
+- **`***both***` in Markdown** was read as `*both*` in bold. The exporter writes bold-and-italic that way, so a
+  note read back through the assistant lost its formatting; it is now read as bold and italic.
+
+**Added**
+
+- **The nesting rules of a document are now part of the contract** (`shared/doc.js`): which nodes may sit inside which
+  (see [ARCHITECTURE.md](ARCHITECTURE.md), "Document contract"). The server used to check only that each node was a
+  known kind, so it accepted a paragraph inside a paragraph, which the editor cannot hold. It now refuses such a
+  document with a plain message ("paragraph cannot go inside paragraph").
+- **`node server/cli.js check-docs`** lists every stored note or saved version that breaks the rules. It is read-only.
+- **Older notes are never made unsaveable.** A save that is wrong only in how it is nested is accepted when the note is
+  already stored that way, and an import keeps such a document exactly as it was and lists it in its report
+  (`nestingProblems`) instead of refusing the whole restore.
+
+**Internal**
+
+- The save engine (`client/src/sync.js`) takes its API, local store, timers, clock, id source and page-lifecycle hooks
+  as inputs, with the page's own as the defaults, so its protocol is tested without a browser:
+  `tests/client/sync-save.test.js` (15 tests: a 503 then success with back-off, a lost reply, an expired login, a
+  refused document, a failed local write, reload with unsent text, newer typing during a request, detach during capture,
+  and the three ways to resolve a conflict). Mood queue: `tests/client/moods.test.js` (15 tests).
+- Request failures are classified in one place (`client/src/failure.js`): network, login, retry, conflict or rejected.
+  Only input the server names as bad is "rejected"; an unknown 4xx is treated as temporary, so nothing is discarded
+  because an old server or a proxy said something unexpected.
+- **Document tests:** `tests/client/doc-contract.test.js` generates documents from the editor's own schema, mutates
+  them, runs real editing commands on them (500, 1500, 1500 and 250 sequences) and checks that the validator and the
+  editor agree both ways; `tests/server/doc-contract.test.js` saves, exports, imports, renders and reads back one
+  document per supported structure (`tests/fixtures/docs.js`); `tests/e2e/doc-contract.test.js` is the Shift+Enter
+  case in a browser.
+
+**Rollback**: there is no schema change, so going back to 0.5.1 only needs the image retag and recreate.
+
+**Before you deploy**: nothing is required. If you want to know whether any note predates the nesting rules, run
+`node server/cli.js check-docs` on the server afterwards (it changes nothing). Such notes keep working either way.
+
+## Before 0.5.2 — inbox listing skips its README; three old failing browser tests repaired (no deployment of their own)
 
 - **Bridge:** `list_inbox` no longer lists the inbox folder's own `README.md` (its instructions are not an item to
   process). Covered by `tests/server/mcp-files.test.js`. This is the local bridge (`mcp/server.js`), not the server, so

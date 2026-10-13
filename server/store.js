@@ -2,7 +2,7 @@ import { tx } from './db.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag, MAX_DEPTH } from '../shared/tags.js';
 import { dateInTz, isValidDateString, isValidTime, timeInTz, hasStarted, isOverdue, isValidTimeZone } from '../shared/dates.js';
-import { DOC_FORMAT, attachmentsIn, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
+import { DOC_FORMAT, attachmentsIn, hasOnlyStructureProblems, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
 import { extractTasks, updateTask } from '../shared/tasks.js';
 import { markdownToDoc } from '../shared/markdown-import.js';
 import { docToMarkdown } from './markdown.js';
@@ -645,7 +645,10 @@ export class Store {
     // Format 1 is still accepted (a tab opened before an upgrade): a format-1 document is a valid format-2 one.
     if (body.docFormat !== DOC_FORMAT && body.docFormat !== 1) throw new HttpError(400, 'bad_format', `docFormat must be ${DOC_FORMAT}`);
     const docErr = validateDoc(body.doc, body.docFormat);
-    if (docErr) throw new HttpError(400, 'bad_doc', docErr);
+    // A document that is wrong only in how it is nested may still be saved over a note that was already stored that
+    // way: such a note stays editable until it is repaired on purpose (node server/cli.js check-docs lists them).
+    // Everything else, and any new nesting problem, is refused.
+    if (docErr && !hasOnlyStructureProblems(body.doc, body.docFormat)) throw new HttpError(400, 'bad_doc', docErr);
     const baseRevision = Number.isInteger(body.baseRevision) ? body.baseRevision : 0;
     const opId = typeof body.opId === 'string' ? body.opId.slice(0, 64) : null;
     const afterOps = Array.isArray(body.afterOps) ? body.afterOps.filter((x) => typeof x === 'string').slice(-50) : [];
@@ -657,6 +660,7 @@ export class Store {
     return tx(this.db, () => {
       const note = this.db.prepare('SELECT * FROM notes WHERE id = ?').get(id);
 
+      if (docErr && !(note && hasOnlyStructureProblems(JSON.parse(note.doc), note.doc_format))) throw new HttpError(400, 'bad_doc', docErr);
       if (!note) return this.#createNote(id, body, docStr, opId, title ?? null);
 
       if (note.deleted_at) {

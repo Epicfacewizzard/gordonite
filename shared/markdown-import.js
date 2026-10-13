@@ -9,29 +9,36 @@ import { FILE_REF_LINE } from './attachments.js';
 
 const text = (t, marks = []) => ({ type: 'text', text: t, ...(marks.length ? { marks: marks.map((type) => ({ type })) } : {}) });
 
+// The editor keeps a text run's marks in this order; so does the importer, whichever way the Markdown nests them.
+const MARK_ORDER = ['bold', 'italic'];
+
 // Inline markup -> text nodes with bold/italic marks.
 export function inlineToNodes(src) {
   const out = [];
   const push = (t, marks) => {
     if (!t) return;
+    marks = MARK_ORDER.filter((m) => marks.includes(m));
     const last = out[out.length - 1];
     const same = last && JSON.stringify(last.marks ?? []) === JSON.stringify(marks.map((type) => ({ type })).filter(() => marks.length));
     if (last && (marks.length ? same : !last.marks)) last.text += t;
     else out.push(text(t, marks));
   };
   const walk = (s, marks) => {
-    // escapes | bold | italic (underscores only at word edges, so snake_case is left alone) | `code` | [text](url) / ![alt](url)
-    const re = /\\([\\`*_{}[\]()#+\-.!>|~])|(\*\*|__)(?=\S)([\s\S]*?\S)\2|(?<![\w*])\*(?=[^\s*])([\s\S]*?[^\s*])\*(?!\*)|(?<![\w])_(?=\S)([\s\S]*?\S)_(?![\w])|`([^`]+)`|!?\[([^\]]*)\]\(([^)]*)\)/g;
+    // escapes | bold and italic together (***x***) | bold | italic (underscores only at word edges, so snake_case is
+    // left alone) | `code` | [text](url) / ![alt](url)
+    const re = /\\([\\`*_{}[\]()#+\-.!>|~])|(\*\*\*|___)(?=[^\s*_])([\s\S]*?[^\s*_])\2|(\*\*|__)(?=\S)([\s\S]*?\S)\4|(?<![\w*])\*(?=[^\s*])([\s\S]*?[^\s*])\*(?!\*)|(?<![\w])_(?=\S)([\s\S]*?\S)_(?![\w])|`([^`]+)`|!?\[([^\]]*)\]\(([^)]*)\)/g;
+    const add = (list, ...types) => [...list, ...types.filter((t) => !list.includes(t))];
     let last = 0;
     for (const m of s.matchAll(re)) {
       push(s.slice(last, m.index), marks);
       last = m.index + m[0].length;
       if (m[1] !== undefined) push(m[1], marks);
-      else if (m[3] !== undefined) walk(m[3], marks.includes('bold') ? marks : [...marks, 'bold']);
-      else if (m[4] !== undefined) walk(m[4], marks.includes('italic') ? marks : [...marks, 'italic']);
-      else if (m[5] !== undefined) walk(m[5], marks.includes('italic') ? marks : [...marks, 'italic']);
-      else if (m[6] !== undefined) push(m[6], marks);
-      else push(m[7] ?? '', marks); // a link keeps its words; an image keeps its alt text
+      else if (m[3] !== undefined) walk(m[3], add(marks, 'bold', 'italic'));
+      else if (m[5] !== undefined) walk(m[5], add(marks, 'bold'));
+      else if (m[6] !== undefined) walk(m[6], add(marks, 'italic'));
+      else if (m[7] !== undefined) walk(m[7], add(marks, 'italic'));
+      else if (m[8] !== undefined) push(m[8], marks);
+      else push(m[9] ?? '', marks); // a link keeps its words; an image keeps its alt text
     }
     push(s.slice(last), marks);
   };

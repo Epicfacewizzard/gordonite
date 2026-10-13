@@ -5,6 +5,7 @@
 //   node server/cli.js restore <backup.sqlite> --yes     (stop the app first)
 //   node server/cli.js token                             (a new random key for ASSISTANT_TOKEN)
 //   node server/cli.js check-files [--hashes]            (every attached file is present and undamaged)
+//   node server/cli.js check-docs                        (stored notes that break the document rules; read-only)
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import { loadConfig } from './config.js';
 import { openDb } from './db.js';
 import { createBackup, verifyDatabaseFile } from './backup.js';
 import { FileStore } from './files.js';
+import { checkDocs } from './doc-check.js';
 
 const [, , cmd, arg, ...flags] = process.argv;
 const config = loadConfig();
@@ -24,6 +26,8 @@ function usage() {
                                                    (it is not stored anywhere; put it in the app's settings)
   node server/cli.js check-files [--hashes]        Check that every attached file is present (--hashes also
                                                    re-reads each one and checks its content)
+  node server/cli.js check-docs                    List notes (and saved versions) whose documents break the
+                                                   document rules. Read-only: it changes nothing
   node server/cli.js verify <file.sqlite>          Check a backup file
   node server/cli.js restore <file.sqlite> --yes   Replace the live database with a backup
                                                    (STOP THE APP FIRST; the current database is saved
@@ -61,6 +65,22 @@ switch (cmd) {
     for (const p of r.problems) console.error(`  ${p.name} (${p.id}): ${p.problem}`);
     console.log(r.ok ? `OK: ${r.checked} stored file(s) present in ${config.filesDir}` : `NOT OK: ${r.problems.length} problem(s) among ${r.checked} stored file(s)`);
     process.exit(r.ok ? 0 : 1);
+    break;
+  }
+  case 'check-docs': {
+    const db = openDb(config.dbFile);
+    const r = checkDocs(db);
+    db.close();
+    for (const p of r.problems) {
+      const where = p.kind === 'version' ? `a saved version (revision ${p.revision}) of note ${p.noteId}` : `note ${p.id}`;
+      console.error(`  ${where}${p.date ? ` from ${p.date}` : ''}${p.title ? ` "${p.title}"` : ''}${p.trashed ? ' (in the trash)' : ''}: ${p.error}`);
+    }
+    console.log(
+      r.problems.length
+        ? `${r.problems.length} document(s) break the document rules, among ${r.notes} notes and ${r.versions} saved versions. Nothing was changed; they keep their text and stay editable.`
+        : `OK: all ${r.notes} notes and ${r.versions} saved versions follow the document rules.`,
+    );
+    process.exit(r.problems.length ? 1 : 0);
     break;
   }
   case 'verify': {

@@ -49,6 +49,19 @@ attachments(id, sha256, name, mime, size, kind, original_sha256/name/mime/size, 
   superset of format 1 (nothing is rewritten on upgrade). The server accepts both numbers on save; a document that
   says it is format 1 may not contain attachments, and an editor still on format 1 cannot save over a note that has
   them (`409 client_outdated`) because it would drop them without knowing.
+* **Document contract** (`shared/doc.js`, no browser code): besides which nodes exist, it says which may sit inside
+  which: a document is one or more blocks; a paragraph or heading holds text and line breaks; a bullet list holds list
+  items and a task list holds tasks; a list item or task is a paragraph followed by any blocks (that is how lists nest
+  and where a file can sit inside one); a file holds nothing. Marks (bold, italic) sit on text and on line breaks, once
+  each. The editor's schema (`client/src/editor/extensions.js`) is the other statement of the same rules;
+  `tests/client/doc-contract.test.js` generates documents, mutates them, runs editing commands on them and checks the
+  two agree, so a rule is only ever changed in both places. `tests/fixtures/docs.js` has one document per supported
+  structure; the server tests save, export, import, render and read each one back.
+  *Older notes*: the nesting rules were added after notes already existed. A save that is wrong only in how it is
+  nested is accepted when the note is already stored that way (so such a note is never stuck unsaveable), and an import
+  never refuses a document for nesting; it keeps it exactly as it was and lists it in the report
+  (`nestingProblems`). `node server/cli.js check-docs` lists every stored note or saved version that breaks the rules.
+  It is read-only; nothing is rewritten without someone choosing to.
 * **WAL + `synchronous=FULL`**: a committed save survives a power cut. Foreign keys on; a busy timeout set.
 
 ## Moving tags

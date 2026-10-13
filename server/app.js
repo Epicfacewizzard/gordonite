@@ -13,7 +13,7 @@ import { createAuth } from './auth.js';
 import { DOC_FORMAT } from '../shared/doc.js';
 import { dateInTz, addDays } from '../shared/dates.js';
 
-export const APP_VERSION = '0.5.1';
+export const APP_VERSION = '0.5.2';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

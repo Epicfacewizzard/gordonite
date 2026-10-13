@@ -51,6 +51,15 @@ selection, composition, paste and undo is the engine's. The editor-related code 
    `updateTaskById` (one ordinary undoable transaction). The same buttons are drawn by `render.js` for read-only notes,
    where the change goes through the save session instead.
 
+## The document contract
+
+What the editor can hold and what the server accepts are the same set; `tests/client/doc-contract.test.js` keeps them
+so. A document is blocks (paragraph, heading, bullet list, task list, file); a paragraph or heading holds text and line
+breaks; a list item or task starts with a paragraph and may then hold any blocks. Bold and italic sit on text **and on
+line breaks**: Shift+Enter inside bold text puts the mark on the break too, and the server accepts it (it used to refuse
+such a note, which then never saved). When the editor gains a node or changes a nesting rule, change `contentRule` in
+`shared/doc.js` in the same commit; the generated tests fail until both agree.
+
 ## Behaviour pinned by tests
 
 These are the engine's behaviours, asserted in `tests/e2e/editing.test.js` and `tasks.test.js` so an upgrade

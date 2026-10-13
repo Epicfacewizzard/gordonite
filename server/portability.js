@@ -173,8 +173,11 @@ export function exportMarkdownZip(store, db, fileStore = null) {
 
 // ---------- import ----------
 
+// Returns { nestingProblems }: documents that are fine except for how their nodes are nested. They are imported as
+// they are, never rewritten and never a reason to refuse a restore; the report lists them (see check-docs).
 function validateExport(data) {
   const bad = (m) => new HttpError(400, 'bad_import', `Not a valid Personal HQ export: ${m}`);
+  const nestingProblems = [];
   if (!data || data.format !== EXPORT_FORMAT) throw bad('missing format marker');
   if (data.formatVersion !== EXPORT_FORMAT_VERSION) throw bad(`unsupported formatVersion ${data.formatVersion}`);
   if (!Array.isArray(data.tags) || !Array.isArray(data.notes)) throw bad('tags and notes must be arrays');
@@ -204,8 +207,10 @@ function validateExport(data) {
     noteIds.add(n.id);
     if (!isValidDateString(n.date)) throw bad(`note ${n.id}: bad date`);
     for (const d of [n.doc, ...(n.versions ?? []).map((v) => v.doc)]) {
-      const err = validateDoc(d);
+      const err = validateDoc(d, DOC_FORMAT, { structure: false });
       if (err) throw bad(`note ${n.id}: ${err}`);
+      const nesting = validateDoc(d);
+      if (nesting) nestingProblems.push({ note: n.id, problem: nesting });
     }
     if (n.kind !== undefined && n.kind !== 'daily' && n.kind !== 'note') throw bad(`note ${n.id}: unknown kind "${n.kind}"`);
     const free = n.kind === 'note'; // free notes may be untagged and may share a day with other notes
@@ -219,13 +224,14 @@ function validateExport(data) {
       }
     }
   }
+  return { nestingProblems };
 }
 
 const docOf = (n) => JSON.stringify(n.docFormat === DOC_FORMAT ? n.doc : migrateDoc(n.doc, n.docFormat));
 
 export function importAll(db, cfg, data, mode) {
   if (mode !== 'merge' && mode !== 'replace') throw new HttpError(400, 'bad_mode', 'mode must be "merge" or "replace"');
-  validateExport(data);
+  const { nestingProblems } = validateExport(data);
 
   // Always snapshot the current database first, so even "replace" can be undone.
   const preImportBackup = createBackup(db, cfg, 'preimport').file;
@@ -399,5 +405,6 @@ export function importAll(db, cfg, data, mode) {
   });
   const savedTz = db.prepare("SELECT value FROM meta WHERE key = 'home_tz'").get()?.value;
   if (savedTz && isValidTimeZone(savedTz)) cfg.tz = savedTz;
+  if (nestingProblems.length) report.nestingProblems = nestingProblems.slice(0, 50); // only present when there are some
   return report;
 }

@@ -8,6 +8,10 @@
 //   1  paragraphs, headings, bullet lists, tasks.
 //   2  adds the `attachment` block (a file, image or PDF stored on the server; see docs/ATTACHMENTS.md).
 //      Format 2 is a strict superset: every format-1 document is already a valid format-2 document.
+//
+// Which nodes may sit inside which is part of the contract too (see contentRule below). The editor's own schema
+// (client/src/editor/extensions.js) states the same rules; tests/client/doc-contract.test.js generates documents and
+// checks that the two agree, so a node or a nesting rule is only ever changed in both places.
 import { isValidDateString, isValidTime } from './dates.js';
 import { isPlausibleMime } from './attachments.js';
 
@@ -30,6 +34,38 @@ const NODE_TYPES = new Set([
 ]);
 const ATTACHMENT_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const MARK_TYPES = new Set(['bold', 'italic']);
+// Text and line breaks are the inline nodes: they sit inside a paragraph or heading and are the only nodes that carry marks.
+const INLINE = ['text', 'hardBreak'];
+
+// What may sit inside what.
+//
+//   doc         one or more blocks
+//   paragraph   text and line breaks          heading     text and line breaks (level 1 to 3)
+//   bulletList  one or more listItem          taskList    one or more taskItem
+//   listItem    a paragraph, then any blocks (this is how lists nest)        taskItem   the same
+//   attachment  nothing inside it (format 2)  text, hardBreak   nothing inside
+//
+// `first` is the type the first child must have; `min` the fewest children.
+const BLOCKS_1 = ['paragraph', 'heading', 'bulletList', 'taskList'];
+const blocksFor = (format) => (format >= 2 ? [...BLOCKS_1, 'attachment'] : BLOCKS_1);
+function contentRule(type, format) {
+  switch (type) {
+    case 'doc':
+      return { allow: blocksFor(format), min: 1 };
+    case 'paragraph':
+    case 'heading':
+      return { allow: INLINE };
+    case 'bulletList':
+      return { allow: ['listItem'], min: 1 };
+    case 'taskList':
+      return { allow: ['taskItem'], min: 1 };
+    case 'listItem':
+    case 'taskItem':
+      return { allow: blocksFor(format), first: 'paragraph' };
+    default:
+      return { allow: [] }; // text, hardBreak, attachment
+  }
+}
 const MAX_DEPTH = 20;
 const MAX_NODES = 200_000;
 
@@ -46,21 +82,26 @@ export function migrateDoc(doc, fromFormat) {
 
 // Returns null when valid, otherwise a short error string. `format` is the format the sender says the
 // document is in; a document that claims format 1 may not contain nodes added later.
-export function validateDoc(doc, format = DOC_FORMAT) {
+//
+// With { structure: false } the nesting rules are not applied (everything else is). That is only for looking at
+// documents stored before the nesting rules existed; see hasOnlyStructureProblems.
+export function validateDoc(doc, format = DOC_FORMAT, { structure = true } = {}) {
   if (!doc || typeof doc !== 'object' || doc.type !== 'doc') return 'document root must be {type:"doc"}';
   let count = 0;
-  const walk = (node, depth) => {
+  const walk = (node, depth, parent, index) => {
     if (!node || typeof node !== 'object' || Array.isArray(node)) return 'node must be an object';
     if (depth > MAX_DEPTH) return 'document nested too deeply';
     if (++count > MAX_NODES) return 'document too large';
     if (!NODE_TYPES.has(node.type)) return `unsupported node type "${node.type}"`;
-    if (node.type === 'text') {
-      if (typeof node.text !== 'string' || node.text.length === 0) return 'text node needs non-empty text';
-      for (const m of node.marks ?? []) {
+    if (node.type === 'text' && (typeof node.text !== 'string' || node.text.length === 0)) return 'text node needs non-empty text';
+    if (node.marks !== undefined) {
+      // Marks sit on inline nodes. A line break inside bold text carries the bold mark, exactly as the editor writes it.
+      if (!INLINE.includes(node.type)) return 'only text and line breaks may carry marks';
+      if (!Array.isArray(node.marks)) return 'marks must be a list';
+      for (const m of node.marks) {
         if (!m || !MARK_TYPES.has(m.type)) return `unsupported mark "${m?.type}"`;
       }
-    } else if (node.marks) {
-      return 'only text nodes may carry marks';
+      if (new Set(node.marks.map((m) => m.type)).size !== node.marks.length) return 'a mark can only be applied once to the same text';
     }
     if (node.type === 'attachment') {
       if (format < 2) return 'attachments need document format 2';
@@ -93,17 +134,33 @@ export function validateDoc(doc, format = DOC_FORMAT) {
       if (a.hideUntil != null && !isValidDateString(a.hideUntil)) return 'taskItem.hideUntil must be a YYYY-MM-DD date';
       if (a.priority != null && !['both', 'urgent', 'important'].includes(a.priority)) return 'taskItem.priority must be both, urgent or important';
     }
+    if (structure && parent) {
+      const rule = contentRule(parent.type, format);
+      if (index === 0 && rule.first && node.type !== rule.first) return `a ${parent.type} must start with a ${rule.first}`;
+      if (!rule.allow.includes(node.type)) return `${node.type} cannot go inside ${parent.type}`;
+    }
     if (node.content !== undefined) {
       if (!Array.isArray(node.content)) return 'content must be an array';
-      for (const child of node.content) {
-        const err = walk(child, depth + 1);
+      for (let i = 0; i < node.content.length; i++) {
+        const err = walk(node.content[i], depth + 1, node, i);
         if (err) return err;
       }
     }
+    if (structure) {
+      const rule = contentRule(node.type, format);
+      const children = node.content?.length ?? 0;
+      if (rule.first && children === 0) return `a ${node.type} must start with a ${rule.first}`;
+      if (rule.min && children < rule.min) return `a ${node.type} needs at least one ${node.type === 'doc' ? 'block' : rule.allow[0]}`;
+    }
     return null;
   };
-  return walk(doc, 0);
+  return walk(doc, 0, null, 0);
 }
+
+// A document that is acceptable except for how its nodes are nested. Notes stored before the nesting rules existed
+// may be like this; saving them again is allowed (so they stay editable) until someone repairs them on purpose.
+export const hasOnlyStructureProblems = (doc, format = DOC_FORMAT) =>
+  validateDoc(doc, format, { structure: false }) === null && validateDoc(doc, format) !== null;
 
 // Every attachment node in a document (its attrs), in order.
 export function attachmentsIn(doc) {
