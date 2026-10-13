@@ -1,6 +1,6 @@
 # Gordonite handover
 
-Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current handover; `docs/HANDOVER.md` is an older historical snapshot and contains superseded deployment and feature information. The exact per-release record is `docs/RELEASE-NOTES.md`.
+Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language summary of the whole OneDrive (what is where, how to get things back, open decisions) is the note `Gordonite - Handover 2026-10-13.md` in the OneDrive root, next to this repository's folder. This is the current handover; `docs/HANDOVER.md` is an older historical snapshot and contains superseded deployment and feature information. The exact per-release record is `docs/RELEASE-NOTES.md`.
 
 ## Read first
 
@@ -16,7 +16,7 @@ Updated **2026-10-12**, home timezone **America/Edmonton**. This is the current 
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.5.1** (`37bf398`: undo for a removed file and a deleted mood entry; pushed 2026-10-12 after it was deployed) |
+| Version on `origin/main` | **0.5.1**. The release deployed is `37bf398` (undo for a removed file and a deleted mood entry); `main` is later (`5bd42a2`) only by test, documentation and local-bridge changes, with no server code change |
 | Version running on the server | **0.5.1** (`/api/health` reported `0.5.1` on 2026-10-12, after the owner ran the deploy script; schema v6) |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
@@ -65,6 +65,7 @@ Files: `client/src/views/EarlierNotes.jsx` (new; reuses the stream's `NoteCard`)
 - People cards/search/group filters are views over ordinary notes tagged `05-people` and its children, not a separate contacts database.
 - `[[note links]]` resolve saved titles to stable note IDs; linked-note Back navigation works across chains.
 - Automatic saving, IndexedDB pending edits, reconnect retries, explicit conflict preservation, recent versions, trash, JSON/Markdown export, merge import, and verified SQLite backups with retention.
+- Photos, PDFs and other files in notes (paperclip, paste, drop), a Files page, iPhone HEIC converted to JPEG, files in the assistant bridge and an inbox-folder import (0.5.0, `docs/ATTACHMENTS.md`). Undo for a removed file and a deleted mood entry; every undo and recovery path is in `docs/UNDO.md` (0.5.1).
 - Authenticated local MCP bridge (see below).
 
 ## Server and local preview
@@ -83,7 +84,7 @@ The exact image tags and release folders change with every deployment; `docs/DEP
 
 Do not expose the app publicly. Access is trusted LAN, or WireGuard away from home. The computer must be on `192.168.1.x` or have its WireGuard tunnel up; on 2026-10-11 it was on a different subnet with the tunnel off and could not reach the server. (That was written up in an uncommitted status note in the owner's working folder, `docs/STATUS-CHECK-2026-10-11.md`; it is not in `main`.)
 
-Node **24+**, Preact, Tiptap/ProseMirror, Vite, SQLite via Node's built-in driver; no runtime server npm dependencies. Docker builds the client and runs one Node server.
+Node **24+**, Preact, Tiptap/ProseMirror, Vite, SQLite via Node's built-in driver; one small runtime server dependency, `heic-convert` (turns iPhone HEIC photos into JPEG; installed in the image with `npm ci --omit=dev`). Docker builds the client and runs one Node server.
 
 ```powershell
 npm ci
@@ -98,7 +99,7 @@ Production preview and browser tests serve `client/dist`; **build after client e
 
 `scripts/deploy-casaos.ps1` builds a clean `git archive` of the last commit, runs the unit tests, copies it to the server, builds the image there and recreates the container with the **existing** Compose configuration (assistant token, mount, port and user preserved). It needs the server password interactively (copy, login, sudo), so it must be run by the owner in a normal PowerShell window; an assistant cannot answer those prompts. `-DryRun` builds and verifies without touching the server; `-Inspect` is read-only.
 
-**Latest deployment: 0.4.3 on 2026-10-12**, run by the owner with the script above (the dry run had built release `856def5`, 2.8 MB, with 114/114 unit tests passing); `/api/health` then reported `0.4.3`. It was pushed to GitHub `main` afterwards, so the script's "HEAD is not the same as origin/main" note applied at deploy time and no longer does. The on-server image tags and release folder were not inspected.
+**Latest deployment: 0.5.1 on 2026-10-12** (release `37bf398`, 140/140 unit tests), run by the owner with the script above; `/api/health` then reported `0.5.1`. The first attempt was closed by the server while it waited at the password prompt (it drops the connection after about two minutes) and changed nothing; the second went through. Pre-update backup `hq-manual-20261013-054257.sqlite`; rollback image `gordonite:rollback-before-37bf398`. Earlier: 0.5.0 (`bf48e8b`) and 0.4.3 the same day. `main` was pushed after each deployment.
 
 Take a verified backup first (Settings → Data & backups → Back up now), and keep the old image tag for rollback. A plain container restart does not apply a new image; recreate with:
 
@@ -106,7 +107,7 @@ Take a verified backup first (Settings → Data & backups → Back up now), and 
 sudo docker compose -f /home/gordon/gordonite/deploy/gordonite-casaos.yml up -d --no-build --pull never --force-recreate gordonite
 ```
 
-Never run restore against the live database while the app is running. The database is at schema **v5** (upgraded from v4 in the 2026-10-07 deployment); rolling back the app image past that point needs the pre-upgrade database backup as well (see the release notes for that deployment).
+Never run restore against the live database while the app is running. The database is at schema **v6** (v5 to v6 in 0.5.0; v4 to v5 in the 2026-10-07 deployment). 0.5.1 to 0.5.0 needs only the image retag and recreate; going below 0.5.0 also needs the pre-update database backup, because an older app refuses a newer schema (see the release notes).
 
 **No off-server copy of the database exists yet.** Backups are verified but live on the same machine; copy `/DATA/AppData/gordonite/data/backups` elsewhere (`docs/BACKUPS.md`).
 
@@ -121,7 +122,6 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 
 ## Validation
 
-- `npm test`: **114/114** (server, API, persistence, interruption recovery, conflicts, backup/export/import/restore, MCP bridge and startup messages, client sync).
 - `npm test`: **140/140** on 0.5.1 (server, API, persistence, interruption recovery, conflicts, backup/export/import/restore, files, MCP bridge, client sync).
 - `npm run test:e2e` (real Chrome/Edge, 360×780 touch context; builds first): at 0.5.1 **128 of 131** passed, and the three failures were old and are **now repaired (2026-10-13; test changes only, none of them was a bug in the app)**:
   - `history-move.test.js` "desktop grip drag corrects the recorded day": it hard-coded 2026-10-04/05 and the history only shows the last 7 days by default, so it stopped finding the grip once the calendar moved on. It now pins the clock (as the first test in that file does).
@@ -135,10 +135,11 @@ Read root `mcp-bridge.md` for another assistant's setup and `docs/MCP.md` / `doc
 
 ## Repository and housekeeping
 
-- The OneDrive checkout (`C:\Users\Epicf\OneDrive - University of Calgary\Gordonite`) is on branch **`work-from-other-session`** (`6a5876b`), **behind `origin/main`**, with one uncommitted local change in `mcp/server.js` that predates the 0.4.3 work and was left alone. Its branch is not `main`; switch or re-clone before starting new work. Do not build new work on it: `git fetch` and start from `origin/main`.
-- 0.4.3 was built in a separate worktree under the session scratchpad (`...\scratchpad\gordonite-main`, a temp folder that may be cleaned up). The branch `feature/today-previous-days` lives in the main repository's `.git` and survives; run `git worktree prune` if the folder disappears.
+- The OneDrive checkout (`C:\Users\Epicf\OneDrive - University of Calgary\Gordonite`) is on `main` and is what the assistant bridge (Claude Desktop and Codex) runs `mcp/server.js` from. **Do not edit it in place**: make a worktree or branch from `origin/main`, test, push `main`, then fast-forward this clone. It has three untracked audit documents from earlier sessions (`docs/ARCHITECTURE-AUDIT-2026-10-12.md`, `docs/AUDIT-2026-10-12.md`, `docs/STATUS-CHECK-2026-10-11.md`); they make `deploy-casaos.ps1` refuse ("uncommitted changes"), so deploy from a clean worktree.
+- Local leftovers, all harmless: one git stash (an old, superseded draft of the bridge); the earlier session's temp folder `...\scratchpad\gordonite-main` under `AppData\Local\Temp\claude` (it was locked when removal was tried; `git worktree list` no longer shows it). The remote branches `work-from-other-session`, `feature/attachments` and `feature/restore-removed-files` are merged into `main` and can be deleted on GitHub.
+- Windows notes: paths over 260 characters fail normal deletes (use the `\\?\` form); `git worktree remove` can leave a stub in `.git\worktrees` that OneDrive refuses to delete until its attributes are cleared.
 - The repository is inside OneDrive. `git gc` packing loose objects makes OneDrive ask to confirm deleting hundreds of hex-named files (`.git/objects/..`); that is safe (**Delete all items**; the objects are in the pack and `git fsck` is clean). Moving the repository outside OneDrive (for example `C:\dev\Gordonite`) would stop this and keep `node_modules` out of the cloud.
-- A stray folder `C:\proc\nonexistent\x` (a test database and one backup) was created on the system drive by a mistaken probe on 2026-10-05. It holds nothing else and can be deleted by hand; the assistant tool refuses to remove that path.
+- The stray folder `C:\proc\nonexistent\x` mentioned in earlier versions of this note no longer exists.
 - The screenshots in the 2026-10-12 session used throwaway data on port 8083; it is not the live server.
 
 ## Obsidian import
@@ -205,7 +206,7 @@ uploads, with a rehearsal against a local server first.
 
 ## Next work (owner's requests; do not implement automatically from this document)
 
-1. Investigate the three failing browser tests above.
+1. Optional: look into the two occasional browser-test flakes listed under Validation; decide about the older `CSS Ticketing System` folder; check the camera and iPhone-photo upload on a real phone.
 2. Stable HTTPS; an off-server copy of the backups.
 3. Separate Personal, School and Club areas; projects connected to existing notes/tasks; stable People references and Waiting on state. Task text stays in its source document.
 4. More dashboard widgets (goals, calendar) need design before they are built.
