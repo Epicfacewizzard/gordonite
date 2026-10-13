@@ -17,7 +17,7 @@ Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language sum
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
 | Version on `origin/main` | **0.5.1** until the 0.6.0 work is pushed. The release deployed is `37bf398` (undo for a removed file and a deleted mood entry); `main` is later (`5bd42a2`) only by test, documentation and local-bridge changes |
-| Built, tested, **not yet deployed** | **0.6.0**, branch `feature/save-queue-and-doc-contract` (seven commits on top of `fa8053f`): see "0.6.0" below. No schema change |
+| Built, tested, **not yet deployed** | **0.6.0**, branch `feature/save-queue-and-doc-contract` (a short series of commits on top of `fa8053f`; `git log fa8053f..` lists them): see "0.6.0" below. No schema change |
 | Version running on the server | **0.5.1** (`/api/health` reported `0.5.1` on 2026-10-12, after the owner ran the deploy script; schema v6) |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.
