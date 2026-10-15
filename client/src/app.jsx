@@ -17,6 +17,8 @@ import { TrashView } from './views/Trash.jsx';
 import { FilesView } from './views/Files.jsx';
 import { DataView } from './views/Data.jsx';
 import { ShareView, WaitingShares } from './views/Share.jsx';
+import { connection } from './connection.js';
+import { warmCopy } from './warm.js';
 import { STATUS_TEXT } from './views/parts.jsx';
 
 const CONFIG_CACHE = 'hq-config';
@@ -33,12 +35,28 @@ function loadCachedConfig() {
 // The words live in the tooltip and the accessible label, not on screen.
 const TONE = { saved: 'ok', saving: 'wait', pending: 'wait', offline: 'wait', failed: 'bad', conflict: 'bad' };
 
+function useConnection() {
+  const [, setN] = useState(0);
+  useEffect(() => connection.subscribe(() => setN((n) => n + 1)), []);
+  return connection.reachable;
+}
+
 function GlobalStatus() {
   useSession();
+  const reachable = useConnection();
   const { status, count, storageError, localError } = sync.summary();
   const unsafe = !!(storageError || localError); // edits are not being held durably on the phone
   const tone = unsafe ? 'bad' : TONE[status];
   const label = `${STATUS_TEXT[status]}${count > 1 ? ` (${count})` : ''}${unsafe ? ' · not stored on this phone' : ''}`;
+  // Nothing waiting, but the server is out of reach: grey, so green only ever means "the server has it all".
+  if (status === 'saved' && !unsafe && reachable === false) {
+    const away = 'Can’t reach the server · nothing waiting on this phone';
+    return (
+      <button type="button" class="status-dot off as-button" data-testid="global-status" data-status="unreachable" aria-label={away} title={away} onClick={() => connection.check()}>
+        <span class="dot" aria-hidden="true" />
+      </button>
+    );
+  }
   if (status === 'saved' && !unsafe) {
     return (
       <span class={`status-dot ${tone}`} data-testid="global-status" data-status="saved" role="status" aria-label={label} title={label}>
@@ -59,6 +77,16 @@ function GlobalStatus() {
     <button type="button" class={`status-dot ${tone} as-button`} data-testid="global-status" data-status={status} aria-label={label} title={label} onClick={onClick}>
       <span class="dot" aria-hidden="true" />
     </button>
+  );
+}
+
+function OfflineBar() {
+  const reachable = useConnection();
+  if (reachable !== false) return null;
+  return (
+    <p class="offline-bar" role="status" data-testid="offline-bar">
+      Offline: showing what this phone kept. What you write is saved here and sent when the server is back.
+    </p>
   );
 }
 
@@ -196,9 +224,28 @@ export function App() {
   useEffect(() => {
     sync.init();
     loadConfig();
+    // Back in reach (a VPN turned on fires no browser event; connection.js notices): send what waits, refresh.
+    const reconnected = () => {
+      sync.retryAll();
+      loadConfig();
+      warmCopy();
+    };
     window.addEventListener('focus', loadConfig);
-    return () => window.removeEventListener('focus', loadConfig);
+    window.addEventListener('hq-reconnected', reconnected);
+    return () => {
+      window.removeEventListener('focus', loadConfig);
+      window.removeEventListener('hq-reconnected', reconnected);
+    };
   }, []);
+
+  // While the server is in reach, keep this phone's copy of the recent notes and tasks fresh (warm.js).
+  useEffect(() => {
+    if (gate !== 'open' || !config) return;
+    warmCopy();
+    const visible = () => document.visibilityState === 'visible' && warmCopy();
+    document.addEventListener('visibilitychange', visible);
+    return () => document.removeEventListener('visibilitychange', visible);
+  }, [gate, !!config]);
 
   let view;
   if (!config) {
@@ -253,6 +300,7 @@ export function App() {
     <>
       <Header route={route} />
       <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' ? ' wide' : ''}`}>
+        <OfflineBar />
         {route === '/' && <WaitingShares />}
         {view}
       </main>

@@ -15,7 +15,7 @@ deliberately not built.
 | **Runs on** | Node 24 (built-in SQLite, no native modules, no runtime npm dependencies on the server) |
 | **Client** | Preact + [Tiptap](https://tiptap.dev) (ProseMirror) editor, built with Vite |
 | **Storage** | one SQLite file, WAL mode, `synchronous=FULL`; versioned schema migrations |
-| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Android app](docs/ANDROID-APP.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
+| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Android app](docs/ANDROID-APP.md) · [Offline](docs/OFFLINE.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
 
 ## Using it
 
@@ -259,9 +259,10 @@ for what to verify on the S24 before relying on mobile editing.
 * **Not yet validated on a real S24.** Autocorrect/suggestions, the on-screen keyboard resize, tap-to-focus
   opening the keyboard, and Samsung Keyboard/Gboard composition are untested on hardware.
 * **Login is optional and off by default.** It assumes your VPN is the access control. A small password can be switched on in Settings → Password (see `docs/LOGIN.md`); you can also add basic auth at a reverse proxy.
-* Opening a stream needs the server. Mid-session disconnects are handled; cold-starting the app offline shows
-  only notes that have unsent edits on the phone (full offline browsing is out of scope). On HTTPS the app itself
-  opens offline and can be installed, with Android's Share menu (see [docs/ANDROID-APP.md](docs/ANDROID-APP.md)).
+* Offline (HTTPS address, installed app): the app opens, today's note and New note can be written, and recently seen
+  notes, streams and tasks are read from the phone's copy and can be ticked; all of it is sent when the server is back
+  and the app is open. Search, history and files need the server. See [docs/OFFLINE.md](docs/OFFLINE.md) and
+  [docs/ANDROID-APP.md](docs/ANDROID-APP.md).
 * Two Chrome tabs/windows on the same note share one phone-side pending record; keep to one.
 * Task ids survive saves, splits and reloads but not task → text → task round trips (a new task gets a new id).
 * Versions are throttled (at most every 5 min, plus when text shrinks sharply), not per keystroke.

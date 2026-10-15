@@ -1,6 +1,12 @@
 // Thin fetch wrapper. The important distinction for saving is:
 //   NetworkError - the request may or may not have reached the server (offline,
 //                  timeout, VPN dropped). The outcome is unknown, so we keep the data and retry.
+//
+// Reads that screens are built from are also kept on the phone and answered from that copy when the server is out of
+// reach (offline-copy.js); every request tells connection.js whether the server answered.
+import { connection } from './connection.js';
+import { copyKey, offlineCopy } from './offline-copy.js';
+
 //   ApiError     - the server answered with an error status.
 export class NetworkError extends Error {
   constructor(message) {
@@ -20,8 +26,41 @@ export class ApiError extends Error {
 }
 
 const TIMEOUT_MS = 15_000;
+// A read the phone has a copy of waits this long for the server, then shows the copy (VPN off on mobile data
+// does not fail fast: the request just hangs). The server's answer still replaces the copy when it comes.
+const COPY_AFTER_MS = 3000;
 
-async function request(method, path, body, { timeout = TIMEOUT_MS } = {}) {
+async function request(method, path, body, options = {}) {
+  const key = method === 'GET' ? copyKey(path) : null;
+  if (!key) return send(method, path, body, options);
+  const live = send(method, path, body, options).then((json) => {
+    offlineCopy.keep(key, json);
+    return json;
+  });
+  const fromCopy = async () => {
+    const copy = await offlineCopy.recall(key);
+    return copy ? { ...copy.json, fromPhoneCopy: copy.at } : null;
+  };
+  let timer;
+  const slow = new Promise((resolve) => (timer = setTimeout(resolve, COPY_AFTER_MS, SLOW)));
+  try {
+    const first = await Promise.race([live, slow]);
+    if (first !== SLOW) return first;
+    const copy = await fromCopy();
+    if (!copy) return await live;
+    live.catch(() => {}); // it may still fail after the copy was shown
+    return copy;
+  } catch (err) {
+    const copy = err instanceof NetworkError ? await fromCopy() : null;
+    if (copy) return copy;
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+const SLOW = Symbol('slow');
+
+async function send(method, path, body, { timeout = TIMEOUT_MS } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeout);
   let res;
@@ -34,10 +73,12 @@ async function request(method, path, body, { timeout = TIMEOUT_MS } = {}) {
       cache: 'no-store',
     });
   } catch (err) {
+    connection.unanswered();
     throw new NetworkError(ctrl.signal.aborted ? 'Request timed out' : 'Cannot reach the server');
   } finally {
     clearTimeout(timer);
   }
+  connection.answered();
   const result = await readJson(res);
   if (method !== 'GET' && changesWhichNotesExist(method, path)) announceChange();
   return result;
@@ -59,7 +100,10 @@ async function readJson(res) {
   }
   if (!res.ok) {
     // A password is set and this browser is not (or no longer) logged in: the app shows the login page.
-    if (json?.error?.code === 'login_required' && typeof window !== 'undefined') window.dispatchEvent(new Event('hq-login-required'));
+    if (json?.error?.code === 'login_required') {
+      offlineCopy.forget(); // locked: the phone keeps nothing to read without logging in
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('hq-login-required'));
+    }
     throw new ApiError(res.status, json?.error?.code ?? json?.reason ?? `http_${res.status}`, json?.error?.message ?? `Server error ${res.status}`, json);
   }
   return json;
@@ -81,10 +125,12 @@ async function upload(file, { noteId, timeout = 10 * 60_000 } = {}) {
       cache: 'no-store',
     });
   } catch {
+    if (!ctrl.signal.aborted) connection.unanswered();
     throw new NetworkError(ctrl.signal.aborted ? 'The upload timed out' : 'Cannot reach the server');
   } finally {
     clearTimeout(timer);
   }
+  connection.answered();
   return readJson(res);
 }
 
@@ -93,7 +139,7 @@ const enc = encodeURIComponent;
 export const api = {
   auth: () => request('GET', '/api/auth'),
   login: (password) => request('POST', '/api/auth/login', { password }),
-  logout: () => request('POST', '/api/auth/logout', {}),
+  logout: () => request('POST', '/api/auth/logout', {}).then((r) => (offlineCopy.forget(), r)),
   setPassword: (password, current) => request('PUT', '/api/auth/password', { password, current }),
   passwordOff: (current) => request('POST', '/api/auth/off', { current }),
   config: () => request('GET', '/api/config'),

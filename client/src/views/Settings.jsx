@@ -1,9 +1,39 @@
 import { useEffect, useState } from 'preact/hooks';
 import { SPACINGS, getSpacing, setSpacing, OPENING_PAGES, getOpeningPage, setOpeningPage, getDashboard, setDashboard, resetDashboard, DASHBOARD_REGIONS, DASHBOARD_TASKS, getDashboardTasks, setDashboardTasks, getShiftDismiss, setShiftDismiss, DONE_DAYS, getDoneDays, setDoneDays, MOOD_OPTIONS, getMoodPrefs, setMoodPref } from '../prefs.js';
 import { api } from '../api.js';
+import { offlineCopy } from '../offline-copy.js';
 import { PasswordSettings } from './PasswordSettings.jsx';
 
 /** Settings that belong to this device. Line spacing for now; the preview uses the same rules as a real note. */
+// This device's copy of recent notes and tasks, for reading offline (offline-copy.js). Forgetting it never touches
+// what is waiting to be sent: that lives in the save queue.
+function PhoneCopySettings() {
+  const [count, setCount] = useState(null);
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    offlineCopy.count().then(setCount);
+  }, []);
+  const forget = async () => {
+    await offlineCopy.forget();
+    setCount(0);
+    setMessage('Forgotten. Writing that waits to be sent is not affected.');
+  };
+  return (
+    <>
+      <h2 class="section">Offline copy on this device</h2>
+      <p class="muted small">
+        Recent notes, today’s stream and the task list are kept on this device so they can be read (and tasks ticked) with no connection. Anyone holding this
+        unlocked device can read them, even with a Gordonite password set.
+      </p>
+      <p class="small" data-testid="phone-copy-count">{count === null ? '…' : `${count} ${count === 1 ? 'item' : 'items'} kept.`}</p>
+      <button type="button" class="btn" onClick={forget} data-testid="phone-copy-forget">
+        Forget this device’s copy
+      </button>
+      <p role="status">{message}</p>
+    </>
+  );
+}
+
 export function SettingsView({ config, onConfigChanged }) {
   const [spacing, setLocal] = useState(getSpacing);
   const [tz, setTz] = useState(config.tz);
@@ -158,6 +188,7 @@ export function SettingsView({ config, onConfigChanged }) {
         <p>A third one, to see how the lines sit together.</p>
       </div>
       <p class="muted small">Tip: Shift+Enter starts a new line inside the same paragraph, with no gap.</p>
+      <PhoneCopySettings />
       <p class="muted small" data-testid="app-version">Gordonite · Version {config.version ?? 'unavailable'}</p>
     </div>
   );

@@ -79,7 +79,8 @@ describe('stage 4: interrupted connections', () => {
       await page.waitForSelector('.note-text');
       assert.equal(await editor(page).textContent(), 'written on the train with no signal', 'unsent text is back in the editor');
       assert.match(await badge(page).getAttribute('aria-label'), /Pending on phone/);
-      assert.equal(await page.getByTestId('load-error').count(), 1, 'the app says the server is unreachable');
+      // the stream comes from the phone's copy (0.8.0), and the app says it is offline
+      await page.getByTestId('offline-bar').waitFor({ timeout: 10_000 });
 
       await reconnect(page);
       await waitSaved(page, 15_000);

@@ -25,9 +25,8 @@ Long-pressing the icon offers **New note** and **Tasks**.
 
 The service worker (`client/sw.js`) keeps a copy of the app's own files: the page, the script, the styles, the
 icons. Opening the app asks the server first; if it has not answered in 3 seconds (WireGuard off, no signal) the
-copy is used. What you then see is what the app already shows offline: notes with unsent edits on the phone, and
-the status dot saying the server cannot be reached. Lists and older notes still come from the server (full offline
-browsing is still out of scope).
+copy is used. Since 0.8.0 the app also keeps a copy of recent notes, today's stream and the task list, so you can
+read, write today's note and tick tasks offline: see [OFFLINE.md](OFFLINE.md).
 
 The list of files is written into the service worker at build time (`client/sw-build.js`), so each deployment is
 a new service worker. The phone installs it in the background the next time the app is opened online; the

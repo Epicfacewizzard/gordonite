@@ -69,6 +69,18 @@ See [ANDROID-APP.md](ANDROID-APP.md).
 - [ ] With WireGuard off, share a photo: the page says it is kept on the phone. Turn WireGuard on: the note is made
       by itself (or with *Try again*).
 
+## Offline (0.8.0 and later)
+
+See [OFFLINE.md](OFFLINE.md).
+
+- [ ] Open the app with WireGuard on and leave it a minute (it fills its copy). Turn WireGuard off, close the app
+      completely, open it again: the Dashboard shows today's note and your tasks, the dot is a **grey ring**, and a
+      line says it is offline.
+- [ ] Still offline: write in today's note (yellow dot), tick a task, open Notes and a recent note.
+- [ ] Turn WireGuard on, open the app: within about 15 seconds the dot goes green and the laptop shows the text and
+      the tick. No duplicate of today's note.
+- [ ] Settings → Offline copy on this device → Forget: the count goes to 0.
+
 ## Things to tell me if they fail
 
 Which keyboard, what you typed or tapped, and what happened. Screenshots help. The likely suspects are

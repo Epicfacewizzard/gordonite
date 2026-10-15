@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { api } from '../api.js';
+import { api, NetworkError } from '../api.js';
 import { sync } from '../sync.js';
 import { useSession, useToday } from '../hooks.js';
 import { NoteCard } from './NoteCard.jsx';
@@ -84,13 +84,28 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
         setEarlier({ notes: res.notes, hasMore: res.hasMore });
         setState({ status: session ? 'ready' : 'off', id: session?.id ?? null, error: null });
       } catch (err) {
-        if (!cancelled) setState({ status: 'error', id: null, error: err.message });
+        if (cancelled) return;
+        if (err instanceof NetworkError) {
+          // Out of reach and no copy on this phone: write in today's entry anyway. It is held here and sent later; if
+          // another device wrote today's entry meanwhile, saving shows the usual conflict panel (combine keeps both).
+          const session = sync.draft(dailyTag, today);
+          setState({ status: 'ready', id: session.id, error: null });
+        } else {
+          setState({ status: 'error', id: null, error: err.message });
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [dailyTag, today, nonce]);
+
+  // Back in reach (VPN turned on): fetch again, so today's entry and the earlier days are the server's.
+  useEffect(() => {
+    const again = () => setNonce((n) => n + 1);
+    window.addEventListener('hq-reconnected', again);
+    return () => window.removeEventListener('hq-reconnected', again);
+  }, []);
 
   const session = state.id ? sync.get(state.id) : null;
   const editingId = activeId ?? session?.id ?? null;

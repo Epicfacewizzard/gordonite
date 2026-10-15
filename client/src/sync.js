@@ -556,6 +556,8 @@ export class SyncManager extends Emitter {
   /** Register a note fetched from the server. Local unsent edits always win over server content. */
   adopt(note) {
     let s = this.sessions.get(note.id);
+    // An older copy than this phone already knows (the phone copy shown while the server was slow): keep the newer.
+    if (s && note.revision < s.revision) return s;
     if (!s) {
       s = this.#make({ id: note.id, tags: note.tags.map((t) => t.path), date: note.date, revision: note.revision, doc: note.doc, kind: note.kind, createdAt: note.createdAt, title: note.title ?? null });
     } else if (!s.hasUnsaved && !s.conflict && !s.provider) {

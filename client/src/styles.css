@@ -358,8 +358,23 @@ input[type='text'] {
 .status-dot.bad .dot {
   background: var(--status-bad);
 }
+.status-dot.off .dot {
+  background: transparent;
+  border: 2px solid var(--muted, #8a8f98);
+  box-sizing: border-box;
+}
 .status-dot.as-button {
   cursor: pointer;
+}
+
+/* Out of reach: a quiet line under the header saying what is on screen. */
+.offline-bar {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--muted, #8a8f98);
+  background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
 .conflict {

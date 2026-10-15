@@ -1,6 +1,38 @@
 # Release notes
 
-## 0.7.0 — 2026-10-15 — Install it as an app: opens offline, and Android's Share menu makes notes (built and tested, not yet deployed)
+## 0.8.0 — 2026-10-15 — Use it with no connection: today's note, recent notes and tasks kept on the phone (built and tested, not yet deployed)
+
+Version **0.8.0** (a new feature). Builds on 0.7.0 (needs the HTTPS address and the installed app to open offline).
+No schema change and no server change apart from the version, so going back to 0.7.0 is the image swap only. Details
+in [OFFLINE.md](OFFLINE.md).
+
+**Added**
+
+- **A phone copy of what the server last said** (`client/src/offline-copy.js`): settings, tags, the task list, the
+  first page of each opened stream, Notes lists and each opened note. Used when the server does not answer, or has not
+  answered within 3 seconds. Filled by itself while online (`client/src/warm.js`: today's stream, the Notes list's
+  first page, and up to 80 notes, including every note with an open task), at most every 10 minutes.
+- **Today's note works offline.** With no copy at all, a new entry for today is started on the phone; if one was
+  written elsewhere meanwhile, saving shows the conflict panel (combine keeps both).
+- **Tick tasks offline**, from the Tasks page or the Dashboard; the tick is sent with the note later.
+- **A grey dot**: the server cannot be reached and nothing is waiting. Green now only ever means "everything is on the
+  server". An "Offline: showing what this phone kept" line sits under the header while out of reach.
+- **Back in reach is noticed by itself** (`client/src/connection.js` asks the server every 15 seconds while it is out
+  of reach): waiting edits are sent at once and the Dashboard refreshes.
+- **Settings → Offline copy on this device**: how much is kept, and *Forget*. The copy is also deleted on log out and
+  when the login runs out.
+
+**Changed**
+
+- A note fetched from the server never replaces a newer version this phone already has (`SyncManager.adopt`).
+
+**Privacy:** the copy can be read on the unlocked phone without the Gordonite password. See OFFLINE.md.
+
+**Tests:** `tests/e2e/offline-copy.test.js` (3), `tests/client/offline-copy.test.js` (1).
+
+**Not checked:** on the real S24.
+
+## 0.7.0 — 2026-10-15 — Install it as an app: opens offline, and Android's Share menu makes notes (deployed 2026-10-15)
 
 Version **0.7.0** (a new feature: second number). Needs the HTTPS address (`https://gordonite.duckdns.org`, set up
 on 2026-10-15, see [DEPLOYMENT.md](DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain)); over
