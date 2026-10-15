@@ -160,6 +160,14 @@ export const api = {
   saveMood: (id, body) => request('PUT', `/api/moods/${enc(id)}`, body),
   deleteMood: (id) => request('DELETE', `/api/moods/${enc(id)}`),
   restoreMood: (id) => request('POST', `/api/moods/${enc(id)}/restore`, {}),
+  skinEntries: () => request('GET', '/api/skin'),
+  saveSkin: (id, body) => request('PUT', `/api/skin/${enc(id)}`, body),
+  deleteSkin: (id) => request('DELETE', `/api/skin/${enc(id)}`),
+  habits: (from, to) => request('GET', `/api/habits?from=${from}&to=${to}`),
+  saveHabit: (id, body) => request('PUT', `/api/habits/${enc(id)}`, body),
+  deleteHabit: (id) => request('DELETE', `/api/habits/${enc(id)}`),
+  checkHabit: (id, date) => request('PUT', `/api/habits/${enc(id)}/checks/${date}`, {}),
+  uncheckHabit: (id, date) => request('DELETE', `/api/habits/${enc(id)}/checks/${date}`),
   notes: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));
     return request('GET', `/api/notes?${qs}`);

@@ -1,6 +1,38 @@
 # Release notes
 
-## 0.8.1 — 2026-10-15 — Opens at once with no connection (built and tested, not yet deployed)
+## 0.9.0 — 2026-10-15 — Skin log and habits, linked by treatment courses (built and tested, not yet deployed)
+
+Version **0.9.0** (new features). **Schema change: v6 → v8** (`skin_entries`, then `habits` and `habit_checks`).
+The database is migrated on start. Going back to 0.8.1 afterwards is not possible with this database (0.8.1 refuses a
+newer schema): restore the backup the deploy makes, or stay on 0.9.0.
+
+**Added**
+
+- **Skin log** (`#/skin`, **Log skin** on the Dashboard, a shortcut on the app icon). Pick symptoms with severity,
+  areas each with their own side/aspect where it makes sense, products, response, triggers and a comment; everyday
+  words first and clinical terms behind **More…**. The line is written into a monthly note ("Skin log · October 2026",
+  tag `skin`) under the day's heading, in time order, and the entry is kept as a record. **Same as last time** and
+  **Use again**. **Edit** (picks come back), **Reassess** (response and skin now, added to the end of the same line),
+  **Delete**. Offline: the line through the save queue, the record through a queue on the phone. See
+  [SKIN-LOG.md](SKIN-LOG.md).
+- **Habits** (Dashboard widget and `#/habits`): daily/weekday/custom schedules, a week grid to tick and fill in past
+  days, streaks, this week's percentage. Layout from the `codex/habit-tracker-beta-test` branch; stored on the server
+  (synced, backed up, in the export) instead of the browser. See [HABITS.md](HABITS.md).
+- **Courses**: a habit can start from the skin log ("when I log Betaderm, keep this going for 7 days"). Logging the
+  product starts or extends the course and ticks that day.
+- Export and import (JSON) include skin entries, habits and check-ins.
+
+**Changed**
+
+- `client/src/record-queue.js`: one small offline queue used by skin entries and habits.
+
+**Tests:** `tests/client/skin.test.js` (15), `tests/client/habits.test.js` (4), `tests/server/skin.test.js` (3),
+`tests/server/habits.test.js` (4), `tests/e2e/skin-habits.test.js` (4); the Dashboard layout test now expects the
+Habits widget (taken from the beta branch).
+
+**Not checked:** on the real S24.
+
+## 0.8.1 — 2026-10-15 — Opens at once with no connection (deployed 2026-10-15)
 
 Version **0.8.1** (an improvement to 0.8.0). No schema or server change apart from the version.
 

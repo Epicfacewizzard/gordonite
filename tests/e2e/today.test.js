@@ -196,7 +196,7 @@ describe('dashboard widgets', () => {
       await app.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: true });
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['nav', 'widget-pinned', 'widget-mood', 'widget-tasks'] });
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['nav', 'widget-pinned', 'widget-mood', 'widget-habits', 'widget-tasks'] });
 
       await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('widget-prefs').waitFor();
@@ -205,16 +205,16 @@ describe('dashboard widgets', () => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
       await page.getByTestId('widget-pinned').waitFor(); // the starred tags arrive a moment after the page
-      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['widget-pinned', 'nav', 'widget-tasks'] });
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['widget-pinned', 'nav', 'widget-habits', 'widget-tasks'] });
 
       await page.reload();
       await page.getByTestId('widget-note').waitFor();
       await page.getByTestId('widget-pinned').waitFor(); // the starred tags arrive a moment after the page
-      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['widget-pinned', 'nav', 'widget-tasks'] }, 'kept after a reload');
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['widget-pinned', 'nav', 'widget-habits', 'widget-tasks'] }, 'kept after a reload');
 
       // hide everything: the dashboard says so and points to Settings
       await page.goto(`${app.url}/#/settings`);
-      for (const id of ['nav', 'pinned', 'tasks', 'note']) await page.getByTestId(`widget-toggle-${id}`).tap();
+      for (const id of ['nav', 'pinned', 'habits', 'tasks', 'note']) await page.getByTestId(`widget-toggle-${id}`).tap();
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('dashboard-empty').waitFor();
       assert.deepEqual(page.errors, []);
@@ -263,27 +263,27 @@ describe('dashboard widgets', () => {
       await page.getByTestId('widget-region-pinned').selectOption('right');
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { left: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-tasks'] }, 'the mood moved to the left column (starred tags, with nothing starred, show nothing)');
+      assert.deepEqual(await regionOf(page), { left: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-habits', 'widget-tasks'] }, 'the mood moved to the left column (starred tags, with nothing starred, show nothing)');
 
       // put the mood across the top: the left column is empty, so only two columns remain
       await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('widget-region-mood').selectOption('top');
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-tasks'] });
+      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-habits', 'widget-tasks'] });
       assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length), 2, 'no space is kept for the empty column');
       const [mood, note] = [await page.getByTestId('widget-mood').boundingBox(), await page.getByTestId('widget-note').boundingBox()];
       assert.ok(mood.y + mood.height <= note.y + 1, 'the top band is above the columns');
 
       await page.reload();
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-tasks'] }, 'kept after a reload');
+      assert.deepEqual(await regionOf(page), { top: ['widget-mood'], center: ['widget-note'], right: ['nav', 'widget-habits', 'widget-tasks'] }, 'kept after a reload');
 
       await page.goto(`${app.url}/#/settings`);
       await page.getByTestId('widget-reset').tap();
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
-      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['nav', 'widget-mood', 'widget-tasks'] }, 'back to the starting layout');
+      assert.deepEqual(await regionOf(page), { center: ['widget-note'], right: ['nav', 'widget-mood', 'widget-habits', 'widget-tasks'] }, 'back to the starting layout');
       assert.deepEqual(page.errors, []);
     }));
 });

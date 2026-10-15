@@ -17,6 +17,10 @@ import { TrashView } from './views/Trash.jsx';
 import { FilesView } from './views/Files.jsx';
 import { DataView } from './views/Data.jsx';
 import { ShareView, WaitingShares } from './views/Share.jsx';
+import { SkinView } from './views/Skin.jsx';
+import { HabitsView } from './views/Habits.jsx';
+import { habitQueue } from './habit-data.js';
+import { flushSkinQueue } from './skin-log.js';
 import { connection } from './connection.js';
 import { warmCopy } from './warm.js';
 import { STATUS_TEXT } from './views/parts.jsx';
@@ -185,7 +189,7 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/tags' ? 'Tags' : 'Dashboard';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/skin' ? 'Skin log' : route === '/habits' ? 'Habits' : route === '/tags' ? 'Tags' : 'Dashboard';
   return (
     <header class="topbar">
       {!onHome && (
@@ -249,8 +253,11 @@ export function App() {
     sync.init();
     loadConfig();
     // Back in reach (a VPN turned on fires no browser event; connection.js notices): send what waits, refresh.
+    flushSkinQueue();
+    habitQueue.flush();
     const reconnected = () => {
       sync.retryAll();
+      flushSkinQueue();
       loadConfig();
       warmCopy();
     };
@@ -309,6 +316,10 @@ export function App() {
     view = <TrashView config={config} />;
   } else if (route === '/data') {
     view = <DataView config={config} />;
+  } else if (route === '/habits') {
+    view = <HabitsView config={config} />;
+  } else if (route === '/skin') {
+    view = <SkinView config={config} />;
   } else if (route === '/share' || route.startsWith('/share/')) {
     const id = route.slice(7);
     view = <ShareView key={id} id={id || null} config={config} />;

@@ -8,6 +8,7 @@ import { TasksView } from './Tasks.jsx';
 import { getDashboard, getDashboardTasks } from '../prefs.js';
 import { MoodWidget } from './Mood.jsx';
 import { EarlierNotes } from './EarlierNotes.jsx';
+import { HabitsWidget } from './Habits.jsx';
 
 // The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
 // context (today's date, config, tags, the chosen daily tag) and draws its own part. To add one, write the
@@ -24,6 +25,9 @@ function NavWidget() {
     <nav class="today-nav" aria-label="Start something">
       <a class="btn primary" href="#/new" data-testid="today-new-note">
         New note
+      </a>
+      <a class="btn" href="#/skin" data-testid="today-skin">
+        Log skin
       </a>
     </nav>
   );
@@ -211,6 +215,7 @@ const WIDGETS = new Map([
   ['pinned', PinnedWidget],
   ['tasks', TasksWidget],
   ['mood', MoodWidget],
+  ['habits', HabitsWidget],
   ['note', TodayNoteWidget],
 ]);
 const COLUMNS = ['left', 'center', 'right'];

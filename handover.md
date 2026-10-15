@@ -17,8 +17,9 @@ Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language sum
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
 | Version on `origin/main` | **0.6.0** (pushed 2026-10-13 as a fast-forward of `fa8053f`; `git log fa8053f..main` lists the commits). The release last deployed is `37bf398` (0.5.1: undo for a removed file and a deleted mood entry) |
-| Waiting to be deployed | **0.8.1** on branch `feature/faster-offline`: opens at once with no connection. See [docs/OFFLINE.md](docs/OFFLINE.md). No schema change. The owner runs `scripts/deploy-casaos.ps1` |
-| Version running on the server | **0.8.0** (`/api/health` reported `0.8.0` on 2026-10-15): installable app with Share menu (0.7.0, [docs/ANDROID-APP.md](docs/ANDROID-APP.md)) and offline use (0.8.0). Installed on the S24 by the owner |
+| Waiting to be deployed | **0.9.0** on `main`: skin log ([docs/SKIN-LOG.md](docs/SKIN-LOG.md)) and habits with skin-log courses ([docs/HABITS.md](docs/HABITS.md)). **Schema v6 → v8**: after deploying, 0.8.1 cannot open the database (restore the deploy's backup to go back). The owner runs `scripts/deploy-casaos.ps1` |
+| Version running on the server | **0.8.1** (`/api/health` reported `0.8.1` on 2026-10-15): installable app with Share menu (0.7.0, [docs/ANDROID-APP.md](docs/ANDROID-APP.md)), offline use (0.8.0, [docs/OFFLINE.md](docs/OFFLINE.md)), instant offline opening (0.8.1). Installed on the S24 by the owner |
+| Habit tracker beta | Branch `codex/habit-tracker-beta-test` (another agent, browser-only habits, preview 0.8.2-habits-preview.1) was used as the reference for 0.9.0's habits; it is not merged and can be deleted once 0.9.0 is accepted |
 | HTTPS address | `https://gordonite.duckdns.org` (2026-10-15): DuckDNS name → `192.168.1.50`, Nginx Proxy Manager on the server (admin `http://192.168.1.50:81`) with a Let's Encrypt certificate by DNS challenge; reachable only on the LAN or WireGuard. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain). `http://192.168.1.50:8082` still works |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.

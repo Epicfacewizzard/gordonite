@@ -14,6 +14,7 @@
   ],
   "shortcuts": [
     { "name": "New note", "url": "/#/new", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Log skin", "url": "/#/skin", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Tasks", "url": "/#/tasks", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ],
   "share_target": {

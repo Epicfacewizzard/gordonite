@@ -400,7 +400,7 @@ describe('export, import and integrity', () => {
   test('a database from before files existed upgrades in place', async () => {
     const t = await startServer();
     try {
-      assert.equal(t.db.prepare('PRAGMA user_version').get().user_version, 6);
+      assert.equal(t.db.prepare('PRAGMA user_version').get().user_version >= 6, true, 'at least the version that added files');
       const cols = t.db.prepare('PRAGMA table_info(attachments)').all().map((c) => c.name);
       for (const c of ['id', 'sha256', 'name', 'mime', 'size', 'kind', 'original_sha256', 'note_id', 'deleted_at']) assert.ok(cols.includes(c), c);
     } finally {

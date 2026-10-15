@@ -111,6 +111,50 @@ const MIGRATIONS = [
   CREATE INDEX attachments_note ON attachments (note_id) WHERE deleted_at IS NULL;
   CREATE INDEX attachments_sha ON attachments (sha256);
   `,
+  // v7: skin log entries (see docs/SKIN-LOG.md). Each entry is also a line in a month note; this is the same entry as
+  // data (what was picked), so it can be edited, reassessed and later read by other features. `data` is JSON
+  // ({ symptoms, severity, areas, side, aspect, products, response, triggers, comment }); `text` is the line as
+  // written in the note; note_id the note it is in; follows_id the entry a reassessment is about. Deleting is soft.
+  `
+  CREATE TABLE skin_entries (
+    id         TEXT PRIMARY KEY,
+    entry_date TEXT NOT NULL,
+    entry_time TEXT NOT NULL DEFAULT '',
+    data       TEXT NOT NULL,
+    text       TEXT NOT NULL,
+    note_id    TEXT,
+    follows_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
+  );
+  CREATE INDEX skin_entries_date ON skin_entries (entry_date DESC, entry_time DESC) WHERE deleted_at IS NULL;
+  `,
+  // v8: habits (see docs/HABITS.md). `days` is a JSON list of weekdays (0 = Sunday); `trigger` (JSON or NULL) is a
+  // skin-log product that starts a course of `days` days; `courses` (JSON list of { from, to }) the courses so far.
+  // A check-in is one row per habit and day; unticking deletes it. Deleting a habit is soft.
+  `
+  CREATE TABLE habits (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    detail     TEXT NOT NULL DEFAULT '',
+    days       TEXT NOT NULL,
+    created    TEXT NOT NULL,
+    trigger    TEXT,
+    courses    TEXT NOT NULL DEFAULT '[]',
+    sort       INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
+  );
+  CREATE TABLE habit_checks (
+    habit_id   TEXT NOT NULL,
+    check_date TEXT NOT NULL,
+    source     TEXT NOT NULL DEFAULT 'tap',
+    checked_at TEXT NOT NULL,
+    PRIMARY KEY (habit_id, check_date)
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

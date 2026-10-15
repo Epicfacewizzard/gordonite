@@ -413,6 +413,22 @@ export class Session extends Emitter {
     return this.editTask(taskId, null);
   }
 
+  /**
+   * Change the whole document without an editor (the skin log adding an entry). Saved like any edit: held on the phone,
+   * sent against this note's revision. Refused while the note is open in an editor, which would not see the change.
+   */
+  editDoc(change) {
+    if (this.provider) throw new Error('This note is open for editing; close it first');
+    const doc = change(this.currentDoc());
+    this.dirtySeq++;
+    this.capturedSeq = this.dirtySeq;
+    this.pending = this.#pendingOf(doc, this.dirtySeq);
+    this.persist();
+    this.scheduleFlush(100);
+    this.emit();
+    return this.idbChain;
+  }
+
   editTask(taskId, patch) {
     const doc = patch === null ? removeTask(this.currentDoc(), taskId) : updateTask(this.currentDoc(), taskId, patch);
     if (!doc) return false;

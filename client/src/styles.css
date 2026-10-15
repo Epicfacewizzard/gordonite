@@ -1665,3 +1665,44 @@ body:not([data-editing]) .today .toolbar {
 .earlier-item:hover, .earlier-item:focus-within, .earlier-item.is-active { opacity: 1; }
 .earlier-item:not(.is-active) .note-text.static { max-height: 9.5rem; overflow: hidden; }
 .earlier-item.clamped:not(.is-active) .note-text.static { -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
+
+/* ----- skin log (#/skin): pick-chips like a charting flowsheet ----- */
+.skin { display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; }
+.skin-when { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.skin-when label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.skin-when input { font: inherit; font-size: 1.05rem; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); }
+.skin-group { border: 0; margin: 0; padding: 0; min-width: 0; }
+.skin-group legend { padding: 0; margin-bottom: 6px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.pick-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick-chip { font: inherit; font-size: 0.95rem; min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
+.pick-chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.pick-chip.add { min-width: 40px; color: var(--muted); }
+.pick-add input { font: inherit; min-height: 40px; width: 9em; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--accent); background: var(--surface); color: var(--text); }
+.segmented { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; align-self: flex-start; }
+.segmented button { font: inherit; font-size: 0.9rem; min-height: 38px; padding: 6px 12px; border: 0; border-right: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
+.segmented button:last-child { border-right: 0; }
+.segmented button[aria-checked='true'] { background: var(--accent); color: var(--accent-contrast); }
+.skin-comment { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.skin-comment textarea { font: inherit; font-size: 1rem; text-transform: none; letter-spacing: normal; font-weight: normal; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); resize: vertical; }
+.skin-preview { padding: 12px; border-radius: 10px; border: 1px dashed var(--line); background: var(--surface); line-height: 1.45; }
+.skin-choice { display: flex; flex-direction: column; gap: 4px; }
+.skin-choice-label { font-size: 0.75rem; color: var(--muted); }
+.skin-recent { display: flex; flex-direction: column; gap: 8px; }
+.skin-recent ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.skin-recent li { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.skin-recent li span { flex: 1; min-width: 0; }
+.skin-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); }
+.skin-mode .small { flex: 1 1 100%; order: 3; }
+.skin-entries ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.skin-entries li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.skin-entries li.active { border-color: var(--accent); }
+.skin-entry-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.92rem; }
+.skin-entry-actions { display: flex; flex-direction: column; gap: 4px; }
+.skin-entry-actions .btn { padding: 4px 10px; min-height: 32px; }
+.skin-places { display: flex; flex-direction: column; gap: 6px; }
+.skin-place { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.skin-place-name { min-width: 6.5em; font-size: 0.9rem; }
+.segmented button[aria-pressed='true'] { background: var(--accent); color: var(--accent-contrast); }
+.skin-reassessments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.skin-reassessments li { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.skin-reassessments li span { flex: 1; min-width: 0; }

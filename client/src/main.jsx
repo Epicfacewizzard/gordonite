@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { App } from './app.jsx';
 import { applySpacing } from './prefs.js';
 import './styles.css';
+import './habits.css';
 
 // Keep the toolbar above the on-screen keyboard even when the browser does not
 // resize the layout viewport (the viewport meta asks Chrome to, this is the fallback).

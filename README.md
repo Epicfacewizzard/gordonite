@@ -15,7 +15,7 @@ deliberately not built.
 | **Runs on** | Node 24 (built-in SQLite, no native modules, no runtime npm dependencies on the server) |
 | **Client** | Preact + [Tiptap](https://tiptap.dev) (ProseMirror) editor, built with Vite |
 | **Storage** | one SQLite file, WAL mode, `synchronous=FULL`; versioned schema migrations |
-| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Android app](docs/ANDROID-APP.md) · [Offline](docs/OFFLINE.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
+| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Android app](docs/ANDROID-APP.md) · [Offline](docs/OFFLINE.md) · [Skin log](docs/SKIN-LOG.md) · [Habits](docs/HABITS.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
 
 ## Using it
 

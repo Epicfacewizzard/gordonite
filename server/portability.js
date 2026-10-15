@@ -4,6 +4,8 @@ import { tx } from './db.js';
 import { createBackup } from './backup.js';
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
+import { cleanSkinEntry } from './skin.js';
+import { cleanHabit } from './habits.js';
 import { exportSettings, importSettings, savedTimeZone } from './settings.js';
 import { noteToMarkdownFile } from './markdown.js';
 import { makeZip } from './zip.js';
@@ -69,6 +71,19 @@ export function exportAll(db, cfg) {
     moods: db
       .prepare('SELECT id, score, note, day, logged_at AS loggedAt, created_at AS createdAt, deleted_at AS deletedAt FROM mood_entries ORDER BY logged_at, id')
       .all(),
+    habits: db
+      .prepare('SELECT id, name, detail, days, created, trigger, courses, sort, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM habits ORDER BY sort, created_at, id')
+      .all()
+      .map((h) => ({ ...h, days: JSON.parse(h.days), trigger: h.trigger ? JSON.parse(h.trigger) : null, courses: JSON.parse(h.courses) })),
+    habitChecks: db.prepare('SELECT habit_id AS habitId, check_date AS date, source, checked_at AS checkedAt FROM habit_checks ORDER BY check_date, habit_id').all(),
+    skinEntries: db
+      .prepare(
+        `SELECT id, entry_date AS date, entry_time AS time, data, text, note_id AS noteId, follows_id AS followsId,
+                created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt
+         FROM skin_entries ORDER BY entry_date, entry_time, id`,
+      )
+      .all()
+      .map((e) => ({ ...e, data: JSON.parse(e.data) })),
     // What the files are called and where they are used. The bytes are not in this JSON: take them with the files
     // zip (Data page) or by copying the files folder next to the database.
     attachments: db
@@ -188,6 +203,35 @@ function validateExport(data) {
       if (!isValidDateString(m.day) || Number.isNaN(Date.parse(m.loggedAt))) throw bad(`mood ${m.id}: bad day or time`);
     }
   }
+  if (data.habits !== undefined) {
+    if (!Array.isArray(data.habits)) throw bad('habits must be an array');
+    for (const h of data.habits) {
+      checkId(h?.id, 'habit id');
+      try {
+        cleanHabit(h);
+      } catch (err) {
+        throw bad(`habit ${h.id}: ${err.message}`);
+      }
+    }
+  }
+  if (data.habitChecks !== undefined) {
+    if (!Array.isArray(data.habitChecks)) throw bad('habitChecks must be an array');
+    for (const c of data.habitChecks) {
+      checkId(c?.habitId, 'habit id');
+      if (!isValidDateString(c.date)) throw bad(`habit check ${c.habitId}: bad date`);
+    }
+  }
+  if (data.skinEntries !== undefined) {
+    if (!Array.isArray(data.skinEntries)) throw bad('skinEntries must be an array');
+    for (const e of data.skinEntries) {
+      checkId(e?.id, 'skin entry id');
+      try {
+        cleanSkinEntry(e);
+      } catch (err) {
+        throw bad(`skin entry ${e.id}: ${err.message}`);
+      }
+    }
+  }
   const noteIds = new Set();
   const slots = new Set();
   for (const n of data.notes) {
@@ -235,6 +279,9 @@ export function importAll(db, cfg, data, mode) {
     membershipsDropped: [],
     tagsCreated: 0,
     moodsAdded: 0,
+    skinEntriesAdded: 0,
+    habitsAdded: 0,
+    habitChecksAdded: 0,
   };
 
   const insertNote = db.prepare(
@@ -264,6 +311,36 @@ export function importAll(db, cfg, data, mode) {
     for (const m of data.moods ?? []) {
       const res = insert.run(m.id, m.score, typeof m.note === 'string' ? m.note.slice(0, 280) : null, m.day, new Date(m.loggedAt).toISOString(), m.createdAt ?? new Date().toISOString(), m.deletedAt ?? null);
       report.moodsAdded += Number(res.changes);
+    }
+  };
+
+  const addHabits = () => {
+    const insert = db.prepare(
+      'INSERT OR IGNORE INTO habits (id, name, detail, days, created, trigger, courses, sort, created_at, updated_at, deleted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+    );
+    const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : new Date().toISOString());
+    for (const raw of data.habits ?? []) {
+      const h = cleanHabit(raw);
+      const res = insert.run(raw.id, h.name, h.detail, h.days, h.created, h.trigger, h.courses, h.sort, when(raw.createdAt), when(raw.updatedAt), raw.deletedAt ? when(raw.deletedAt) : null);
+      report.habitsAdded += Number(res.changes);
+    }
+    const check = db.prepare('INSERT OR IGNORE INTO habit_checks (habit_id, check_date, source, checked_at) VALUES (?,?,?,?)');
+    for (const c of data.habitChecks ?? []) {
+      const res = check.run(c.habitId, c.date, typeof c.source === 'string' ? c.source.slice(0, 20) : 'import', when(c.checkedAt));
+      report.habitChecksAdded += Number(res.changes);
+    }
+  };
+
+  const addSkinEntries = () => {
+    const insert = db.prepare(
+      `INSERT OR IGNORE INTO skin_entries (id, entry_date, entry_time, data, text, note_id, follows_id, created_at, updated_at, deleted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    );
+    const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : new Date().toISOString());
+    for (const raw of data.skinEntries ?? []) {
+      const e = cleanSkinEntry(raw);
+      const res = insert.run(raw.id, e.date, e.time, e.data, e.text, e.noteId, e.followsId, when(raw.createdAt), when(raw.updatedAt), raw.deletedAt ? when(raw.deletedAt) : null);
+      report.skinEntriesAdded += Number(res.changes);
     }
   };
 
@@ -307,7 +384,7 @@ export function importAll(db, cfg, data, mode) {
     importSettings(db, data, mode);
 
     if (mode === 'replace') {
-      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries;');
+      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries; DELETE FROM skin_entries; DELETE FROM habit_checks; DELETE FROM habits;');
       for (const t of data.tags) {
         db.prepare('INSERT INTO tags (id, path, created_at, favorite, daily) VALUES (?,?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0, t.daily === false ? 0 : 1);
         tagIdFor.set(t.id, t.id);
@@ -318,6 +395,8 @@ export function importAll(db, cfg, data, mode) {
         report.notesCreated++;
       }
       addMoods();
+      addSkinEntries();
+      addHabits();
       addAttachments();
       return;
     }
@@ -375,6 +454,8 @@ export function importAll(db, cfg, data, mode) {
       report.notesCreated++;
     }
     addMoods();
+    addSkinEntries();
+    addHabits();
     addAttachments();
   });
   const savedTz = savedTimeZone(db);
