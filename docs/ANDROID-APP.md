@@ -69,6 +69,9 @@ to allow it).
 ## Not done / not checked
 
 * **Not yet tried on the real S24.** See the "Installed app" section of [DEVICE-CHECKLIST.md](DEVICE-CHECKLIST.md).
-* No home-screen widget, quick-settings tile or notifications: those would need a native shell (Capacitor) and
-  are not planned for now.
+* No home-screen widget, quick-settings tile or notifications: those would need a native shell.
+* A separate native app that switches WireGuard on and off by itself is planned (not built) in
+  [ANDROID-APP-PLAN.md](ANDROID-APP-PLAN.md). That plan was written before this release and points its WebView at
+  `http://192.168.1.50:8082`; pointed at the HTTPS address instead, the WebView would get this service worker
+  (offline start) too. Sharing from other apps would need its own handling there.
 * Notes saved while offline are sent only while the app is open (no background sync).
