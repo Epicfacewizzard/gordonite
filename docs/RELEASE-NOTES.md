@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.8.2-crm-preview.1 — 2026-10-15 — Personal CRM preview (not deployed)
+
+Branch `codex/personal-crm-preview`, based on 0.8.1 at `2aa20c3`. Adds a self-contained interactive concept under `design/personal-crm-preview`, using the existing Gordonite stylesheet and fictional contacts.
+
+Includes people search and groups, conversation logging, person notes and profile editing, follow-up planning/completion/postponement, optional catch-up cadence, birthday fields, and copyable JSON backup/restore. Browser storage is separate from Gordonite. No real contacts or notes were imported; no messages are sent.
+
+The normal application UI, schema, network configuration and Docker tag are unchanged. Version identifiers are raised only to identify this preview branch under the repository rules. The habit-tracker beta remains separate, and nothing is deployed.
+
+Validation: standalone browser checks passed for the interaction flows, persistence, backup validation, storage failure, escaped text, birthdays and date rules, phone layouts at 320/390px, and dark theme; zero page errors and HTTP requests observed. See [the preview README](../design/personal-crm-preview/README.md) for use, checks, and implementation limitations.
+
 ## 0.8.1 — 2026-10-15 — Opens at once with no connection (built and tested, not yet deployed)
 
 Version **0.8.1** (an improvement to 0.8.0). No schema or server change apart from the version.

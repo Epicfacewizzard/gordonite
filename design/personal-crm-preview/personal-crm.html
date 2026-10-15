@@ -1,0 +1,1865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>People · Gordonite CRM concept</title>
+<style id="gordonite-base">:root {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --text: #1d1f22;
+  --muted: #666b72;
+  --line: #e4e1da;
+  --accent: #2f6f5e;
+  --accent-contrast: #ffffff;
+  --danger: #b3261e;
+  --warn: #8a5a00;
+  --warn-bg: #fff3d6;
+  --status-ok: #2e9e5b;
+  --status-wait: #e0a800;
+  --status-bad: #d32f2f;
+  --ok-bg: #e5f1ec;
+  --danger-bg: #fde8e6;
+  --sel: #cfe5dd;
+  --toolbar-h: 52px;
+  --topbar-h: 52px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --surface: #1e2024;
+    --text: #e8e6e1;
+    --muted: #9ba0a7;
+    --line: #2d3036;
+    --accent: #6fbfa8;
+    --accent-contrast: #0e1512;
+    --danger: #ff8a80;
+    --warn: #f0c36b;
+    --warn-bg: #3a2f14;
+    --status-ok: #4cd080;
+    --status-wait: #f5c542;
+    --status-bad: #ff6b60;
+    --ok-bg: #1b2f28;
+    --danger-bg: #3d1f1d;
+    --sel: #2e4b42;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.5 var(--font);
+  -webkit-tap-highlight-color: transparent;
+  overflow-wrap: anywhere;
+}
+a {
+  color: var(--accent);
+}
+code {
+  font-size: 0.85em;
+  word-break: break-all;
+}
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 0.8rem;
+}
+.center {
+  text-align: center;
+}
+.error {
+  color: var(--danger);
+}
+.error.inline {
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+/* ---------- shell ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--topbar-h);
+  padding: 4px 8px 4px 12px;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 8px 16px 32px;
+}
+.section {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 20px 0 8px;
+}
+
+/* ---------- controls ---------- */
+.btn,
+.icon-btn,
+.menu-item,
+input[type='text'] {
+  font: inherit;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent);
+}
+.btn.block {
+  display: flex;
+  width: 100%;
+  margin: 16px 0;
+}
+.btn:disabled {
+  opacity: 0.5;
+}
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--ok-bg);
+}
+.banner.error {
+  background: var(--danger-bg);
+  color: var(--text);
+}
+
+/* ---------- home ---------- */
+.tag-list,
+.plain,
+.trash-list,
+.version-list,
+.chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tag-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+.tag-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 56px;
+  padding: 8px 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+.star {
+  flex: none;
+  width: 52px;
+  border: 0;
+  background: none;
+  font-size: 1.4rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.star.on {
+  color: #e0a800;
+}
+.tag-name {
+  font-weight: 600;
+}
+.tag-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.open-tag {
+  margin-top: 20px;
+}
+.footer-links {
+  display: flex;
+  gap: 24px;
+  margin-top: 32px;
+}
+.footer-links a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+
+/* ---------- notes ---------- */
+.note {
+  position: relative;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.note:last-of-type {
+  border-bottom: 0;
+}
+.note-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.note-date {
+  flex: 1;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+.note-date-sub {
+  margin-left: 8px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 10px;
+  border-radius: 999px;
+  background: var(--ok-bg);
+  font-size: 0.85rem;
+}
+.chip:not(:has(button)) {
+  padding-right: 10px;
+}
+.chip a {
+  color: inherit;
+  text-decoration: none;
+}
+.chip button {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.1rem;
+}
+.chips.small .chip {
+  font-size: 0.78rem;
+}
+
+/* Save status: one dot in the header. Green saved, yellow on its way, red needs a look. */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.status-dot .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--status-ok);
+}
+.status-dot.wait .dot {
+  background: var(--status-wait);
+}
+.status-dot.bad .dot {
+  background: var(--status-bad);
+}
+.status-dot.off .dot {
+  background: transparent;
+  border: 2px solid var(--muted, #8a8f98);
+  box-sizing: border-box;
+}
+.status-dot.as-button {
+  cursor: pointer;
+}
+
+/* Out of reach: a quiet line under the header saying what is on screen. */
+.offline-bar {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--muted, #8a8f98);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.conflict {
+  margin: 6px 0 10px;
+  padding: 12px;
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  background: var(--danger-bg);
+  font-size: 0.92rem;
+}
+.conflict p {
+  margin: 6px 0 10px;
+}
+.conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- text (shared by the editor and the read-only renderer) ---------- */
+.editor-host {
+  position: relative;
+}
+/* Line spacing for note text; the Settings page changes data-spacing on <html>.
+   relaxed is the original look (1.5 lines, a 0.45em gap after each paragraph). */
+:root {
+  --note-lh: 1.4;
+  --note-gap: 0.25em;
+}
+:root[data-spacing='tight'] {
+  --note-lh: 1.3;
+  --note-gap: 0.08em;
+}
+:root[data-spacing='relaxed'] {
+  --note-lh: 1.5;
+  --note-gap: 0.45em;
+}
+.note-text {
+  line-height: var(--note-lh);
+  min-height: 3.2rem;
+  outline: none;
+  caret-color: var(--accent);
+  word-break: break-word;
+}
+.editor-host .note-text {
+  min-height: 4.6rem; /* more than one line is tappable; static notes are 3.2rem so a switch barely shifts the page */
+}
+.note-text > :first-child {
+  margin-top: 0;
+}
+.note-text p {
+  margin: 0 0 var(--note-gap);
+}
+.note-text h1,
+.note-text h2,
+.note-text h3 {
+  line-height: 1.25;
+  margin: 0.8em 0 0.3em;
+}
+.note-text h1 {
+  font-size: 1.45rem;
+}
+.note-text h2 {
+  font-size: 1.22rem;
+}
+.note-text h3 {
+  font-size: 1.07rem;
+}
+.note-text ul {
+  margin: 0 0 var(--note-gap);
+  padding-left: 1.3em;
+}
+.note-text li > p {
+  margin: 0 0 calc(var(--note-gap) / 3);
+}
+.note-text ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+}
+.note-text li[data-checked] {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+.note-text li[data-checked] > label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: calc(1.55em);
+  margin-left: -9px;
+  user-select: none;
+  cursor: pointer;
+}
+.note-text li[data-checked] > label input {
+  width: 21px;
+  height: 21px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.note-text li[data-checked] > div {
+  flex: 1;
+  min-width: 0;
+}
+.note-text li[data-checked='true'] > div {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+.note-text ::selection {
+  background: var(--sel);
+}
+.static {
+  cursor: text;
+}
+.static .placeholder {
+  color: var(--muted);
+}
+.editor-host.is-empty .note-text > p:first-child::before {
+  content: 'Write something…';
+  float: left;
+  height: 0;
+  color: var(--muted);
+  pointer-events: none;
+}
+.version-preview {
+  padding: 8px 12px;
+  margin: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+/* ---------- files in notes: images, PDFs and other documents ---------- */
+.attachment {
+  position: relative;
+  margin: 10px 0;
+}
+.attachment-block {
+  position: relative;
+  margin: 10px 0;
+  border-radius: 12px;
+}
+.attachment-block > .attachment {
+  margin: 0;
+}
+.attachment-image img {
+  display: block;
+  max-width: 100%;
+  max-height: min(70vh, 560px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  object-fit: contain;
+}
+.static .attachment-image img {
+  max-height: min(50vh, 380px);
+}
+.attachment-image figcaption {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.attachment-type {
+  flex: none;
+  min-width: 46px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--ok-bg);
+  color: var(--accent);
+  font: 700 0.72rem var(--font);
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.attachment-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.attachment-size {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.attachment-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--text);
+  font: 400 1.4rem/1 var(--font);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+/* In the editor a file card makes room for the × on its right, and the × sits level with the card's middle. */
+.attachment-block .attachment-file .attachment-card {
+  padding-right: 62px;
+}
+.attachment-file .attachment-remove {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.ProseMirror-selectednode .attachment {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+/* the Files page */
+.files .filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 4px 0 8px;
+}
+.files .filter-row button {
+  min-height: 44px;
+}
+.files .filter-row button[aria-pressed='true'] {
+  font-weight: 650;
+  text-decoration: underline;
+}
+.file-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.file-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.file-thumb {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.file-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.file-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.file-actions,
+.file-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: center;
+}
+.file-actions .link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.upload-status {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--kb, 0px) + var(--toolbar-h) + env(safe-area-inset-bottom) + 8px);
+  z-index: 21;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 0.9rem;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+}
+.upload-status.error {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ---------- toolbar (follows the on-screen keyboard) ---------- */
+.wiki-link-text { color: var(--accent); text-decoration: underline; }
+.wiki-open { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; text-decoration: none; }
+.settings select { max-width: 100%; }
+.toolbar-spacer {
+  height: calc(var(--toolbar-h) + 72px + env(safe-area-inset-bottom));
+}
+.toolbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--kb, 0px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: calc(var(--toolbar-h) + env(safe-area-inset-bottom));
+  padding: 4px max(8px, env(safe-area-inset-left)) env(safe-area-inset-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tb-gap {
+  flex: 1;
+  min-width: 4px;
+}
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: 600 1rem var(--font);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.tb-btn.on {
+  background: var(--sel);
+  color: var(--text);
+}
+.tb-btn[aria-disabled='true'] {
+  opacity: 0.35;
+}
+@media (max-width: 380px) {
+  .tb-btn {
+    min-width: 40px;
+  }
+}
+
+/* ---------- sheet ---------- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+.sheet {
+  width: 100%;
+  max-width: 44rem;
+  max-height: 85vh;
+  overflow: auto;
+  padding: 4px 16px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 16px 16px 0 0;
+  background: var(--bg);
+  outline: none;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.menu-list,
+.version-list {
+  display: flex;
+  flex-direction: column;
+}
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item.danger {
+  color: var(--danger);
+}
+.menu-item:disabled {
+  opacity: 0.45;
+}
+.v-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.v-preview {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- data page ---------- */
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 8px 0;
+}
+.facts dt {
+  color: var(--muted);
+}
+.facts dd {
+  margin: 0;
+}
+.choices {
+  border: 0;
+  padding: 0;
+  margin: 8px 0;
+}
+.choices label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.report {
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 0.8rem;
+  overflow: auto;
+}
+details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* ---------- tasks view ---------- */
+.tasks-link {
+  border-bottom: 1px solid var(--line);
+}
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+}
+.task-check {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  min-height: 52px;
+}
+.task-check input {
+  width: 22px;
+  height: 22px;
+}
+.task-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 52px;
+  padding: 8px 4px 8px 0;
+}
+.task-text {
+  overflow-wrap: anywhere;
+}
+.task-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.task-row.done .task-text {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* ---------- task dates ---------- */
+.note-text li[data-task-meta]::after {
+  content: attr(data-task-meta);
+  flex: none;
+  align-self: flex-start;
+  max-width: 45%;
+  margin: 2px 0 0 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+  pointer-events: none;
+  user-select: none;
+}
+.task-body {
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.task-text-button { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; text-align: left; cursor: text; min-height: 28px; }
+.task-inline-editor { outline: none; cursor: text; overflow-wrap: anywhere; }
+.task-inline-editor p { margin: 0; }
+.task-inline-edit > .link-plain { font-size: .8rem; min-height: 36px; color: var(--accent); }
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.task-chip {
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+}
+.task-chip.overdue {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.section.overdue {
+  color: var(--danger);
+}
+.section .count {
+  font-weight: 400;
+  opacity: 0.7;
+}
+.link-plain {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.field {
+  margin: 14px 0;
+}
+.field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+input[type='date'] {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 12px 0;
+}
+.check-row input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+.task-sheet-text {
+  margin: 0 0 4px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 380px) {
+  .toolbar {
+    gap: 0;
+  }
+  .tb-btn {
+    min-width: 37px;
+  }
+}
+
+/* ---------- note on its own page ---------- */
+.note-date-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--muted);
+}
+a.menu-item {
+  justify-content: center;
+  text-decoration: none;
+  font: inherit;
+}
+.note-page .note {
+  border-bottom: 0;
+}
+
+/* ---------- free notes, notes list, tag editor ---------- */
+.note-kind {
+  margin-left: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.tag-parent {
+  font-weight: 400;
+  color: var(--muted);
+}
+.tag-editor {
+  margin: 0 0 8px;
+}
+.tag-add {
+  margin: 4px 0;
+  position: relative;
+  width: 24rem;
+  max-width: 100%;
+}
+.tag-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+}
+.tag-suggestions { position: absolute; z-index: 25; top: 100%; left: 0; right: 0; margin: 4px 0 0; padding: 4px; list-style: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 4px 12px #0003; }
+.tag-suggestions button { display: block; width: 100%; min-height: 44px; text-align: left; padding: 8px; border: 0; border-radius: 4px; background: transparent; color: var(--text); }
+.tag-suggestions button:hover, .tag-suggestions button:focus-visible { background: var(--sel); }
+.dismissed-icon { color: var(--muted); font-size: 22px; line-height: 1; text-decoration: none; }
+.dismissed-icon[hidden], .note-text input[hidden] { display: none; }
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.notes-filters {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+.notes-browser { display: grid; gap: 16px; margin-top: 16px; }
+.notes-sections { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.notes-sections > span { font-weight: 600; }
+.notes-folders { border: 1px solid var(--line); border-radius: 12px; padding: 12px; max-height: 320px; overflow: auto; background: var(--surface); }
+.notes-folders h2, .notes-results h2 { margin: 0 0 8px; font-size: 1rem; }
+.notes-folders ul { list-style: none; margin: 0; padding: 0; }
+.notes-folders ul ul { padding-left: 16px; border-left: 1px solid var(--line); margin-left: 8px; }
+.notes-folders summary { min-height: 44px; padding: 10px 4px; cursor: pointer; }
+.folder-select { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.folder-select[aria-current='true'] { background: var(--sel); font-weight: 650; }
+.folder-select:focus-visible, .notes-folders summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.notes-results { min-width: 0; }
+.task-archive { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 20px; }
+.task-archive > summary { cursor: pointer; min-height: 44px; padding: 10px 4px; }
+.archive-range { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.archive-range label { display: flex; flex-direction: column; min-width: 0; }
+.archive-range input { min-height: 44px; width: 145px; padding: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.archive-list { list-style: none; padding: 0; }
+.archive-list li { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
+.archive-list li > span:nth-child(2) { flex: 1; min-width: 0; }
+.archive-list small { display: block; }
+.archive-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.archive-tools nav { display: flex; flex-wrap: wrap; gap: 12px; }
+.archive-tools button { min-height: 44px; }
+.archive-tools nav button[aria-pressed='true'] { font-weight: 650; text-decoration: underline; }
+.archive-dates > summary { min-height: 44px; color: var(--muted); font-size: .85rem; }
+.archive-restore { flex: 0 0 44px; min-height: 44px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 20px; }
+.archive-task-text { text-decoration: line-through; color: var(--muted); overflow-wrap: anywhere; }
+.note-text li[hidden], .note-text .task-actions[hidden], .completed-bullet[hidden] { display: none; }
+.completed-bullet { color: var(--muted); }
+.note-text li[data-checked='true']:not([data-dismissed-at]) { background: transparent; border-left-color: transparent; }
+.note-text li[data-checked='true']::after { display: none; }
+.people-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.people-filters .btn[aria-pressed='true'] { background: var(--sel); }
+.people-cards { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+.person-card { display: flex; gap: 12px; min-height: 112px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--surface); text-decoration: none; }
+.person-card:focus-visible { outline: 2px solid var(--accent); }
+.person-initials { display: grid; place-items: center; flex: 0 0 44px; height: 44px; border-radius: 50%; background: var(--sel); color: var(--accent); font-weight: 650; }
+.person-summary { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.person-groups { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (min-width: 600px) { .people-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tag-branch summary { cursor: pointer; padding: 10px 8px; min-height: 44px; }
+.notes-folders summary::before, .tag-branch summary::before, .task-archive > summary::before { content: '▸'; flex: 0 0 18px; }
+.notes-folders details[open] > summary::before, .tag-branch details[open] > summary::before, .task-archive[open] > summary::before { content: '▾'; }
+.tag-branch > details > .tag-list { margin-left: 16px; border-left: 1px solid var(--line); padding-left: 8px; }
+.note-text li[data-dismissed-at] > div > p { color: var(--muted); }
+@media (min-width: 680px) {
+  .notes-browser { grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr); align-items: start; }
+  .notes-folders { max-height: 65vh; position: sticky; top: 68px; }
+}
+.notes-filters input[type='search'],
+.notes-filters select {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  padding: 0 10px;
+}
+.notes-filters input[type='search'] {
+  flex: 1;
+  min-width: 0;
+}
+.notes-filters select {
+  max-width: 45%;
+}
+.notes-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.note-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+}
+.note-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.note-preview {
+  color: var(--muted);
+  font-size: 0.9rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* ---------- titles, crumbs, daily switch ---------- */
+input.note-title-input[type='text'] {
+  width: 100%;
+  min-height: 44px;
+  margin: 2px 0 6px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 650;
+}
+input.note-title-input[type='text']::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+input.note-title-input[type='text']:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+.topbar .title .crumb {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+}
+.daily-toggle {
+  margin-top: 20px;
+  color: var(--muted);
+}
+
+/* ---------- today screen ---------- */
+.today-date {
+  margin: 8px 0 12px;
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+.today-nav {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.today-nav .btn {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: 1rem;
+}
+.widget {
+  margin: 0 0 12px;
+}
+.today-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.today-source-chips { margin: 0; }
+.today-source .chip { padding: 0; }
+.today-source .chip button { min-height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 999px; font-size: inherit; cursor: pointer; }
+.today-source .chip button[aria-checked='true'] { background: var(--sel); border-color: var(--accent); font-weight: 600; }
+.today-source .chip button:disabled { opacity: 0.45; cursor: not-allowed; }
+.today-source select {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  padding: 0 8px;
+}
+.today .tasks .task-group:first-of-type .section {
+  margin-top: 8px;
+}
+
+/* ---------- bottom tab bar ---------- */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar a {
+  flex: 1;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.72rem;
+}
+.tabbar a[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.page.has-tabbar {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+/* while typing, the keyboard gets the room */
+body[data-typing] .tabbar {
+  display: none;
+}
+/* on Today, the formatting toolbar belongs to today's note: only while its text has the cursor */
+body:not([data-editing]) .today .toolbar {
+  display: none;
+}
+
+/* ---------- task rows: card with round buttons ---------- */
+:root {
+  --star: #c98a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --star: #f0b429;
+  }
+}
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-row {
+  align-items: center;
+  background: var(--surface);
+  border-bottom: 0;
+  border-radius: 10px;
+  /* a slot for a colour that will mean something later; invisible until it is given a value */
+  border-left: 3px solid var(--task-bar, transparent);
+  padding-right: 8px;
+}
+.task-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  margin-left: auto;
+}
+.round-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+}
+.round-btn.on {
+  color: var(--accent);
+}
+.round-btn.prio-both,
+.round-btn.prio-urgent,
+.round-btn.prio-important,
+.prio-both,
+.prio-urgent,
+.prio-important {
+  color: var(--star);
+}
+.prio {
+  display: inline-flex;
+  margin-right: 10px;
+  color: var(--muted);
+}
+.menu-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.menu-row-label {
+  display: inline-flex;
+  align-items: center;
+}
+.menu-item.on {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.choose-date {
+  min-height: 52px;
+  justify-content: center;
+  cursor: default;
+}
+.choose-date input[type='number'] {
+  min-height: 44px;
+  width: 7rem;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.typed-date {
+  color: var(--muted);
+}
+.prio-btn.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+@media (max-width: 420px) {
+  .round-btn {
+    width: 30px;
+    height: 30px;
+  }
+  .task-actions {
+    gap: 4px;
+  }
+}
+
+/* ---------- task buttons: icons show what is set; unset ones appear on hover ---------- */
+:root {
+  --due: #2b6cb0;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --due: #7fb0ff;
+  }
+}
+.round-btn.due-set {
+  color: var(--due);
+}
+.round-btn.due-soon {
+  color: var(--danger); /* due today or overdue */
+}
+/* Where there is a pointer to hover with, buttons with nothing set stay out of sight until the row is hovered
+   (or has keyboard focus). Touch screens have no hover, so all three stay visible there. */
+@media (hover: hover) {
+  .task-row .round-btn.unset {
+    opacity: 0;
+  }
+  .task-row:hover .round-btn.unset,
+  .task-row:focus-within .round-btn.unset,
+  .round-btn.unset:focus-visible {
+    opacity: 1;
+  }
+}
+
+/* ---------- task strip colour, expand arrow ---------- */
+:root {
+  --bar-red: var(--danger);
+  --bar-yellow: var(--star);
+  --bar-grey: #6b7280;
+}
+/* the strip down a task's left edge: red = due today or overdue, yellow = due tomorrow, grey = the rest */
+.task-row,
+.note-text li[data-checked] {
+  --task-bar: var(--bar-grey);
+}
+.task-row[data-bar='red'],
+.note-text li[data-bar='red'] {
+  --task-bar: var(--bar-red);
+}
+.task-row[data-bar='yellow'],
+.note-text li[data-bar='yellow'] {
+  --task-bar: var(--bar-yellow);
+}
+.task-row {
+  flex-wrap: wrap;
+}
+.task-row .task-body {
+  flex: 1 1 0;
+}
+.round-btn.chevron {
+  background: transparent;
+}
+.round-btn.chevron svg {
+  transition: transform 0.15s;
+}
+.round-btn.chevron.open svg {
+  transform: rotate(180deg);
+}
+.task-expanded {
+  flex: 0 0 100%;
+  padding: 0 12px 10px 52px;
+}
+.task-expanded .task-details .field {
+  margin: 10px 0;
+}
+
+/* ---------- tasks inside a note: same strip and buttons as the Tasks page ---------- */
+.note-text li[data-checked] {
+  align-items: center;
+  margin: 4px 0;
+  padding: 2px 6px 2px 0;
+  background: var(--surface);
+  border-radius: 10px;
+  border-left: 3px solid var(--task-bar, var(--bar-grey));
+}
+.note-text li[data-checked] > label {
+  margin-left: 2px;
+}
+.note-text li[data-checked]::after {
+  order: 2; /* the date label sits between the text and the buttons */
+}
+.note-text li[data-checked] > .task-actions {
+  order: 3;
+  display: flex;
+  flex: none;
+  gap: 4px;
+  margin-left: auto;
+}
+.note-text li[data-checked] > .task-actions[hidden] {
+  display: none;
+}
+.note-text .round-btn {
+  width: 28px;
+  height: 28px;
+}
+.note-text .round-btn svg {
+  width: 16px;
+  height: 16px;
+}
+/* a pointer to hover with: buttons with nothing set appear when the task is hovered; touch screens show only
+   what is set (the toolbar's calendar button opens every option for the task under the cursor) */
+@media (hover: hover) {
+  .note-text li[data-checked] .round-btn.unset {
+    opacity: 0;
+  }
+  .note-text li[data-checked]:hover .round-btn.unset,
+  .note-text li[data-checked]:focus-within .round-btn.unset {
+    opacity: 1;
+  }
+}
+@media (hover: none) {
+  .note-text .round-btn.unset {
+    display: none;
+  }
+}
+
+/* ---------- settings ---------- */
+.spacing-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+.spacing-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.spacing-option.on {
+  border-color: var(--accent);
+}
+.spacing-option input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+.spacing-preview {
+  min-height: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+/* Task history range picker: one compact month, with roomy day buttons. */
+.range-picker { position: relative; margin-left: auto; }
+.range-trigger { background: transparent; border: 0; color: var(--text); min-height: 44px; padding: 6px; cursor: pointer; font: inherit; font-size: 13px; }
+.range-popover { position: fixed; max-height: calc(100dvh - 128px); overflow-y: auto; z-index: 30; width: min(320px, calc(100vw - 40px)); padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 30px #0005; }
+.range-month { display: flex; align-items: center; padding: 0 4px; }
+.range-month strong { flex: 1; }
+.range-month button, .range-grid button { background: transparent; color: inherit; border: 0; min-height: 44px; font: inherit; cursor: pointer; }
+.range-month button { width: 44px; font-size: 22px; }
+.range-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
+.range-grid > span { padding: 6px 0; font-size: 12px; }
+.range-grid button { padding: 0; font-size: 14px; }
+.range-grid .outside { opacity: .5; }
+.range-grid .in-range { background: var(--accent); color: var(--accent-contrast); }
+.range-grid .range-start { border-radius: 22px 0 0 22px; }
+.range-grid .range-end { border-radius: 0 22px 22px 0; }
+.range-grid .range-start.range-end { border-radius: 22px; }
+.range-grid [aria-current="date"] { text-decoration: underline; text-underline-offset: 4px; }
+.range-popover .archive-range { gap: 6px; }
+.range-popover .archive-range label { min-width: 0; flex: 1; }
+.range-popover input { width: 100%; min-width: 0; }
+.archive-tools { flex-wrap: wrap; }
+.archive-grip { flex: 0 0 36px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 24px; cursor: grab; touch-action: manipulation; }
+.archive-grip:active { cursor: grabbing; }
+.archive-day.drop-zone { min-height: 72px; padding: 4px 8px; border: 1px dashed var(--line); border-radius: 8px; margin: 6px 0; }
+.archive-day.drop-active { border-color: var(--accent); background: var(--sel); }
+.archive-list .archive-task-text { flex: 1; min-width: 0; }
+@media (hover: hover) { .archive-grip { opacity: 0; } .archive-list li:hover .archive-grip, .archive-grip:focus-visible { opacity: 1; } }
+
+.archive-grip { touch-action: none; user-select: none; }
+.task-archive.is-dragging .archive-grip { opacity: 1; }
+/* Keep a gutter for the handle outside the task strip, including on narrow phones. */
+.editor-host .note-text > ul[data-type='taskList'] { margin-left: 28px; }
+.editor-host .note-text li[data-checked] { position: relative; }
+.note-task-grip { position: absolute; left: -31px; top: -4px; width: 28px; min-height: 44px; border: 0; padding: 0; background: transparent; color: var(--muted); font-size: 22px; cursor: grab; touch-action: none; user-select: none; }
+.note-task-grip:active { cursor: grabbing; }
+.note-text li[data-move-drop='before'] { box-shadow: 0 -3px 0 var(--accent); }
+.note-text li[data-move-drop='after'] { box-shadow: 0 3px 0 var(--accent); }
+@media (hover: hover) { .note-task-grip { opacity: 0; } .note-text li:hover > .note-task-grip, .note-task-grip:focus-visible { opacity: 1; } }
+
+/* Settings: dashboard widgets (show/hide and order) */
+.widget-prefs { list-style: none; margin: 0 0 var(--gap, 1rem); padding: 0; }
+.widget-prefs li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid var(--line, rgba(128, 128, 128, 0.25)); }
+.widget-prefs label { flex: 1; }
+.widget-move { display: flex; gap: 0.25rem; }
+.widget-move .btn { min-width: 2.5rem; }
+
+/* Mood widget: a compact band (faces + note on one side, a 7-day table on the other) */
+.mood { margin-bottom: 8px; }
+.mood-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.mood-head .section { margin: 0 0 4px; }
+.mood-body { display: grid; gap: 8px 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 560px) { .dash-top .mood-body:not(.solo) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; } }
+.mood-faces { display: flex; gap: 0.3rem; margin-bottom: 0.3rem; }
+.mood-face { flex: 1; font-size: 1.3rem; line-height: 1; padding: 0.4rem 0; border: 1px solid var(--line); border-radius: 0.5rem; background: transparent; cursor: pointer; }
+.mood-face:active { transform: scale(0.96); }
+.mood-note { width: 100%; box-sizing: border-box; }
+.mood-table { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; text-align: center; }
+.mood-table th { font-size: 0.7rem; font-weight: 500; color: var(--muted); }
+.mood-table th.today { color: var(--text); font-weight: 700; }
+.mood-table td { height: 2rem; border-radius: 0.4rem; border: 1px solid var(--line); font-size: 1.05rem; }
+.mood-entries { list-style: none; margin: 0.3rem 0 0; padding: 0; font-size: 0.9rem; }
+.mood-entries li { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+.mood-entries .mood-text { flex: 1; overflow-wrap: anywhere; }
+.mood-entries .btn { padding: 0 0.5rem; min-height: 0; }
+.mood-refused li { flex-wrap: wrap; }
+
+/* Dashboard layout: a band on top, then left / center / right columns (stacked on a phone) */
+.page.wide { max-width: 72rem; }
+.dashboard-grid { display: grid; gap: 12px 24px; grid-template-columns: minmax(0, 1fr); }
+.dash-region > .widget:last-child { margin-bottom: 0; }
+@media (min-width: 860px) {
+  .dashboard-grid { grid-template-columns: var(--dash-cols, minmax(0, 0.7fr) minmax(0, 2fr) minmax(0, 1.3fr)); grid-template-areas: var(--dash-areas, "top top top" "left center right"); align-items: start; }
+  .dash-top { grid-area: top; }
+  .dash-left { grid-area: left; }
+  .dash-center { grid-area: center; }
+  .dash-right { grid-area: right; }
+}
+
+/* ---------- moving tags (drag the grip) ---------- */
+.drag-handle { flex: none; width: 32px; min-height: 44px; border: 0; background: none; color: var(--muted); font-size: 1rem; letter-spacing: -3px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tag-branch summary { display: flex; align-items: center; }
+.tag-branch summary .folder-title { flex: 1; min-width: 0; }
+[data-drop] { position: relative; }
+.home.dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+.drag-source { opacity: .4; }
+.drop-into { background: var(--sel); outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.drop-before::before, .drop-after::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--accent); pointer-events: none; z-index: 2; }
+.drop-before::before { top: -2px; }
+.drop-after::after { bottom: -2px; }
+.tag-root-drop { position: sticky; bottom: 8px; z-index: 3; background: var(--surface); margin-top: 12px; padding: 14px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; color: var(--muted); }
+.tag-root-drop.drop-into { border-style: solid; color: var(--text); }
+.drag-ghost { position: fixed; z-index: 50; padding: 6px 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 4px 14px rgb(0 0 0 / .25); pointer-events: none; font-weight: 600; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mood-body.solo { grid-template-columns: minmax(0, 1fr); }
+.mood-face[aria-pressed='true'] { background: var(--sel); border-color: var(--accent); }
+.mood-log { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
+.mood-log .mood-note { flex: 1; min-width: 0; }
+.widget-group { margin: 0 0 0.5rem; }
+.widget-group-name { margin: 0.6rem 0 0.1rem; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.widget-move select { min-height: 44px; max-width: 9.5rem; }
+.widget-reset { margin: 0.5rem 0 0; }
+
+/* login page and the password settings */
+.login { max-width: 22rem; margin: 12vh auto 0; padding: 0 16px; text-align: center; }
+.login-logo { width: 72px; height: 72px; border-radius: 16px; }
+.login h1 { margin: 8px 0 16px; font-size: 1.6rem; }
+.login form { display: grid; gap: 12px; text-align: left; }
+.login label { display: grid; gap: 4px; }
+.pw-form { display: grid; gap: 8px; max-width: 22rem; margin: 8px 0; }
+.pw-form label { display: grid; gap: 4px; }
+
+.archive-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
+
+/* Inside a column the widgets stack, except the New note button and the starred tags, which sit on one row (the tags
+   fill what is left of the row and wrap below if there is no room). */
+.dash-region { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; }
+.dash-region > * { flex: 1 1 100%; min-width: 0; }
+.dash-region > .today-nav { flex: 0 0 auto; }
+.dash-region > [data-testid="widget-pinned"] { flex: 1 1 10rem; margin-bottom: 8px; }
+.dash-region > [data-testid="widget-pinned"] .chips { margin: 0; }
+
+/* Today's note: its heading with the tag choices beside it, then the earlier days under it (greyed until tapped) */
+.widget-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 8px; }
+.widget-head .section { margin: 0; }
+.widget-head .today-source { margin: 0; min-width: 0; }
+.earlier { margin-top: 14px; }
+.earlier-item { opacity: 0.6; transition: opacity 0.12s; }
+.earlier-item:hover, .earlier-item:focus-within, .earlier-item.is-active { opacity: 1; }
+.earlier-item:not(.is-active) .note-text.static { max-height: 9.5rem; overflow: hidden; }
+.earlier-item.clamped:not(.is-active) .note-text.static { -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
+</style>
+<style>
+.crm-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.crm-intro{margin:18px 0 24px}.crm-intro h2{font-size:1.5rem;letter-spacing:-.5px;margin:0 0 6px}.crm-intro p{margin:0}.crm-experiment{font-size:.75rem;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.crm-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}.crm-stat{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px;text-align:left;color:var(--text);font:inherit;cursor:pointer}.crm-stat strong{display:block;color:var(--accent);font-size:1.5rem;font-weight:650}.crm-stat span{display:block;font-size:.76rem;color:var(--muted);margin-top:4px}.crm-stat[aria-pressed=true]{border-color:var(--accent);background:var(--ok-bg)}.crm-grid{display:grid;grid-template-columns:minmax(250px,.85fr) minmax(0,1.6fr);gap:24px;align-items:start;margin-top:22px}.crm-filters{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.crm-filters .btn{font-size:.8rem;padding:0 12px}.crm-filters [aria-pressed=true]{background:var(--sel)}.crm-search{width:100%;font:inherit;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text)}.crm-list{list-style:none;padding:0;margin:0;display:grid;gap:10px}.crm-person{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:12px;width:100%;background:var(--surface);color:var(--text);text-align:left;padding:14px;cursor:pointer;font:inherit}.crm-person[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent);background:var(--ok-bg)}.crm-person .person-initials{flex-basis:40px;height:40px;font-size:.8rem}.crm-person-text{min-width:0;flex:1}.crm-person-name{font-weight:650;font-size:.93rem;display:block}.crm-person-context{display:block;font-size:.74rem;color:var(--muted);margin:3px 0 9px}.crm-due{font-size:.68rem;display:inline-block;border-radius:5px;padding:3px 7px;background:var(--warn-bg);color:var(--warn)}.crm-resting{font-size:.68rem;color:var(--muted)}.crm-group{font-size:.7rem;color:var(--muted)}.crm-profile{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;scroll-margin-top:65px}.crm-profile-head{padding:24px;border-bottom:1px solid var(--line)}.crm-profile-head .person-initials{width:60px;height:60px;flex-basis:60px;font-size:1.05rem}.crm-profile-identity{display:flex;align-items:center;gap:16px;margin-bottom:18px}.crm-profile h2{margin:0;font-size:1.4rem;letter-spacing:-.4px}.crm-profile-identity p{margin:4px 0 0}.crm-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.crm-tag{border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:.7rem;color:var(--muted)}.crm-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.crm-actions .btn{font-size:.82rem}.crm-profile-body{padding:0 24px 24px}.crm-followup{margin:20px 0;padding:16px;background:var(--ok-bg);border-radius:10px;border:1px solid var(--line)}.crm-followup p{font-size:.87rem;margin:6px 0}.crm-followup .crm-heading{align-items:flex-start}.crm-followup button{font-size:.75rem;flex-shrink:0}.crm-section-title{font-size:.76rem;letter-spacing:.055em;text-transform:uppercase;color:var(--muted);font-weight:650;margin:24px 0 12px}.crm-facts{display:grid;grid-template-columns:1fr 1fr;gap:15px 20px;margin-top:20px}.crm-facts dt{font-size:.7rem;color:var(--muted);margin-bottom:5px}.crm-facts dd{font-size:.85rem;margin:0}.crm-note{font-size:.88rem;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}.crm-subhead{font-size:.74rem;color:var(--muted);margin:4px 0 12px}.crm-timeline{list-style:none;margin:0;padding:0}.crm-timeline li{padding:0 0 20px 20px;border-left:1px solid var(--line);position:relative;margin-left:5px}.crm-timeline li:before{content:'';position:absolute;width:7px;height:7px;left:-4px;top:6px;background:var(--accent);border-radius:50%}.crm-timeline li:last-child{padding-bottom:0}.crm-event-meta{display:flex;justify-content:space-between;gap:8px;font-size:.72rem;color:var(--muted);margin-bottom:5px}.crm-event-text{margin:0;font-size:.85rem;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.crm-foot{font-size:.72rem;color:var(--muted);margin:24px 0 12px;line-height:1.6}.crm-tools{margin:26px 0;border-top:1px solid var(--line);padding-top:16px}.crm-tools summary{cursor:pointer;min-height:44px;font-size:.85rem}.crm-tools p{font-size:.8rem;color:var(--muted)}.crm-dialog{width:min(510px,calc(100% - 24px));max-height:calc(100dvh - 24px);overflow:auto;background:var(--bg);color:var(--text);padding:24px;border:1px solid var(--line);border-radius:12px}.crm-dialog::backdrop{background:#0006}.crm-dialog h2{font-size:1.15rem;margin:0}.crm-field{display:block;margin:16px 0 6px;font-size:.8rem;font-weight:600}.crm-dialog input,.crm-dialog textarea,.crm-dialog select,.crm-tools textarea{display:block;box-sizing:border-box;width:100%;min-height:44px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;font-size:.9rem}.crm-dialog textarea{height:110px;resize:vertical}.crm-dialog .crm-help{font-size:.72rem;color:var(--muted);line-height:1.5;margin:5px 0}.crm-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.crm-dialog-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:24px}.crm-dialog-actions .btn{font-size:.85rem}.crm-empty{padding:20px;color:var(--muted);font-size:.85rem}.crm-status{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:12px 18px;border-radius:9px;background:var(--text);color:var(--bg);font-size:.82rem;box-shadow:0 8px 30px #0002;max-width:90vw;z-index:40}.crm-status:empty{display:none}.crm-close{font-size:1.5rem}.crm-mobile-back{display:none}.crm-caption{font-size:.7rem;color:var(--muted);margin:12px 0}.crm-cadence{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 0;font-size:.78rem}.crm-cadence button{font-size:.75rem}.crm-tools textarea{height:160px;font:12px/1.5 monospace;margin:10px 0}.crm-dialog :focus-visible,.crm-person:focus-visible,.crm-stat:focus-visible,.crm-search:focus-visible{outline:2px solid var(--accent);outline-offset:2px}[hidden]{display:none!important}
+@media(max-width:700px){.crm-grid{grid-template-columns:minmax(0,1fr);gap:20px}.crm-profile-head{padding:20px}.crm-profile-body{padding:0 20px 20px}.crm-summary{gap:8px}.crm-stat{padding:13px 10px}.crm-stat strong{font-size:1.3rem}.crm-stat span{font-size:.68rem}.crm-intro{align-items:flex-start}.crm-intro h2{font-size:1.25rem}.crm-intro .btn{font-size:.8rem;padding:0 12px;flex-shrink:0}.crm-intro p{font-size:.8rem}.crm-mobile-back{display:inline-flex}.crm-list{grid-template-columns:1fr}.crm-form-grid{grid-template-columns:1fr}.crm-profile-head .person-initials{width:48px;height:48px;flex-basis:48px}.crm-profile h2{font-size:1.2rem}.crm-profile-identity{gap:12px}.crm-followup .crm-heading{flex-wrap:wrap}.crm-facts{gap:15px}.crm-dialog{padding:18px}.crm-group{font-size:.65rem}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="topbar"><h1 class="title">People</h1><span class="small muted" style="font-size:.7rem;padding-right:12px">CRM CONCEPT</span></header>
+<main class="page wide has-tabbar">
+<p class="banner crm-experiment"><span>Local concept · Gordonite styling · fictional people</span><span id="save-label">Saved in this browser</span></p>
+<p id="storage-warning" class="banner error small" role="status" hidden></p>
+<div class="crm-heading crm-intro"><div><h2>A little more connected.</h2><p class="muted">Remember the person. Pick up where you left off.</p></div><button class="btn primary" id="new-person">New person</button></div>
+<section class="crm-summary" aria-label="Your people at a glance">
+<button class="crm-stat" data-view="all" aria-pressed="true"><strong id="people-count">0</strong><span>people in your circle</span></button>
+<button class="crm-stat" data-view="followup" aria-pressed="false"><strong id="followup-count">0</strong><span>follow-ups due</span></button>
+<button class="crm-stat" data-view="reconnect" aria-pressed="false"><strong id="reconnect-count">0</strong><span>ready for a catch-up</span></button>
+</section>
+<div class="crm-grid">
+<section id="directory" aria-label="People directory">
+<input type="search" class="crm-search" id="search" aria-label="Search people, interests, or context" placeholder="Search people, interests, context…">
+<nav class="crm-filters" aria-label="People groups"><button class="btn" data-group="All" aria-pressed="true">Everyone</button><button class="btn" data-group="Friends" aria-pressed="false">Friends</button><button class="btn" data-group="Family" aria-pressed="false">Family</button><button class="btn" data-group="School" aria-pressed="false">School</button><button class="btn" data-group="Work" aria-pressed="false">Work</button></nav>
+<p id="list-label" class="crm-caption"></p><ul id="people" class="crm-list"></ul>
+<p class="crm-caption">Suggestions follow the rhythm you choose. There’s no relationship score to keep up.</p>
+</section>
+<section id="profile" class="crm-profile" aria-label="Selected person"></section>
+</div>
+<details class="crm-tools"><summary>About this concept &amp; backup</summary>
+<p>This explores extending Gordonite’s existing person notes with a conversation timeline and follow-ups. All content is fictional and saved only in this browser. No messages are sent and no Gordonite records are changed.</p>
+<div class="row"><button class="btn" id="backup">Show backup</button><button class="btn" id="reset">Reset fictional demo</button></div>
+<div id="backup-area" hidden><label class="crm-field" for="backup-text">Copy this JSON into a .json file to keep a backup</label><textarea id="backup-text" readonly spellcheck="false"></textarea><label class="crm-field" for="restore-text">Paste a CRM concept backup to restore</label><textarea id="restore-text" spellcheck="false" placeholder="Paste backup JSON"></textarea><button class="btn" id="restore">Restore backup</button></div>
+<p>In a real implementation, person notes would remain the source of truth and follow-ups would use Gordonite’s existing Tasks. Contact import, notifications, a shared calendar, and automatic linking are not implemented here.</p>
+</details>
+<p class="crm-foot">Design direction: useful context, gentle reminders, and your own words. This experiment is separate from the habit-tracker branch and production app.</p>
+</main>
+<nav class="tabbar" aria-label="Main preview navigation">
+<a href="#" data-demo-nav><span aria-hidden="true">☀</span><span>Dashboard</span></a>
+<a href="#" data-demo-nav><span aria-hidden="true">☑</span><span>Tasks</span></a>
+<a href="#people" aria-current="page" id="people-tab"><span aria-hidden="true">♧</span><span>People</span></a>
+<a href="#" data-demo-nav><span aria-hidden="true">▤</span><span>Notes</span></a>
+</nav>
+<dialog class="crm-dialog" id="editor" aria-labelledby="dialog-title"><form id="edit-form"><div class="crm-heading"><h2 id="dialog-title"></h2><button type="button" class="icon-btn crm-close" id="close-dialog" aria-label="Close">×</button></div><div id="form-fields"></div><p id="form-error" class="error small" role="status"></p><div class="crm-dialog-actions"><button type="button" class="btn" id="cancel">Cancel</button><button type="submit" class="btn primary">Save</button></div></form></dialog>
+<div class="crm-status" id="status" role="status" aria-live="polite"></div>
+<script>
+(() => {
+'use strict';
+const $=id=>document.getElementById(id);
+const KEY='gordonite-personal-crm-concept-v1';
+const GROUPS=['Friends','Family','School','Work'];
+const CHANNELS=['Coffee','Call','Text','Email','In person'];
+const dayKey=date=>[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');
+const today=()=>dayKey(new Date());
+const offset=(date,n)=>{const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+n);return dayKey(d);};
+const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(new Date(s+'T12:00:00').getTime())&&dayKey(new Date(s+'T12:00:00'))===s;
+const dayDiff=(a,b)=>Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/86400000);
+const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>crypto.randomUUID();
+const fmt=date=>new Date(date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+const fullDate=date=>new Date(date+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+const initials=name=>name.trim().split(/\s+/).slice(0,2).map(x=>Array.from(x)[0]).join('').toUpperCase();
+let selected='maya',view='all',group='All',query='',mode='',editingId=null,timer,canSave=true,changedHere=false;
+function seed(){
+ const t=today();
+ return {format:1,people:[
+ {id:'maya',name:'Maya Chen',group:'Friends',context:'Met through the weekend walking group',location:'Calgary',interests:'Hiking, ceramics, mystery novels',birthday:'04-18',cadence:30,note:'Started a ceramics class and is making a very ambitious mug. Ask how the first firing went.\n\nPrefers a walk or a quiet café over a big group plan.',followup:{text:'Ask how the first pottery class went',date:t},events:[{id:uid(),date:offset(t,-8),channel:'Coffee',text:'Caught up at a café. Maya is trying pottery and looking for a new trail to walk before winter.'},{id:uid(),date:offset(t,-35),channel:'Text',text:'Swapped book recommendations. Mentioned a mystery novel for the next long weekend.'}]},
+ {id:'elliot',name:'Elliot Reed',group:'School',context:'Met in a study group',location:'Calgary',interests:'Board games, study sessions, coffee',birthday:'',cadence:21,note:'Likes working through practice questions together. Usually free on Thursday afternoons.',followup:{text:'Check whether Thursday works for a study session',date:offset(t,-2)},events:[{id:uid(),date:offset(t,-16),channel:'In person',text:'Studied together. Agreed to make time for another session before the next assessment.'}]},
+ {id:'noor',name:'Noor Patel',group:'Friends',context:'A friend from the old neighbourhood',location:'Vancouver',interests:'Cooking, climbing, live music',birthday:'11-02',cadence:45,note:'Moved recently. Enjoys sharing recipes and stories about exploring a new neighbourhood.',followup:null,events:[{id:uid(),date:offset(t,-52),channel:'Call',text:'Settling into the new apartment. Started looking for a nearby climbing gym.'}]},
+ {id:'jamie',name:'Jamie Brooks',group:'Family',context:'Cousin',location:'Edmonton',interests:'Gardening, cycling, baking',birthday:'02-12',cadence:30,note:'Working on a small balcony garden. Ask about the herbs next time.',followup:{text:'Find a day for a weekend catch-up',date:offset(t,5)},events:[{id:uid(),date:offset(t,-10),channel:'Call',text:'Talked about autumn plans and possible dates for a visit.'}]},
+ {id:'alex',name:'Alex Rivera',group:'Work',context:'Worked together on a volunteer project',location:'Calgary',interests:'Photography, volunteering, running',birthday:'',cadence:60,note:'Good person to ask about community photography events. Interested in helping with the next volunteer day.',followup:null,events:[{id:uid(),date:offset(t,-70),channel:'Email',text:'Shared some photographs from the volunteer event and thanked everyone for their help.'}]},
+ {id:'sam',name:'Sam Taylor',group:'Friends',context:'Met at a book club',location:'Calgary',interests:'Reading, film, long walks',birthday:'07-09',cadence:0,note:'No regular reminder needed. We normally see each other at the monthly book club.',followup:null,events:[{id:uid(),date:offset(t,-3),channel:'In person',text:'Book club catch-up. Suggested a film adaptation for a future group evening.'}]}
+ ]};
+}
+function validate(value){
+ if(!value||value.format!==1||!Array.isArray(value.people)||value.people.length>200)throw Error('Choose a valid CRM concept backup (up to 200 people).');
+ const ids=new Set();
+ for(const p of value.people){
+  if(!p||typeof p.id!=='string'||!p.id||p.id.length>100||ids.has(p.id)||typeof p.name!=='string'||!p.name.trim()||p.name.length>80||!GROUPS.includes(p.group)||!['context','location','interests','note','birthday'].every(k=>typeof p[k]==='string'&&p[k].length<=(k==='note'?10000:500))||!Number.isInteger(p.cadence)||p.cadence<0||p.cadence>365||!Array.isArray(p.events)||p.events.length>2000)throw Error('That backup contains invalid person data. Nothing was replaced.');
+  if(p.birthday&&(!/^\d{2}-\d{2}$/.test(p.birthday)||!validDate('2000-'+p.birthday)))throw Error('That backup contains an invalid birthday. Nothing was replaced.');
+  if(p.followup!==null&&(!p.followup||typeof p.followup.text!=='string'||!p.followup.text.trim()||p.followup.text.length>500||!validDate(p.followup.date)))throw Error('That backup contains an invalid follow-up. Nothing was replaced.');
+  const eventIds=new Set();
+  for(const event of p.events){if(!event||typeof event.id!=='string'||!event.id||event.id.length>100||eventIds.has(event.id)||!validDate(event.date)||event.date>today()||!CHANNELS.includes(event.channel)||typeof event.text!=='string'||!event.text.trim()||event.text.length>4000)throw Error('That backup contains an invalid conversation. Nothing was replaced.');eventIds.add(event.id);}
+  ids.add(p.id);
+ }
+ return value;
+}
+let state;
+function warning(text){$('storage-warning').hidden=false;$('storage-warning').textContent=text;$('save-label').textContent='This tab only · copy a backup';}
+try {const raw=localStorage.getItem(KEY);state=raw===null?seed():validate(JSON.parse(raw));}
+catch {state={format:1,people:[]};canSave=false;warning('Saved data could not be read. Nothing has been overwritten. Changes stay in this tab; copy a backup before closing.');}
+function save(){changedHere=true;if(canSave)try{localStorage.setItem(KEY,JSON.stringify(state));}catch{canSave=false;warning('This browser could not save your changes. Keep this tab open and copy a backup before closing.');}}
+function notify(text){clearTimeout(timer);$('status').textContent=text;timer=setTimeout(()=>$('status').textContent='',3500);}
+const lastContact=p=>p.events.map(x=>x.date).sort().at(-1)||null;
+const due=p=>p.followup&&p.followup.date<=today();
+const reconnect=p=>p.cadence>0&&(!lastContact(p)||dayDiff(lastContact(p),today())>=p.cadence);
+function contactLabel(p){const date=lastContact(p);if(!date)return 'No conversation logged yet';const n=dayDiff(date,today());return n===0?'Spoke today':n===1?'Spoke yesterday':'Last contact '+n+' days ago';}
+function followLabel(p){if(due(p)){const n=dayDiff(p.followup.date,today());return n===0?'Follow up today':'Follow-up '+n+'d overdue';}if(reconnect(p))return 'Time for a catch-up';if(p.followup)return 'Follow up '+fmt(p.followup.date);return contactLabel(p);}
+function renderList(){
+ $('people-count').textContent=state.people.length;
+ $('followup-count').textContent=state.people.filter(due).length;
+ $('reconnect-count').textContent=state.people.filter(reconnect).length;
+ document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view===view));
+ document.querySelectorAll('[data-group]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.group===group));
+ const filtered=state.people.filter(p=>(group==='All'||p.group===group)&&(view==='all'||(view==='followup'?due(p):reconnect(p)))&&[p.name,p.context,p.location,p.interests,p.note].join(' ').toLowerCase().includes(query.toLowerCase()));
+ filtered.sort((a,b)=>(!!due(b)-!!due(a))||((a.followup?.date||'9999')<(b.followup?.date||'9999')?-1:(a.followup?.date||'9999')>(b.followup?.date||'9999')?1:a.name.localeCompare(b.name)));
+ $('list-label').textContent=filtered.length+' '+(filtered.length===1?'person':'people')+' · '+(view==='followup'?'follow-ups due':view==='reconnect'?'ready for a catch-up':'follow-ups first');
+ $('people').innerHTML=filtered.length?filtered.map(p=>'<li><button class="crm-person" data-person="'+e(p.id)+'" aria-pressed="'+(p.id===selected)+'"><span class="person-initials" aria-hidden="true">'+e(initials(p.name))+'</span><span class="crm-person-text"><span class="crm-person-name">'+e(p.name)+'</span><span class="crm-person-context">'+e(p.context)+'</span><span class="'+(due(p)||reconnect(p)?'crm-due':'crm-resting')+'">'+e(followLabel(p))+'</span></span><span class="crm-group">'+e(p.group)+'</span></button></li>').join(''):'<li class="crm-empty">No people match. Try another group or search.</li>';
+}
+function renderProfile(){
+ const p=state.people.find(p=>p.id===selected);
+ if(!p){$('profile').innerHTML='<div class="crm-empty">Choose a person to see their story, or add someone new.</div>';return;}
+ const last=lastContact(p);
+ const birthday=p.birthday?new Date('2000-'+p.birthday+'T12:00:00').toLocaleDateString(undefined,{month:'long',day:'numeric'}):'Not added';
+ const follow=p.followup?'<div class="crm-followup"><div class="crm-heading"><div><div class="small muted">'+e(due(p)?'FOLLOW-UP DUE':'NEXT FOLLOW-UP')+' · '+e(fmt(p.followup.date))+'</div><p>'+e(p.followup.text)+'</p></div><button class="btn" data-action="complete">Mark done</button></div><div class="row"><button class="link small" data-action="followup">Edit follow-up</button><button class="link small" data-action="snooze">Move to next week</button></div></div>':'<div class="crm-followup"><p>'+(reconnect(p)?'It’s been a little while. Pick a moment to reconnect.':'No follow-up planned. Add one when there’s something you want to remember.')+'</p><button class="btn" data-action="followup">Add follow-up</button></div>';
+ $('profile').innerHTML='<div class="crm-profile-head"><div class="crm-heading"><button class="link small crm-mobile-back" data-action="back">↑ Back to people</button><span class="small muted">PERSON NOTE · CONCEPT</span><button class="link small" data-action="person">Edit person</button></div><div class="crm-profile-identity" style="margin-top:20px"><span class="person-initials" aria-hidden="true">'+e(initials(p.name))+'</span><div><h2>'+e(p.name)+'</h2><p class="small muted">'+e(p.context)+'</p></div></div><div class="crm-tags"><span class="crm-tag">'+e(p.group)+'</span>'+p.interests.split(',').map(x=>x.trim()).filter(Boolean).map(x=>'<span class="crm-tag">'+e(x)+'</span>').join('')+'</div><div class="crm-actions"><button class="btn primary" data-action="log">Log a conversation</button><button class="btn" data-action="followup">Plan a follow-up</button></div></div><div class="crm-profile-body">'+follow+'<dl class="crm-facts"><div><dt>Last contact</dt><dd>'+e(last?fullDate(last):'Not logged yet')+'</dd></div><div><dt>Location</dt><dd>'+e(p.location||'Not added')+'</dd></div><div><dt>Birthday</dt><dd>'+e(birthday)+'</dd></div><div><dt>Your circle</dt><dd>'+e(p.group)+'</dd></div></dl><div class="crm-cadence"><span class="muted">'+e(p.cadence?'A catch-up about every '+p.cadence+' days':'Keep-in-touch reminders off')+'</span><button class="link" data-action="person">Change</button></div><div class="crm-heading"><h3 class="crm-section-title">Things to remember</h3><button class="link small" data-action="note">Edit note</button></div><p class="crm-note">'+e(p.note||'A few details to help you pick up where you left off.')+'</p><h3 class="crm-section-title">Conversations</h3><p class="crm-subhead">Only logged interactions count as contact.</p><ol class="crm-timeline">'+[...p.events].sort((a,b)=>b.date.localeCompare(a.date)).map(event=>'<li><div class="crm-event-meta"><span>'+e(event.channel)+'</span><span>'+e(fullDate(event.date))+'</span></div><p class="crm-event-text">'+e(event.text)+'</p></li>').join('')+'</ol>'+(!p.events.length?'<p class="muted small">No conversations logged yet.</p>':'')+'</div>';
+}
+function render(){renderList();renderProfile();}
+function field(label,id,value='',type='text',extra=''){return '<label class="crm-field" for="'+id+'">'+label+'</label><input id="'+id+'" name="'+id+'" type="'+type+'" value="'+e(value)+'" '+extra+'>';}
+function textarea(label,id,value='',extra=''){return '<label class="crm-field" for="'+id+'">'+label+'</label><textarea id="'+id+'" name="'+id+'" '+extra+'>'+e(value)+'</textarea>';}
+function openEditor(action,person){
+ mode=action;editingId=person?.id||null;$('form-error').textContent='';$('edit-form').reset();
+ const p=person||{name:'',group:'Friends',context:'',location:'',interests:'',birthday:'',cadence:30,note:''};
+ let fields='';
+ if(action==='person'){
+  $('dialog-title').textContent=person?'Edit person':'Someone to remember';
+  fields=field('Name','name',p.name,'text','required maxlength="80" autocomplete="off"')+'<label class="crm-field" for="group">Your circle</label><select id="group" name="group">'+GROUPS.map(g=>'<option '+(g===p.group?'selected':'')+'>'+g+'</option>').join('')+field('How you know each other','context',p.context,'text','maxlength="500"')+'<div class="crm-form-grid"><div>'+field('Location','location',p.location,'text','maxlength="500"')+'</div><div>'+field('Birthday (MM-DD, optional)','birthday',p.birthday,'text','maxlength="5" placeholder="04-18" pattern="[0-9]{2}-[0-9]{2}"')+'</div></div>'+field('Shared interests, separated by commas','interests',p.interests,'text','maxlength="500"')+field('Days between catch-ups (0 turns reminders off)','cadence',p.cadence,'number','required min="0" max="365"')+'<p class="crm-help">This suggests a catch-up when enough time has passed. It does not send notifications or messages.</p>';
+ }else if(action==='log'){
+  $('dialog-title').textContent='Log a conversation';
+  fields='<p class="crm-help">'+e(p.name)+' · Keep the detail you’d want to remember next time.</p><div class="crm-form-grid"><div>'+field('When','date',today(),'date','required max="'+today()+'"')+'</div><div><label class="crm-field" for="channel">How</label><select id="channel" name="channel">'+CHANNELS.map(x=>'<option>'+x+'</option>').join('')+'</select></div></div>'+textarea('What did you talk about?','text','','required maxlength="4000"')+field('Next follow-up (optional)','nextText','','text','maxlength="500"')+field('Follow-up date','nextDate','','date')+'<p class="crm-help">A new follow-up replaces the one currently planned for this person.</p>';
+ }else if(action==='followup'){
+  $('dialog-title').textContent='Something to follow up on';
+  fields='<p class="crm-help">'+e(p.name)+'</p>'+field('What would you like to remember?','text',p.followup?.text||'','text','required maxlength="500"')+field('When','date',p.followup?.date||offset(today(),3),'date','required')+'<p class="crm-help">In Gordonite this could be a normal dated task linked to the person note.</p>';
+ }else if(action==='note'){
+  $('dialog-title').textContent='Things to remember';
+  fields='<p class="crm-help">'+e(p.name)+' · Your own notes, in your own words.</p>'+textarea('Person note','note',p.note,'maxlength="10000" style="height:230px"');
+ }
+ $('form-fields').innerHTML=fields;$('editor').showModal();$('form-fields').querySelector('input,textarea,select')?.focus();
+}
+$('edit-form').onsubmit=event=>{
+ event.preventDefault();const form=new FormData(event.currentTarget);const get=name=>String(form.get(name)||'').trim();let p=state.people.find(p=>p.id===editingId);
+ if(editingId&&!p){$('form-error').textContent='This person no longer exists. Close the form and try again.';return;}
+ if(mode==='person'){
+  const birthday=get('birthday'),cadence=Number(get('cadence'));
+  if(!get('name')){$('form-error').textContent='Add a name first.';return;}
+  if(birthday&&(!/^\d{2}-\d{2}$/.test(birthday)||!validDate('2000-'+birthday))){$('form-error').textContent='Use a real birthday in MM-DD format, or leave it empty.';return;}
+  if(!Number.isInteger(cadence)||cadence<0||cadence>365){$('form-error').textContent='Choose a whole number from 0 to 365.';return;}
+  if(!p){if(state.people.length>=200){$('form-error').textContent='This concept supports up to 200 people.';return;}p={id:uid(),events:[],followup:null,note:''};state.people.push(p);}
+  Object.assign(p,{name:get('name'),group:get('group'),context:get('context'),location:get('location'),interests:get('interests'),birthday,cadence});selected=p.id;
+ }else if(mode==='log'){
+  if(!validDate(get('date'))||get('date')>today()||!get('text')){$('form-error').textContent='Add a conversation and a date up to today.';return;}
+  if(Boolean(get('nextText'))!==Boolean(get('nextDate'))){$('form-error').textContent='Add both a follow-up and its date, or leave both empty.';return;}
+  if(get('nextDate')&&!validDate(get('nextDate'))){$('form-error').textContent='Choose a valid follow-up date.';return;}
+  if(p.events.length>=2000){$('form-error').textContent='This concept supports up to 2,000 conversations per person.';return;}
+  p.events.push({id:uid(),date:get('date'),channel:get('channel'),text:get('text')});
+  if(get('nextText'))p.followup={text:get('nextText'),date:get('nextDate')};
+ }else if(mode==='followup'){
+  if(!get('text')||!validDate(get('date'))){$('form-error').textContent='Add a follow-up and a valid date.';return;}
+  p.followup={text:get('text'),date:get('date')};
+ }else if(mode==='note'){p.note=get('note');}
+ save();render();$('editor').close();notify(mode==='log'?'Conversation remembered.':canSave?'Saved in this browser.':'Kept in this tab. Copy a backup to keep it.');
+};
+$('new-person').onclick=()=>openEditor('person');
+$('close-dialog').onclick=$('cancel').onclick=()=>$('editor').close();
+$('people').onclick=event=>{const b=event.target.closest('[data-person]');if(!b)return;selected=b.dataset.person;render();if(innerWidth<=700)$('profile').scrollIntoView({behavior:'smooth',block:'start'});};
+$('profile').onclick=event=>{
+ const b=event.target.closest('[data-action]');if(!b)return;
+ const p=state.people.find(p=>p.id===selected);if(!p)return;
+ const action=b.dataset.action;
+ if(['person','log','followup','note'].includes(action)){openEditor(action,p);return;}
+ if(action==='back'){$('directory').scrollIntoView({behavior:'smooth',block:'start'});return;}
+ if(action==='complete'){p.followup=null;save();render();notify('Follow-up marked done. Last contact changes only when you log a conversation.');}
+ if(action==='snooze'&&p.followup){p.followup.date=offset(today(),7);save();render();notify('Follow-up moved to '+fmt(p.followup.date)+'.');}
+};
+$('search').oninput=event=>{query=event.currentTarget.value;renderList();};
+document.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>{group=b.dataset.group;renderList();});
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;renderList();});
+document.querySelectorAll('[data-demo-nav]').forEach(b=>b.onclick=event=>{event.preventDefault();notify('This concept focuses on People. Other Gordonite screens are not included in this file.');});
+$('people-tab').onclick=event=>{event.preventDefault();$('directory').scrollIntoView({behavior:'smooth',block:'start'});};
+$('backup').onclick=()=>{$('backup-area').hidden=false;$('backup-text').value=JSON.stringify(state,null,2);};
+$('backup-text').onfocus=event=>event.currentTarget.select();
+$('reset').onclick=()=>{if(!confirm('Replace this concept’s people and notes with the original fictional demo? Copy a backup first if you want to keep your changes.'))return;state=seed();selected='maya';view='all';group='All';query='';$('search').value='';save();render();notify('Fictional demo reset.');};
+$('restore').onclick=()=>{
+ try{const raw=$('restore-text').value;if(raw.length>5*1024*1024)throw Error('Choose a backup smaller than 5 MB.');const next=validate(JSON.parse(raw));if(!confirm('Replace this concept’s people with '+next.people.length+' people from the backup?'))return;state=next;selected=state.people[0]?.id||'';view='all';group='All';query='';$('search').value='';save();render();$('restore-text').value='';notify('Backup restored.');}
+ catch(error){notify(error instanceof SyntaxError?'That is not valid JSON. Nothing was replaced.':error.message);}
+};
+window.addEventListener('storage',event=>{if(event.key===KEY||event.key===null){canSave=false;warning('This concept changed in another tab. Reload to use that version, or copy a backup of this tab’s changes first. Saving from this tab is paused.');}});
+let day=today();setInterval(()=>{if(today()!==day){day=today();render();}},30000);
+save();changedHere=false;render();
+})();
+</script>
+</body>
+</html>

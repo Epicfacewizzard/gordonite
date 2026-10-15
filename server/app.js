@@ -17,7 +17,7 @@ import { registerFileRoutes } from './routes/files.js';
 import { registerPortabilityRoutes } from './routes/portability.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.8.1';
+export const APP_VERSION = '0.8.2-crm-preview.1';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);
