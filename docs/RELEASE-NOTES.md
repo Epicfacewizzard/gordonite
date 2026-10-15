@@ -1,6 +1,6 @@
 # Release notes
 
-## 0.10.0 — 2026-10-15 — People as profile pages (built and tested, not yet deployed)
+## 0.10.0 — 2026-10-15 — People as profile pages (deployed 2026-10-15)
 
 Version **0.10.0** (new feature). **Schema change: v8 → v9** (`people`). The database is migrated on start. Going back
 to 0.9.0 afterwards is not possible with this database: restore the backup the deploy makes, or stay on 0.10.0.
@@ -27,7 +27,13 @@ to 0.9.0 afterwards is not possible with this database: restore the backup the d
 **Known, not from this change:** `task-lifecycle` "task dismissal and deletion … survive a connection interruption" fails
 on 2026-10-15 on unchanged main too (it passed on 2026-10-14).
 
-**Not checked:** on the real S24; the vault file has not been imported into the real server.
+**Deployed 2026-10-15** by the owner with `scripts/deploy-casaos.ps1` (release `c6ba5bf`, together with 0.9.0; schema v6 → v9; rollback image
+`gordonite:rollback-before-c6ba5bf`, which needs the deploy's pre-update backup because of the newer schema).
+`/api/health` then reported `0.10.0` on the LAN address and `https://gordonite.duckdns.org`. The vault details were then
+imported with Merge (`scripts/people-from-vault.js`): 59 people got details (16 birthdays, 59 roles), no notes or tags
+changed; pre-import backup `hq-preimport-20261015-065703.sqlite`.
+
+**Not checked:** on the real S24.
 
 ## 0.9.0 — 2026-10-15 — Skin log and habits, linked by treatment courses (built and tested, not yet deployed)
 

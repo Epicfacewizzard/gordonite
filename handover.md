@@ -16,9 +16,9 @@ Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language sum
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.6.0** (pushed 2026-10-13 as a fast-forward of `fa8053f`; `git log fa8053f..main` lists the commits). The release last deployed is `37bf398` (0.5.1: undo for a removed file and a deleted mood entry) |
-| Waiting to be deployed | **0.9.0** on `main`: skin log ([docs/SKIN-LOG.md](docs/SKIN-LOG.md)) and habits with skin-log courses ([docs/HABITS.md](docs/HABITS.md)). **Schema v6 → v8**: after deploying, 0.8.1 cannot open the database (restore the deploy's backup to go back). The owner runs `scripts/deploy-casaos.ps1` |
-| Version running on the server | **0.8.1** (`/api/health` reported `0.8.1` on 2026-10-15): installable app with Share menu (0.7.0, [docs/ANDROID-APP.md](docs/ANDROID-APP.md)), offline use (0.8.0, [docs/OFFLINE.md](docs/OFFLINE.md)), instant offline opening (0.8.1). Installed on the S24 by the owner |
+| Version on `origin/main` | **0.10.0** (`c6ba5bf`, pushed 2026-10-15): People as profile pages ([docs/PEOPLE.md](docs/PEOPLE.md)) on top of 0.9.0 |
+| Waiting to be deployed | Nothing |
+| Version running on the server | **0.10.0** (`c6ba5bf`, deployed 2026-10-15; `/api/health` reported `0.10.0`): People profile pages (0.10.0), skin log and habits (0.9.0), offline use and the installable app (0.7.0–0.8.1). Database schema **v9**. Installed on the S24 by the owner |
 | Habit tracker beta | Branch `codex/habit-tracker-beta-test` (another agent, browser-only habits, preview 0.8.2-habits-preview.1) was used as the reference for 0.9.0's habits; it is not merged and can be deleted once 0.9.0 is accepted |
 | HTTPS address | `https://gordonite.duckdns.org` (2026-10-15): DuckDNS name → `192.168.1.50`, Nginx Proxy Manager on the server (admin `http://192.168.1.50:81`) with a Let's Encrypt certificate by DNS challenge; reachable only on the LAN or WireGuard. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain). `http://192.168.1.50:8082` still works |
 
@@ -131,7 +131,9 @@ Production preview and browser tests serve `client/dist`; **build after client e
 
 `scripts/deploy-casaos.ps1` builds a clean `git archive` of the last commit, runs the unit tests, copies it to the server, builds the image there and recreates the container with the **existing** Compose configuration (assistant token, mount, port and user preserved). It needs the server password interactively (copy, login, sudo), so it must be run by the owner in a normal PowerShell window; an assistant cannot answer those prompts. `-DryRun` builds and verifies without touching the server; `-Inspect` is read-only.
 
-**Latest deployment: 0.5.1 on 2026-10-12** (release `37bf398`, 140/140 unit tests), run by the owner with the script above; `/api/health` then reported `0.5.1`. The first attempt was closed by the server while it waited at the password prompt (it drops the connection after about two minutes) and changed nothing; the second went through. Pre-update backup `hq-manual-20261013-054257.sqlite`; rollback image `gordonite:rollback-before-37bf398`. Earlier: 0.5.0 (`bf48e8b`) and 0.4.3 the same day. `main` was pushed after each deployment.
+**Latest deployment: 0.10.0 on 2026-10-15** (release `c6ba5bf`, with 0.9.0; schema v6 → v9), run by the owner with the script above; `/api/health` then reported `0.10.0`. Rollback image `gordonite:rollback-before-c6ba5bf` (needs the deploy's pre-update backup too, because of the newer schema). The vault's people details were imported afterwards with Merge (59 people; pre-import backup `hq-preimport-20261015-065703.sqlite`).
+
+Before that: **0.5.1 on 2026-10-12** (release `37bf398`, 140/140 unit tests), run by the owner with the script above; `/api/health` then reported `0.5.1`. The first attempt was closed by the server while it waited at the password prompt (it drops the connection after about two minutes) and changed nothing; the second went through. Pre-update backup `hq-manual-20261013-054257.sqlite`; rollback image `gordonite:rollback-before-37bf398`. Earlier: 0.5.0 (`bf48e8b`) and 0.4.3 the same day. `main` was pushed after each deployment.
 
 Take a verified backup first (Settings → Data & backups → Back up now), and keep the old image tag for rollback. A plain container restart does not apply a new image; recreate with:
 
