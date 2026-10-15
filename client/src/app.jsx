@@ -142,7 +142,7 @@ const Icon = ({ d }) => (
 const TABS = [
   { id: 'today', label: 'Dashboard', href: '#/', match: (r) => r === '/', icon: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
   { id: 'tasks', label: 'Tasks', href: '#/tasks', match: (r) => r === '/tasks', icon: 'M4 4h16v16H4zM8.5 12.5l2.5 2.5 4.5-5' },
-  { id: 'people', label: 'People', href: '#/people', match: (r) => r === '/people', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+  { id: 'people', label: 'People', href: '#/people', match: (r) => r === '/people' || r.startsWith('/people/'), icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
   { id: 'notes', label: 'Notes', href: '#/notes', match: (r) => r === '/notes' || r === '/tags', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7' },
 ];
 const showsTabBar = (route) => !route.startsWith('/t/') && !route.startsWith('/n/') && !route.startsWith('/new');
@@ -189,7 +189,7 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/skin' ? 'Skin log' : route === '/habits' ? 'Habits' : route === '/tags' ? 'Tags' : 'Dashboard';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' || route.startsWith('/people/') ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/skin' ? 'Skin log' : route === '/habits' ? 'Habits' : route === '/tags' ? 'Tags' : 'Dashboard';
   return (
     <header class="topbar">
       {!onHome && (
@@ -299,8 +299,8 @@ export function App() {
     view = <SettingsView config={config} onConfigChanged={loadConfig} />;
   } else if (route === '/notes') {
     view = <NotesView />;
-  } else if (route === '/people') {
-    view = <PeopleView />;
+  } else if (route === '/people' || route.startsWith('/people/')) {
+    view = <PeopleView config={config} open={route.startsWith('/people/') ? route.slice(8) : null} />;
   } else if (route.startsWith('/link/')) {
     view = <LinkTarget key={route} target={route.slice(6)} />;
   } else if (route === '/new' || route.startsWith('/new?')) {
@@ -334,7 +334,7 @@ export function App() {
   return (
     <>
       <Header route={route} />
-      <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' ? ' wide' : ''}`}>
+      <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' || route === '/people' || route.startsWith('/people/') ? ' wide' : ''}`}>
         <OfflineBar />
         {route === '/' && <WaitingShares />}
         {view}

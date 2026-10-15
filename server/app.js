@@ -13,13 +13,14 @@ import { registerAssistantRoutes } from './routes/assistant.js';
 import { registerMoodRoutes } from './routes/moods.js';
 import { registerSkinRoutes } from './routes/skin.js';
 import { registerHabitRoutes } from './routes/habits.js';
+import { registerPeopleRoutes } from './routes/people.js';
 import { registerTagRoutes } from './routes/tags.js';
 import { registerNoteRoutes } from './routes/notes.js';
 import { registerFileRoutes } from './routes/files.js';
 import { registerPortabilityRoutes } from './routes/portability.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.9.0';
+export const APP_VERSION = '0.10.0';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);
@@ -51,6 +52,7 @@ export function createApp({ config, db, log = console, convertHeic }) {
   registerMoodRoutes(context);
   registerSkinRoutes(context);
   registerHabitRoutes(context);
+  registerPeopleRoutes(context);
   registerTagRoutes(context);
   registerNoteRoutes(context);
   registerFileRoutes(context);

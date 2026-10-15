@@ -45,8 +45,9 @@ function NoteTitle({ session }) {
 }
 
 // One note: its date, tags, status panels and either the live editor or a read-only view. `tag` is the
-// stream it is shown in (null on its own page); `standalone` marks the own-page case.
-export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active, onActivate, onChanged, onEditor, focusRequest, standalone }) {
+// stream it is shown in (null on its own page); `standalone` marks the own-page case. On its own page, `aboveTitle` and
+// `belowTags` add to the top of the page (a person's photo and details, People.jsx).
+export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active, onActivate, onChanged, onEditor, focusRequest, standalone, aboveTitle = null, belowTags = null }) {
   useSession(session);
   const [menu, setMenu] = useState(false);
   const [problem, setProblem] = useState(null);
@@ -121,8 +122,10 @@ export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active,
           ⋯
         </button>
       </header>
+      {standalone && aboveTitle}
       {standalone && session.kind === 'note' && <NoteTitle key={`title:${session.id}:${session.generation}`} session={session} />}
       {standalone && <TagEditor session={session} />}
+      {standalone && belowTags}
       {!standalone && otherTags.length > 0 && (
         <ul class="chips small" aria-label="Also tagged">
           {otherTags.map((t) => (

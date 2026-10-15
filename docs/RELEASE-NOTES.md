@@ -1,5 +1,34 @@
 # Release notes
 
+## 0.10.0 — 2026-10-15 — People as profile pages (built and tested, not yet deployed)
+
+Version **0.10.0** (new feature). **Schema change: v8 → v9** (`people`). The database is migrated on start. Going back
+to 0.9.0 afterwards is not possible with this database: restore the backup the deploy makes, or stay on 0.10.0.
+
+**Added**
+
+- **A person's page** (any note tagged `05-people/…`), laid out like the Personal CRM preview without follow-ups: photo
+  or initials, name, groups, **Log a conversation**, details in two columns (last talked, birthday, closeness, role,
+  contact, pronouns, how we met, also called, more details), Things to remember, then the note as before.
+- **Log a conversation** (when, how, what about) writes a dated line at the top of the Log in the person's note; Last
+  talked and the person's card show what was last talked about, read from that line.
+- **Dropdowns** everywhere have one look (rounded, the app's colours, a chevron) instead of the browser's grey box.
+- On a wide screen, People shows the list and the open person side by side (`#/people/<id>`); phones are unchanged.
+- **People tab** as a small database: **Cards** or **Table**, filters by group and closeness, sort by name / last
+  talked / next birthday, search across names, details and note text, upcoming birthdays at the top.
+- Details are kept on the server beside each note (`/api/people`), work offline through a queue on the phone, and are
+  in the JSON export / import (merge never replaces details already there).
+- `scripts/people-from-vault.js`: a one-time file of details from the vault's front matter (birthdays, roles, aliases,
+  department, major, cohort, grad year, status), imported with Merge. See [PEOPLE.md](PEOPLE.md).
+- `npm run preview:local -- --port 8092` runs the sample preview on another port; it now also has made-up people.
+
+**Tests:** `tests/client/people.test.js` (7), `tests/server/people.test.js` (5), `tests/e2e/people.test.js` (3).
+
+**Known, not from this change:** `task-lifecycle` "task dismissal and deletion … survive a connection interruption" fails
+on 2026-10-15 on unchanged main too (it passed on 2026-10-14).
+
+**Not checked:** on the real S24; the vault file has not been imported into the real server.
+
 ## 0.9.0 — 2026-10-15 — Skin log and habits, linked by treatment courses (built and tested, not yet deployed)
 
 Version **0.9.0** (new features). **Schema change: v6 → v8** (`skin_entries`, then `habits` and `habit_checks`).

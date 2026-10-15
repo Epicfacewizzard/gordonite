@@ -6,6 +6,7 @@ import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
 import { cleanSkinEntry } from './skin.js';
 import { cleanHabit } from './habits.js';
+import { cleanPersonProfile } from './people.js';
 import { exportSettings, importSettings, savedTimeZone } from './settings.js';
 import { noteToMarkdownFile } from './markdown.js';
 import { makeZip } from './zip.js';
@@ -84,6 +85,11 @@ export function exportAll(db, cfg) {
       )
       .all()
       .map((e) => ({ ...e, data: JSON.parse(e.data) })),
+    // The details beside each person's note (docs/PEOPLE.md).
+    people: db
+      .prepare('SELECT note_id AS noteId, data, created_at AS createdAt, updated_at AS updatedAt FROM people ORDER BY note_id')
+      .all()
+      .map(({ data, ...p }) => ({ ...p, profile: JSON.parse(data) })),
     // What the files are called and where they are used. The bytes are not in this JSON: take them with the files
     // zip (Data page) or by copying the files folder next to the database.
     attachments: db
@@ -232,6 +238,17 @@ function validateExport(data) {
       }
     }
   }
+  if (data.people !== undefined) {
+    if (!Array.isArray(data.people)) throw bad('people must be an array');
+    for (const p of data.people) {
+      checkId(p?.noteId, 'person note id');
+      try {
+        cleanPersonProfile(p.profile);
+      } catch (err) {
+        throw bad(`person ${p.noteId}: ${err.message}`);
+      }
+    }
+  }
   const noteIds = new Set();
   const slots = new Set();
   for (const n of data.notes) {
@@ -282,6 +299,7 @@ export function importAll(db, cfg, data, mode) {
     skinEntriesAdded: 0,
     habitsAdded: 0,
     habitChecksAdded: 0,
+    peopleAdded: 0,
   };
 
   const insertNote = db.prepare(
@@ -344,6 +362,16 @@ export function importAll(db, cfg, data, mode) {
     }
   };
 
+  // A person's details: merge never replaces details already here (edited on this server), it only adds missing ones.
+  const addPeople = () => {
+    const insert = db.prepare('INSERT OR IGNORE INTO people (note_id, data, created_at, updated_at) VALUES (?,?,?,?)');
+    const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : new Date().toISOString());
+    for (const p of data.people ?? []) {
+      const res = insert.run(p.noteId, JSON.stringify(cleanPersonProfile(p.profile)), when(p.createdAt), when(p.updatedAt));
+      report.peopleAdded += Number(res.changes);
+    }
+  };
+
   // File records come across only when their bytes are already here (copied with the files folder, or the same
   // server). Records for files this server does not have are skipped and counted, never created empty.
   const addAttachments = () => {
@@ -384,7 +412,7 @@ export function importAll(db, cfg, data, mode) {
     importSettings(db, data, mode);
 
     if (mode === 'replace') {
-      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries; DELETE FROM skin_entries; DELETE FROM habit_checks; DELETE FROM habits;');
+      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries; DELETE FROM skin_entries; DELETE FROM habit_checks; DELETE FROM habits; DELETE FROM people;');
       for (const t of data.tags) {
         db.prepare('INSERT INTO tags (id, path, created_at, favorite, daily) VALUES (?,?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0, t.daily === false ? 0 : 1);
         tagIdFor.set(t.id, t.id);
@@ -397,6 +425,7 @@ export function importAll(db, cfg, data, mode) {
       addMoods();
       addSkinEntries();
       addHabits();
+      addPeople();
       addAttachments();
       return;
     }
@@ -456,6 +485,7 @@ export function importAll(db, cfg, data, mode) {
     addMoods();
     addSkinEntries();
     addHabits();
+    addPeople();
     addAttachments();
   });
   const savedTz = savedTimeZone(db);

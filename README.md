@@ -15,7 +15,7 @@ deliberately not built.
 | **Runs on** | Node 24 (built-in SQLite, no native modules, no runtime npm dependencies on the server) |
 | **Client** | Preact + [Tiptap](https://tiptap.dev) (ProseMirror) editor, built with Vite |
 | **Storage** | one SQLite file, WAL mode, `synchronous=FULL`; versioned schema migrations |
-| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Android app](docs/ANDROID-APP.md) · [Offline](docs/OFFLINE.md) · [Skin log](docs/SKIN-LOG.md) · [Habits](docs/HABITS.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
+| **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Android app](docs/ANDROID-APP.md) · [Offline](docs/OFFLINE.md) · [Skin log](docs/SKIN-LOG.md) · [Habits](docs/HABITS.md) · [People](docs/PEOPLE.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
 
 ## Using it
 
@@ -62,9 +62,10 @@ and reliable data; keep navigation and styling replaceable without changing note
   the normal snapshot interval. Both actions use the existing autosave and conflict protection. Inside an
   active note editor they are undoable. The toolbar’s Task details button opens these actions for the task
   under the cursor. No imported tasks are automatically completed, dismissed or deleted.
-* **People** shows cards, searches the note titles/body and filters by child tags of `05-people`, with each card
-  opening its ordinary note page. This is not yet a structured contacts database. Obsidian `[[links]]` are still
-  plain text; linking is the next separate change.
+* **People** (since 0.10.0): each note tagged `05-people/…` is a person's page with a photo or initials and a block of
+  details (role, closeness, birthday, last talked, contact, how we met, things to remember, your own fields) above the
+  note. The tab shows everyone as cards or a table, filtered by group and closeness, sorted by name, last talked or
+  next birthday. Details are kept on the server beside the note and work offline. See [docs/PEOPLE.md](docs/PEOPLE.md).
 * **Undo and getting things back.** Undo (the toolbar, or Ctrl/Cmd+Z) reaches 100 to 120 steps back while a note is
   open; ⋯ → History keeps the newest 100 saved versions of every note; a deleted note stays in Trash for 30 days; a
   removed file and a deleted mood entry have an Undo. The full list, and what cannot be undone, is in

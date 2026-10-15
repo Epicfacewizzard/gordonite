@@ -970,6 +970,28 @@ details summary {
   font-weight: 600;
   margin-bottom: 4px;
 }
+/* Dropdowns: one look everywhere (rounded, the app's colours, a small chevron) instead of the browser's grey box. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 36px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238a8f98' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+select:hover { border-color: color-mix(in srgb, var(--text) 25%, var(--line)); }
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+select:disabled { opacity: 0.5; cursor: not-allowed; }
 input[type='date'] {
   min-height: 44px;
   padding: 0 12px;
@@ -1102,7 +1124,6 @@ a.btn {
 .people-cards { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
 .person-card { display: flex; gap: 12px; min-height: 112px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--surface); text-decoration: none; }
 .person-card:focus-visible { outline: 2px solid var(--accent); }
-.person-initials { display: grid; place-items: center; flex: 0 0 44px; height: 44px; border-radius: 50%; background: var(--sel); color: var(--accent); font-weight: 650; }
 .person-summary { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .person-groups { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (min-width: 600px) { .people-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -1120,7 +1141,7 @@ a.btn {
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--surface);
+  background-color: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 16px;
@@ -1132,6 +1153,7 @@ a.btn {
 }
 .notes-filters select {
   max-width: 45%;
+  padding-right: 36px;
 }
 .notes-list {
   list-style: none;
@@ -1233,10 +1255,10 @@ input.note-title-input[type='text']:focus {
   min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface);
+  background-color: var(--surface);
   color: var(--text);
   font: inherit;
-  padding: 0 8px;
+  padding: 0 32px 0 10px;
 }
 .today .tasks .task-group:first-of-type .section {
   margin-top: 8px;

@@ -155,6 +155,17 @@ const MIGRATIONS = [
     PRIMARY KEY (habit_id, check_date)
   );
   `,
+  // v9: people (see docs/PEOPLE.md). A person is a note tagged 05-people; this is the record of details beside it
+  // (role, closeness, birthday, contacts, last talked, …) as JSON (shared/people.js). note_id is not a foreign key: the
+  // phone may save the details of a person written offline before the note itself reaches the server.
+  `
+  CREATE TABLE people (
+    note_id    TEXT PRIMARY KEY,
+    data       TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

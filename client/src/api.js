@@ -168,6 +168,8 @@ export const api = {
   deleteHabit: (id) => request('DELETE', `/api/habits/${enc(id)}`),
   checkHabit: (id, date) => request('PUT', `/api/habits/${enc(id)}/checks/${date}`, {}),
   uncheckHabit: (id, date) => request('DELETE', `/api/habits/${enc(id)}/checks/${date}`),
+  people: () => request('GET', '/api/people'),
+  savePerson: (noteId, profile) => request('PUT', `/api/people/${enc(noteId)}`, { profile }),
   notes: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));
     return request('GET', `/api/notes?${qs}`);

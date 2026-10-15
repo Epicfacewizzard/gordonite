@@ -4,6 +4,8 @@ import { sync } from '../sync.js';
 import { go, useSession, useToday } from '../hooks.js';
 import { NoteCard } from './NoteCard.jsx';
 import { EditorBar } from './EditorBar.jsx';
+import { PersonHeader, PersonProfile } from './PersonProfile.jsx';
+import { isPersonTags } from '../../../shared/people.js';
 
 /**
  * One note on its own page (#/n/<id>): the same editor, status and menu as in a stream, nothing else.
@@ -44,6 +46,8 @@ export function NoteView({ id, config }) {
 
   const session = sync.get(id);
   if (session?.tags[0]) lastTag.current = session.tags[0];
+  // A note tagged 05-people is a person: their photo and details go at the top (docs/PEOPLE.md).
+  const person = !!session && isPersonTags(session.tags);
 
   // Deleted or discarded from the menu: go back to where it lived. Anything else: refresh.
   const changed = () => {
@@ -76,7 +80,18 @@ export function NoteView({ id, config }) {
       )}
       {state.status === 'ready' && session && !session.discarded && (
         <>
-          <NoteCard session={session} tag={null} today={today} tz={config.tz} active standalone onChanged={changed} onEditor={setEditor} />
+          <NoteCard
+            session={session}
+            tag={null}
+            today={today}
+            tz={config.tz}
+            active
+            standalone
+            onChanged={changed}
+            onEditor={setEditor}
+            aboveTitle={person && <PersonHeader noteId={id} name={session.title || ''} />}
+            belowTags={person && <PersonProfile noteId={id} name={session.title || ''} today={today} session={session} editor={editor} />}
+          />
           <div class="toolbar-spacer" />
           <EditorBar editor={editor} noteDate={session.date} today={today} />
         </>
