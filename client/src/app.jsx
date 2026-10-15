@@ -16,6 +16,7 @@ import { LoginView } from './views/LoginView.jsx';
 import { TrashView } from './views/Trash.jsx';
 import { FilesView } from './views/Files.jsx';
 import { DataView } from './views/Data.jsx';
+import { ShareView, WaitingShares } from './views/Share.jsx';
 import { STATUS_TEXT } from './views/parts.jsx';
 
 const CONFIG_CACHE = 'hq-config';
@@ -140,7 +141,7 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route === '/tags' ? 'Tags' : 'Dashboard';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/tags' ? 'Tags' : 'Dashboard';
   return (
     <header class="topbar">
       {!onHome && (
@@ -237,6 +238,9 @@ export function App() {
     view = <TrashView config={config} />;
   } else if (route === '/data') {
     view = <DataView config={config} />;
+  } else if (route === '/share' || route.startsWith('/share/')) {
+    const id = route.slice(7);
+    view = <ShareView key={id} id={id || null} config={config} />;
   } else {
     view = <TodayView config={config} onConfigChanged={loadConfig} />;
   }
@@ -248,7 +252,10 @@ export function App() {
   return (
     <>
       <Header route={route} />
-      <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' ? ' wide' : ''}`}>{view}</main>
+      <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' ? ' wide' : ''}`}>
+        {route === '/' && <WaitingShares />}
+        {view}
+      </main>
       {tabbar && <TabBar route={route} />}
     </>
   );

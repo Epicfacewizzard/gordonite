@@ -55,6 +55,20 @@ Use the real address you will use every day (ideally the HTTPS one).
       Do it again while typing: nothing moves, a "Start today's note" banner appears.
 - [ ] Dark mode follows the phone setting.
 
+## Installed app (0.7.0 and later, HTTPS address only)
+
+See [ANDROID-APP.md](ANDROID-APP.md).
+
+- [ ] Chrome ⋮ → **Add to home screen** offers **Install** (not just *Create shortcut*); the icon opens Gordonite in
+      its own window with no address bar.
+- [ ] Long-press the icon: **New note** and **Tasks** are offered and open the right page.
+- [ ] Turn WireGuard off (on mobile data) and open the app: it opens within a few seconds instead of an error page.
+- [ ] In Chrome, share a web page → **Gordonite**: a new note opens with the page's title as its name and the
+      address as its text; it saves (green dot).
+- [ ] In Gallery, share two photos → **Gordonite**: both appear in one new note.
+- [ ] With WireGuard off, share a photo: the page says it is kept on the phone. Turn WireGuard on: the note is made
+      by itself (or with *Try again*).
+
 ## Things to tell me if they fail
 
 Which keyboard, what you typed or tapped, and what happened. Screenshots help. The likely suspects are

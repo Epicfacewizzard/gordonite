@@ -1,5 +1,33 @@
 # Release notes
 
+## 0.7.0 — 2026-10-15 — Install it as an app: opens offline, and Android's Share menu makes notes (built and tested, not yet deployed)
+
+Version **0.7.0** (a new feature: second number). Needs the HTTPS address (`https://gordonite.duckdns.org`, set up
+on 2026-10-15, see [DEPLOYMENT.md](DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain)); over
+`http://` nothing changes. No schema change, so going back to 0.6.0 is the image swap only. Details in
+[ANDROID-APP.md](ANDROID-APP.md).
+
+**Added**
+
+- **A service worker** (`client/sw.js`, its file list written in at build time by `client/sw-build.js`). It keeps a
+  copy of the app's own files, so the app opens with WireGuard off or no signal (after 3 seconds without an answer
+  from the server). It never handles `/api/`.
+- **Installable app.** The manifest now says how to show the app (`display: standalone`, colours, `id`, `scope`), so
+  Chrome offers *Install* instead of a plain shortcut. Long-press shortcuts: New note, Tasks.
+- **Share to Gordonite.** The installed app is in Android's Share menu for pages, text, photos, PDFs and other files.
+  A share becomes a new free note opened on its own page (title → name, text and link → paragraphs, files → file
+  blocks). The share is stored on the phone first and deleted only once the note is held there; with no connection,
+  text becomes the note at once and files wait (*Try again*, *Discard*, and a Dashboard notice) until they can be
+  uploaded. New page `#/share`.
+- The server answers a share that arrives without the service worker with the share page instead of an error
+  (`POST /share-target` → 303).
+
+**Tests:** `tests/e2e/share.test.js` (3, with the service worker on), `tests/client/share.test.js` (9),
+`tests/server/share-target.test.js` (2). The other browser tests now run with service workers blocked, so their
+network interception sees every request.
+
+**Not checked:** on the real S24 (see the new "Installed app" section of [DEVICE-CHECKLIST.md](DEVICE-CHECKLIST.md)).
+
 ## 0.6.0 — 2026-10-13 — Backups that include the files; nothing queued on the phone is thrown away; a fresher Tasks list (built and tested, not yet deployed)
 
 Version **0.6.0** (a new feature: second number). It carries out [ARCHITECTURE-IMPROVEMENT-PLAN.md](ARCHITECTURE-IMPROVEMENT-PLAN.md)

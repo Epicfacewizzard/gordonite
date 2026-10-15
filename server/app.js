@@ -17,7 +17,7 @@ import { registerFileRoutes } from './routes/files.js';
 import { registerPortabilityRoutes } from './routes/portability.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.7.0';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);
@@ -60,6 +60,13 @@ export function createApp({ config, db, log = console, convertHeic }) {
     try {
       const url = new URL(req.url, 'http://localhost');
       if (!url.pathname.startsWith('/api/')) {
+        // A share from another app normally never gets here: the service worker takes it (client/sw.js). If it
+        // does (no service worker yet), send the phone to the share page, which explains what to do. Nothing is read.
+        if (req.method === 'POST' && url.pathname === '/share-target') {
+          req.resume();
+          res.writeHead(303, { location: '/#/share', 'cache-control': 'no-store' });
+          return res.end();
+        }
         if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method_not_allowed', 'Method not allowed');
         return serveStatic(req, res, url.pathname);
       }

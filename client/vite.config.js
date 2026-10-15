@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
+import { serviceWorker } from './sw-build.js';
 
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [preact(), serviceWorker()],
   build: { outDir: 'dist', emptyOutDir: true, target: 'es2022', sourcemap: true },
   server: {
     port: 5173,

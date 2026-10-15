@@ -21,6 +21,12 @@ function trackKeyboard() {
 // pressure (honoured on HTTPS / installed apps; harmless otherwise).
 navigator.storage?.persist?.().catch(() => {});
 
+// The service worker keeps a copy of the app so it opens offline, and receives shares from other apps
+// (client/sw.js). Browsers offer it only on HTTPS or localhost; on plain http:// this does nothing.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 applySpacing();
 trackKeyboard();
 render(<App />, document.getElementById('app'));

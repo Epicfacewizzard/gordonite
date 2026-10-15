@@ -67,8 +67,11 @@ export async function launch() {
 }
 
 // Samsung Galaxy S24-like context: 360x780 CSS px, 3x, touch, mobile.
-export async function newPhone(browser, app, { clockTime, android = false } = {}) {
+// The service worker is off unless a test asks for it (serviceWorker: true): with it, the page and its files come
+// from its copy, which page.route() cannot see.
+export async function newPhone(browser, app, { clockTime, android = false, serviceWorker = false } = {}) {
   const context = await browser.newContext({
+    serviceWorkers: serviceWorker ? 'allow' : 'block',
     viewport: { width: 360, height: 780 },
     deviceScaleFactor: 3,
     isMobile: true,

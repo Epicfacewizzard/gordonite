@@ -444,6 +444,16 @@ export class Session extends Emitter {
     this.emit();
   }
 
+  /**
+   * Give a note that is not on the server yet its first text and name (something shared from another app). It is
+   * held on the phone and sent like typed text; resolves once the phone copy is stored.
+   */
+  fill(doc, title = null) {
+    if (this.revision !== 0) throw new Error('Only a new note can be filled');
+    this.#replaceContent(doc, { revision: 0, markPending: true, serverDoc: null, title });
+    return this.idbChain;
+  }
+
   /** Show exactly what the server has (e.g. after restoring a version). Remounts the editor. */
   applyServerNote(note) {
     this.tags = note.tags.map((t) => t.path);
