@@ -36,7 +36,9 @@ While the server is out of reach a line under the header says *"Offline: showing
 `client/src/offline-copy.js`. Answers to the reads that screens are built from are kept in the phone's browser
 storage (IndexedDB database `gordonite-copy`): settings, tags, the task list, the first page of each tag's stream that
 was opened, Notes lists, and each note opened. `client/src/api.js` answers from it when the server does not answer,
-**or has not answered within 3 seconds** (with WireGuard off on mobile data a request does not fail, it just hangs).
+**or has not answered within 1 second** (with WireGuard off on mobile data a request does not fail, it just hangs),
+and at once while the server is known to be out of reach (since 0.8.1; 0.8.0 waited 3 seconds each time). A screen
+with no copy is told "cannot reach the server" as soon as that is known, so today's note can be started on the phone.
 The server's answer still replaces the copy when it arrives.
 
 While the server is in reach the app also fills the copy by itself (`client/src/warm.js`): when it opens, when it

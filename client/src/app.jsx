@@ -22,6 +22,22 @@ import { warmCopy } from './warm.js';
 import { STATUS_TEXT } from './views/parts.jsx';
 
 const CONFIG_CACHE = 'hq-config';
+const AUTH_SEEN = 'hq-auth-seen'; // 'open' or 'login': what the server said about this device last time
+
+function loadAuthSeen() {
+  try {
+    return localStorage.getItem(AUTH_SEEN);
+  } catch {
+    return null;
+  }
+}
+function saveAuthSeen(value) {
+  try {
+    localStorage.setItem(AUTH_SEEN, value);
+  } catch {
+    /* storage may be unavailable */
+  }
+}
 
 function loadCachedConfig() {
   try {
@@ -191,15 +207,23 @@ export function App() {
   const [config, setConfig] = useState(loadCachedConfig);
   const [error, setError] = useState(null);
   // 'checking' until the server says whether a password is set; 'login' shows only the login page; else 'open'.
-  const [gate, setGate] = useState('checking');
+  // If this device was let in last time, open at once and let the server's answer lock it if that changed.
+  const [gate, setGate] = useState(() => (loadAuthSeen() === 'open' ? 'open' : 'checking'));
 
   useEffect(() => {
-    const lock = () => setGate('login'); // any request answered "log in first" (a login that ran out, say)
+    const lock = () => {
+      saveAuthSeen('login');
+      setGate('login'); // any request answered "log in first" (a login that ran out, say)
+    };
     window.addEventListener('hq-login-required', lock);
     // Offline or slow: do not hold the app back, the phone's own copy keeps working.
-    const slow = setTimeout(() => setGate((g) => (g === 'checking' ? 'open' : g)), 3000);
+    const slow = setTimeout(() => setGate((g) => (g === 'checking' ? 'open' : g)), 1000);
     api.auth()
-      .then((a) => setGate((g) => (g === 'login' || (a.enabled && !a.loggedIn) ? 'login' : 'open')))
+      .then((a) => {
+        const locked = a.enabled && !a.loggedIn;
+        saveAuthSeen(locked ? 'login' : 'open');
+        setGate((g) => (g === 'login' || locked ? 'login' : 'open'));
+      })
       .catch(() => setGate((g) => (g === 'checking' ? 'open' : g)));
     return () => {
       window.removeEventListener('hq-login-required', lock);

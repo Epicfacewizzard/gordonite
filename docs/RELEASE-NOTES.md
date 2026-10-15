@@ -1,6 +1,24 @@
 # Release notes
 
-## 0.8.0 — 2026-10-15 — Use it with no connection: today's note, recent notes and tasks kept on the phone (built and tested, not yet deployed)
+## 0.8.1 — 2026-10-15 — Opens at once with no connection (built and tested, not yet deployed)
+
+Version **0.8.1** (an improvement to 0.8.0). No schema or server change apart from the version.
+
+With WireGuard off on mobile data a request to the server does not fail, it hangs. 0.8.0 waited for that three times
+over (the page 3 s, the login check up to 3 s, then each screen's data 3 s) before showing the phone's copy. Now:
+
+- **The app is opened from its copy straight away** (`client/sw.js`), with or without a connection. A new deployment
+  is still picked up in the background by the browser and used from the next opening.
+- **No wait for the login check** when the server let this device in last time (`hq-auth-seen` in local storage); the
+  server's answer still locks the app if that changed. Otherwise the wait is 1 s instead of 3 s.
+- **The phone's copy is shown after 1 s** without an answer (was 3 s), and **at once** while the server is known to be
+  out of reach. A screen with no copy is told "cannot reach the server" as soon as that is known instead of after the
+  15 s timeout, so today's note is ready to write in anyway.
+
+**Tests:** `tests/e2e/offline-copy.test.js` gains two cases with the server *hanging* (not failing): today's note is on
+screen within 2.5 s from the copy, and within 2.5 s as a new entry when today's stream was never kept.
+
+## 0.8.0 — 2026-10-15 — Use it with no connection: today's note, recent notes and tasks kept on the phone (deployed 2026-10-15)
 
 Version **0.8.0** (a new feature). Builds on 0.7.0 (needs the HTTPS address and the installed app to open offline).
 No schema change and no server change apart from the version, so going back to 0.7.0 is the image swap only. Details

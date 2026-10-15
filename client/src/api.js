@@ -27,8 +27,9 @@ export class ApiError extends Error {
 
 const TIMEOUT_MS = 15_000;
 // A read the phone has a copy of waits this long for the server, then shows the copy (VPN off on mobile data
-// does not fail fast: the request just hangs). The server's answer still replaces the copy when it comes.
-const COPY_AFTER_MS = 3000;
+// does not fail fast: the request just hangs). Once the server is known to be out of reach, the copy is shown at
+// once. Either way the request carries on: its answer replaces the copy and tells connection.js the server is back.
+const COPY_AFTER_MS = 1000;
 
 async function request(method, path, body, options = {}) {
   const key = method === 'GET' ? copyKey(path) : null;
@@ -42,13 +43,17 @@ async function request(method, path, body, options = {}) {
     return copy ? { ...copy.json, fromPhoneCopy: copy.at } : null;
   };
   let timer;
-  const slow = new Promise((resolve) => (timer = setTimeout(resolve, COPY_AFTER_MS, SLOW)));
+  const wait = connection.reachable === false ? 0 : COPY_AFTER_MS;
+  const slow = new Promise((resolve) => (timer = setTimeout(resolve, wait, SLOW)));
   try {
     const first = await Promise.race([live, slow]);
     if (first !== SLOW) return first;
     const copy = await fromCopy();
-    if (!copy) return await live;
+    // No copy: wait for the server, unless it is (or becomes) known to be out of reach; then say so now instead of
+    // after the full timeout, so a screen can offer what works offline (today's note is started on the phone).
+    if (!copy) return await Promise.race([live, connection.whenUnreachable().then(() => Promise.reject(new NetworkError('Cannot reach the server')))]);
     live.catch(() => {}); // it may still fail after the copy was shown
+    connection.unanswered(); // too slow to wait for: treat it as out of reach until it answers
     return copy;
   } catch (err) {
     const copy = err instanceof NetworkError ? await fromCopy() : null;

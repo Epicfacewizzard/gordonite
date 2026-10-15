@@ -58,6 +58,18 @@ export const connection = {
     startPolling();
     emit();
   },
+  /** Resolves when the server is known to be out of reach (at once if it already is). */
+  whenUnreachable() {
+    if (reachable === false) return Promise.resolve();
+    return new Promise((resolve) => {
+      const off = connection.subscribe(() => {
+        if (reachable === false) {
+          off();
+          resolve();
+        }
+      });
+    });
+  },
   /** Ask now (the grey dot's tap). */
   check: probe,
 };

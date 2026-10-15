@@ -116,6 +116,52 @@ describe('working with no connection', () => {
       assert.equal(textOf(JSON.parse(notes[0].doc)), 'jotted with no signal');
     }));
 
+  test('when the server hangs (VPN off on mobile data), the app and today’s note are on screen within two seconds', () =>
+    withApp(async ({ page, app }) => {
+      const dailyId = newId();
+      await app.api('PUT', `/api/notes/${dailyId}`, { baseRevision: 0, doc: paragraphDoc('quick to open'), docFormat: 2, tags: ['daily-jots'], date: today() });
+      await openOnline(page);
+      await page.locator('.note-text', { hasText: 'quick to open' }).first().waitFor();
+      for (let i = 0; i < 50 && !(await kept(page, '/api/stream?tag=daily-jots')); i++) await page.waitForTimeout(100);
+
+      const hanging = [];
+      await page.route('**/api/**', (route) => hanging.push(route)); // never answered, like a request into a dead tunnel
+      const started = Date.now();
+      await page.reload({ waitUntil: 'commit' });
+      await page.locator('.note-text', { hasText: 'quick to open' }).first().waitFor({ timeout: 2500 });
+      const took = Date.now() - started;
+      assert.ok(took < 2500, `today's note took ${took} ms`);
+      await page.getByTestId('offline-bar').waitFor({ timeout: 2000 });
+      assert.ok(hanging.length > 0, 'the requests really were left hanging');
+
+      await page.unroute('**/api/**');
+      await Promise.all(hanging.map((r) => r.continue().catch(() => {})));
+      await page.waitForFunction(() => !document.querySelector('[data-testid="offline-bar"]'), null, { timeout: 20_000 });
+    }));
+
+  test('when the server hangs and today’s stream was never kept, today’s note is still ready to write in within two seconds', () =>
+    withApp(async ({ page }) => {
+      await openOnline(page);
+      for (let i = 0; i < 50 && !(await kept(page, '/api/tasks')); i++) await page.waitForTimeout(100);
+      await page.evaluate(
+        () =>
+          new Promise((resolve) => {
+            const open = indexedDB.open('gordonite-copy', 1);
+            open.onsuccess = () => {
+              const tx = open.result.transaction('responses', 'readwrite');
+              tx.objectStore('responses').delete('/api/stream?tag=daily-jots');
+              tx.oncomplete = () => (open.result.close(), resolve());
+            };
+          }),
+      );
+      await page.route('**/api/**', () => {}); // never answered
+      const started = Date.now();
+      await page.reload({ waitUntil: 'commit' });
+      await page.locator('[data-testid="widget-note"] .note-text').first().waitFor({ timeout: 2500 });
+      assert.ok(Date.now() - started < 2500);
+      assert.equal(await page.getByTestId('load-error').count(), 0);
+    }));
+
   test('Settings can forget the copy; what waits to be sent is not touched', () =>
     withApp(async ({ page }) => {
       await openOnline(page);

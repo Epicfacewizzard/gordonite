@@ -3,7 +3,8 @@
 // 1. Keeps a copy of the app itself (the page, scripts, styles, icons) so it opens with no connection, e.g. with
 //    WireGuard off. The list of files is written in at build time (client/sw-build.js), so every build is a new
 //    service worker: the browser installs it in the background, it copies the new files, then drops the old copy.
-//    The page is asked from the server first and the copy is used only when the server does not answer in time.
+//    The app is always opened from this copy (instant, with or without a connection); a new deployment is picked up
+//    in the background and used from the next opening.
 // 2. Receives what is shared to Gordonite from another app (Android's share menu; the manifest's share_target).
 //    The share is kept in this browser's storage first and the app then turns it into a note (client/src/share.js),
 //    so nothing shared is lost when the server cannot be reached.
@@ -46,8 +47,16 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(caches.match(url.pathname).then((hit) => hit ?? fetch(request)));
 });
 
-// The page: the server's, unless it does not answer in time (VPN off, no signal); then the copy.
+// The page: this copy, at once, so the app is on screen without waiting for the network (with WireGuard off on
+// mobile data a request hangs rather than fails). The copy always matches its own scripts, and a new deployment
+// arrives as a new service worker (checked by the browser on every opening), so the opening after it is the new version.
+// Only a path that is a page of the app (no file extension) gets the app; anything else goes to the server.
 async function page(request) {
+  const path = new URL(request.url).pathname;
+  if (!/\.[a-z0-9]+$/i.test(path)) {
+    const copy = await caches.match('/');
+    if (copy) return copy;
+  }
   const fromServer = fetch(request);
   fromServer.catch(() => {}); // it may fail after the copy was already used
   const timeout = new Promise((resolve) => setTimeout(resolve, PAGE_TIMEOUT_MS, null));
