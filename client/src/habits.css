@@ -1,0 +1,53 @@
+/* Habit experiment: use Gordonite's existing theme, spacing and controls. */
+.habit-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.habit-heading .section { margin: 16px 0 10px; }
+.habit-heading h3 { margin: 0; font-size: 1rem; font-weight: 650; }
+.habit-heading > div { min-width: 0; }
+.habit-today-list { margin: 8px 0; }
+.habit-today-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.habit-today-row:last-child { border: 0; }
+.habit-today-row input { width: 21px; height: 21px; flex: none; accent-color: var(--accent); }
+.habit-detail { display: block; color: var(--muted); font-size: .78rem; }
+.habit-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.habit-summary > div { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.habit-summary strong { display: block; color: var(--accent); font-size: 1.5rem; font-weight: 600; }
+.habit-summary span { display: block; color: var(--muted); font-size: .72rem; }
+.habit-week-nav { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 20px 0 8px; }
+.habit-week-nav strong { font-size: .84rem; text-align: center; }
+.habit-cards { display: grid; gap: 14px; margin: 14px 0; }
+.habit-card { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 16px; }
+.habit-card p { margin: 4px 0; }
+.habit-card .icon-btn { flex: none; }
+.habit-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
+.habit-day { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font-size: .68rem; }
+.habit-day-number { font-size: .8rem; }
+.habit-is-today { color: var(--accent); font-weight: 650; }
+.habit-check { width: 100%; max-width: 52px; min-height: 44px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; font: inherit; font-size: 1.1rem; margin-top: 4px; }
+.habit-check.habit-done { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.habit-check:disabled { cursor: default; opacity: .45; }
+.habit-check:focus-visible, .habit-data-tools summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.habit-streak { padding-top: 12px; }
+.habit-data-tools { margin: 24px 0 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.habit-data-tools summary { cursor: pointer; min-height: 44px; }
+.habit-field { display: block; font-size: .85rem; margin: 16px 0 6px; }
+.habit-data-tools textarea { display: block; width: 100%; height: 150px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--surface); color: var(--text); resize: vertical; margin: 8px 0; font: .8rem/1.5 monospace; }
+.habit-dialog { color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(480px, calc(100% - 24px)); max-height: calc(100dvh - 30px); overflow-y: auto; }
+.habit-dialog::backdrop { background: #0006; }
+.habit-dialog h2 { font-size: 1.1rem; margin: 0; }
+.habit-dialog input[type=text] { width: 100%; box-sizing: border-box; }
+.habit-days { border: 0; padding: 0; margin: 20px 0; min-width: 0; }
+.habit-days legend { padding: 0; font-size: .85rem; }
+.habit-day-options { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.habit-day-options label { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; font-size: .75rem; cursor: pointer; }
+.habit-day-options input { width: 20px; height: 20px; accent-color: var(--accent); }
+.habit-form-actions { justify-content: flex-end; margin-top: 20px; }
+@media (max-width: 400px) {
+  .habit-card { padding: 12px; }
+  .habit-week { gap: 4px; }
+  .habit-check { min-height: 40px; }
+  .habit-summary { gap: 6px; }
+  .habit-summary > div { padding: 10px; }
+  .habit-week-nav .icon-btn { min-width: 32px; }
+  .habit-week-nav strong { font-size: .72rem; }
+  .habit-week-nav .btn { padding: 0 10px; }
+}

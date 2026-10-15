@@ -5,6 +5,7 @@ import { go, useHashRoute, useSession } from './hooks.js';
 import { StreamView } from './views/Stream.jsx';
 import { HomeView } from './views/Home.jsx';
 import { TodayView } from './views/Today.jsx';
+import { HabitsView } from './views/Habits.jsx';
 import { TasksView } from './views/Tasks.jsx';
 import { SettingsView } from './views/Settings.jsx';
 import { NoteView } from './views/NotePage.jsx';
@@ -194,7 +195,7 @@ function Header({ route }) {
         </a>
       )}
       <h1 class="title" data-testid="title">
-        {route.startsWith('/t/') ? <TagCrumbs path={route.slice(3)} /> : title}
+        {route === '/habits' ? 'Habits' : route.startsWith('/t/') ? <TagCrumbs path={route.slice(3)} /> : title}
       </h1>
       <GlobalStatus />
       <a class="icon-btn" href="#/settings" aria-label="Settings" title="Settings" data-testid="settings-link">⚙</a>
@@ -301,6 +302,8 @@ export function App() {
   } else if (route.startsWith('/n/')) {
     const id = route.slice(3);
     view = <NoteView key={id} id={id} config={config} />;
+  } else if (route === '/habits') {
+    view = <HabitsView config={config} />;
   } else if (route === '/tasks') {
     view = <TasksView config={config} />;
   } else if (route === '/files') {
@@ -325,6 +328,7 @@ export function App() {
       <Header route={route} />
       <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' ? ' wide' : ''}`}>
         <OfflineBar />
+        <p class="banner small" data-testid="habit-preview-notice">Local habit preview · based on Gordonite 0.8.1 · sample data only</p>
         {route === '/' && <WaitingShares />}
         {view}
       </main>

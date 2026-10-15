@@ -1,0 +1,33 @@
+import fs from 'node:fs';
+import { chromium } from 'playwright-core';
+const base = 'http://127.0.0.1:8094';
+const output = new URL('../data/screenshots/', import.meta.url);
+fs.mkdirSync(output, { recursive: true });
+const health = await fetch(base + '/api/health', { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
+if (health.version !== '0.8.2-habits-preview.1') throw Error('Unexpected app on the preview port.');
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+try {
+  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1440, height: 1050 }, timezoneId: 'America/Edmonton', colorScheme: 'light' });
+  const page = await context.newPage();
+  const errors = [], requests = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('request', (r) => requests.push(r.url()));
+  await page.goto(base + '/#/');
+  await page.getByTestId('widget-habits').waitFor();
+  await page.locator('.note-text').first().waitFor();
+  await page.screenshot({ path: new URL('dashboard-desktop.png', output).pathname.slice(1), fullPage: true });
+  await page.getByRole('link', { name: 'History & manage' }).click();
+  await page.locator('.habit-card').first().waitFor();
+  await page.screenshot({ path: new URL('habits-desktop.png', output).pathname.slice(1), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: new URL('habits-phone.png', output).pathname.slice(1), fullPage: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.screenshot({ path: new URL('habits-phone-dark.png', output).pathname.slice(1), fullPage: true });
+  await page.getByTestId('tab-today').click();
+  await page.getByTestId('widget-habits').waitFor();
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.screenshot({ path: new URL('dashboard-phone.png', output).pathname.slice(1), fullPage: true });
+  const remote = requests.filter((url) => !url.startsWith(base + '/'));
+  if (errors.length || remote.length) throw Error(JSON.stringify({ errors, remote }));
+  console.log(JSON.stringify({ health, screenshots: 'data/screenshots', pageErrors: errors.length, nonLocalRequests: remote.length }));
+} finally { await browser.close(); }

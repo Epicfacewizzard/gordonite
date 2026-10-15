@@ -1,5 +1,19 @@
 # Release notes
 
+## 0.8.2-habits-preview.1 — 2026-10-14 — Local habit experiment based on 0.8.1 (not deployed)
+
+Isolated local preview copied from 0.8.1 at `2aa20c3`. The shared working directory and production server were not changed. This prerelease version identifies the preview in Settings and /api/health.
+
+- Adds a Habits widget to the existing Dashboard. Today's scheduled habits can be checked or undone beside the real note and Mood widgets. The existing Dashboard settings can show, hide, reorder, or move it.
+- Adds a Habits page, reached through History & manage, using Gordonite's existing controls, theme variables, navigation, spacing and light/dark styles. Includes weekly history, current streaks, daily/weekday/custom schedules, create/edit/delete, and JSON text backup/restore.
+- Habits are saved only under `gordonite-habits-preview-v1` in this preview origin's browser storage. They do not go through note sync or the server. Three fictional habits include sample history. Notes also use a separate sample SQLite database; no personal notes were imported.
+- `scripts/preview-habits.js` binds only to 127.0.0.1:8094, uses this checkout's `data/habits-preview`, and supplies no assistant token or environment credentials.
+- No application schema, Docker tag, network access, deployment, or production data changes.
+
+Validation: production build passed (existing bundle-size advisory remains); all 286 unit/server tests passed, including seven new habit-domain cases; two new browser scenarios plus the existing Dashboard/Settings scenarios passed (16 browser tests total). Desktop and phone screenshots inspected, including dark mode. Layout checks passed at 320, 390 and 1440 pixels. Running preview health reports this version. Browser inspection observed zero page errors and zero non-local requests.
+
+The first test attempt was blocked by the Windows sandbox's loopback restrictions; the successful checks were rerun with local network access. No public exposure was configured. See [HABITS-PREVIEW.md](HABITS-PREVIEW.md) for running, recovery, and limitations.
+
 ## 0.8.1 — 2026-10-15 — Opens at once with no connection (built and tested, not yet deployed)
 
 Version **0.8.1** (an improvement to 0.8.0). No schema or server change apart from the version.
