@@ -154,8 +154,9 @@ private address `192.168.1.50` it resolves to. Your home's public IP is not invo
 
 **Done on 2026-10-15** as `gordonite.duckdns.org` with Nginx Proxy Manager v2.13.5 on the CasaOS server
 (certificate valid to 2027-01-12, renewed automatically). From the laptop on the home network,
-`https://gordonite.duckdns.org/api/health` answered `{"ok":true,"version":"0.6.0"}`. Not yet checked: the
-phone over WireGuard, and that the name does not load with WireGuard off on mobile data. The phone and the
+`https://gordonite.duckdns.org/api/health` answered `{"ok":true,"version":"0.6.0"}`. On the phone the notes load
+over WireGuard, and with WireGuard off on mobile data the name does not load. (Current Chrome on Android shows a
+"tune" icon instead of a padlock; tap it for "Connection is secure".) The installed home-screen app and the
 assistant/MCP config still use `http://192.168.1.50:8082` until moved.
 
 Nothing on the router's port forwards changes. Port 8082 keeps working on the LAN, so the old address stays
