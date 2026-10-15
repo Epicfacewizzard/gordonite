@@ -115,6 +115,58 @@ has to be reachable from the internet.
 
 Keep the app's own port (8080) off your router's port forwards. Access it only through the VPN.
 
+### B1. Free DuckDNS name (option B without buying a domain)
+
+Chosen by the owner on 2026-10-14 as the first try; it can be replaced by a bought domain later (see
+"Changing the address later" below). DuckDNS gives a free name such as `<name>.duckdns.org`. The name points at
+the server's **private** LAN address, so it only leads anywhere from the home network or through WireGuard. The
+certificate comes from Let's Encrypt by DNS challenge: Let's Encrypt reads a TXT record at DuckDNS and never
+connects to the server. No port forward, no tunnel.
+
+What becomes public: the name itself (every certificate is listed in public Certificate Transparency logs) and the
+private address `192.168.1.50` it resolves to. Your home's public IP is not involved.
+
+1. **DuckDNS (done by the owner, in a browser).** Sign in at duckdns.org, add a subdomain, and in its *current
+   ip* field enter the server's LAN address `192.168.1.50`, then *update ip*. Keep the account token private; it
+   is needed once, in step 3, and must never go into this repository.
+   **Do not install a DuckDNS updater** (container, CasaOS app, or router setting). Updaters write your public IP
+   into the record, which is the opposite of what is wanted here.
+2. **Check the name resolves.** On the laptop: `nslookup <name>.duckdns.org` → `192.168.1.50`. If the answer is
+   blank on the home network but correct on mobile data, the router's DNS-rebinding protection is dropping
+   private answers; add an exception for `<name>.duckdns.org` in the router's DNS settings.
+3. **Reverse proxy: Nginx Proxy Manager from the CasaOS app store.** CasaOS's own dashboard normally uses
+   port 80, so when installing map the container's port **443 → host 443**, its admin port **81 → host 81**, and
+   its port **80 → an unused host port** (e.g. 8880; with a DNS challenge port 80 is not needed). Then in its
+   admin page (`http://192.168.1.50:81`):
+   * *SSL Certificates → Add → Let's Encrypt*: domain `<name>.duckdns.org`, tick *Use a DNS Challenge*,
+     provider **DuckDNS**, credentials `dns_duckdns_token=<your token>`, propagation seconds `120`.
+     (Request the single name only: DuckDNS holds one TXT record at a time, so a name plus a wildcard in one
+     request fails.)
+   * *Hosts → Proxy Hosts → Add*: domain `<name>.duckdns.org`, forward to `http` `192.168.1.50` port `8082`.
+     On the SSL tab choose the certificate from the step above and tick *Force SSL*.
+   * Leave caching off and set no short timeouts (see "Reverse proxy settings" below).
+   Renewal is automatic.
+4. **Check.** With the phone on WireGuard (or home Wi-Fi), open `https://<name>.duckdns.org`: a padlock, no
+   warning, and Settings shows the same version as `http://192.168.1.50:8082`. With WireGuard off on mobile data,
+   the page must **not** load; that confirms nothing is exposed.
+5. **Move to the new address** as described in "Changing the address later".
+
+Nothing on the router's port forwards changes. Port 8082 keeps working on the LAN, so the old address stays
+usable while you switch.
+
+**Weak spot:** if DuckDNS's own DNS has an outage, the name stops resolving even though the server is fine. Use
+`http://192.168.1.50:8082` meanwhile (its unsent edits are kept separately, see below).
+
+### Changing the address later
+
+The server side is a new proxy host and certificate, and both names can run side by side. On the phone each
+address is a separate app with its own store of unsent edits, so:
+
+1. Open Gordonite at the **old** address and wait until the badge says everything is saved on the server.
+2. Open the **new** address and install it (*Add to Home screen* / *Install app*).
+3. Remove the old home-screen icon.
+4. Update anything else that holds the address, e.g. the `url` in the assistant/MCP config ([MCP.md](MCP.md)).
+
 ### C. Local CA (no domain)
 
 Caddy's `tls internal` (see the example file) creates a private certificate authority. HTTPS then works
