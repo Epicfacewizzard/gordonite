@@ -108,8 +108,8 @@ Use a name such as `notes.yourdomain.com`, a DNS record pointing at the server's
 has to be reachable from the internet.
 
 * In CasaOS the easiest proxy is the **Nginx Proxy Manager** app: add a proxy host for
-  `notes.yourdomain.com` → `http://<server-ip>:8080`, tick *Block Common Exploits* and *Websockets
-  Support* (not needed, harmless), and on the SSL tab request a Let's Encrypt certificate using
+  `notes.yourdomain.com` → `http://<server-ip>:8080`, leave *Block Common Exploits* off (its URL filters
+  can reject ordinary note searches), and on the SSL tab request a Let's Encrypt certificate using
   *DNS Challenge* with your DNS provider's API token.
 * Or Caddy: see [`deploy/Caddyfile.example`](../deploy/Caddyfile.example).
 
@@ -138,18 +138,25 @@ private address `192.168.1.50` it resolves to. Your home's public IP is not invo
    port 80, so when installing map the container's port **443 → host 443**, its admin port **81 → host 81**, and
    its port **80 → an unused host port** (e.g. 8880; with a DNS challenge port 80 is not needed). Then in its
    admin page (`http://192.168.1.50:81`):
-   * *SSL Certificates → Add → Let's Encrypt*: domain `<name>.duckdns.org`, tick *Use a DNS Challenge*,
+   * *Certificates → Add Certificate → Let's Encrypt via DNS* (v2.13 wording): domain `<name>.duckdns.org`,
      provider **DuckDNS**, credentials `dns_duckdns_token=<your token>`, propagation seconds `120`.
      (Request the single name only: DuckDNS holds one TXT record at a time, so a name plus a wildcard in one
      request fails.)
    * *Hosts → Proxy Hosts → Add*: domain `<name>.duckdns.org`, forward to `http` `192.168.1.50` port `8082`.
-     On the SSL tab choose the certificate from the step above and tick *Force SSL*.
-   * Leave caching off and set no short timeouts (see "Reverse proxy settings" below).
+     On the SSL tab choose the certificate from the step above and turn on *Force SSL* and *HTTP/2*. Leave HSTS
+     off while the address may still change.
+   * Leave caching and *Block Common Exploits* off and set no short timeouts (see "Reverse proxy settings" below).
    Renewal is automatic.
 4. **Check.** With the phone on WireGuard (or home Wi-Fi), open `https://<name>.duckdns.org`: a padlock, no
    warning, and Settings shows the same version as `http://192.168.1.50:8082`. With WireGuard off on mobile data,
    the page must **not** load; that confirms nothing is exposed.
 5. **Move to the new address** as described in "Changing the address later".
+
+**Done on 2026-10-15** as `gordonite.duckdns.org` with Nginx Proxy Manager v2.13.5 on the CasaOS server
+(certificate valid to 2027-01-12, renewed automatically). From the laptop on the home network,
+`https://gordonite.duckdns.org/api/health` answered `{"ok":true,"version":"0.6.0"}`. Not yet checked: the
+phone over WireGuard, and that the name does not load with WireGuard off on mobile data. The phone and the
+assistant/MCP config still use `http://192.168.1.50:8082` until moved.
 
 Nothing on the router's port forwards changes. Port 8082 keeps working on the LAN, so the old address stays
 usable while you switch.
