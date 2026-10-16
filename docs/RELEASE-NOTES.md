@@ -30,7 +30,7 @@ are, and saving a habit from it keeps the new options (the server keeps whatever
 
 **Tests:** unit 324/324 (new: periods, number targets, skips, best streak and score in `tests/client/habits.test.js`;
 options, values, skips, old-app saves and export/import in `tests/server/habits.test.js`). Browser:
-`tests/e2e/skin-habits.test.js` "habit options" group (3 new tests) and the whole file pass.
+`tests/e2e/skin-habits.test.js` "habit options" group (3 new tests); the whole browser suite passes (160/160).
 
 ## 0.10.2 — 2026-10-16 — A new habit no longer vanishes after Save
 

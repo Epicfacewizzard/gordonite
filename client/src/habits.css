@@ -64,7 +64,8 @@
 .habit-segment { gap: 16px; margin: 8px 0; }
 .habit-segment label, .habit-times { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
 .habit-target { align-items: center; gap: 8px; flex-wrap: wrap; }
-.habit-target input { width: 6em; }
+.habit-target input { width: 5em; }
+.habit-target input[data-testid=habit-unit] { flex: 1; min-width: 6em; }
 .habit-times input { width: 4.5em; }
 .habit-days select { margin: 8px 0; max-width: 100%; }
 .habit-colors { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
