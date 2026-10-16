@@ -9,6 +9,10 @@ import { uuid } from '../../shared/ids.js';
 const HISTORY_DAYS = 120;
 
 let sent = false; // something reached the server since it was last asked
+// Changes the server has taken but has not listed back yet. They stay on screen until a list asked for after they were
+// sent comes from the server itself: a slow list is answered from the phone copy, which was kept before them.
+let landed = [];
+let sentCount = 0;
 export const habitQueue = createRecordQueue({
   storageKey: 'hq-habit-pending',
   async send(c) {
@@ -16,6 +20,7 @@ export const habitQueue = createRecordQueue({
     else if (c.kind === 'delete') await api.deleteHabit(c.id);
     else if (c.done) await api.checkHabit(c.habitId, c.date);
     else await api.uncheckHabit(c.habitId, c.date);
+    landed = [...landed.filter((l) => l.key !== c.key), { ...c, sentAs: ++sentCount }];
     sent = true;
   },
 });
@@ -37,8 +42,10 @@ habitQueue.subscribe(() => {
 /** Ask the server again (the phone copy when out of reach). */
 export async function loadHabits(today) {
   loadedFor = today;
+  const asked = sentCount;
   try {
     server = await api.habits(addDays(today, -HISTORY_DAYS), today);
+    if (!server.fromPhoneCopy) landed = landed.filter((l) => l.sentAs > asked);
     error = null;
   } catch (err) {
     error = err instanceof NetworkError ? null : err.message; // offline with no copy: show what waits on the phone
@@ -59,7 +66,7 @@ export function habitState() {
   const habits = new Map(server.habits.map((h) => [h.id, h]));
   const done = new Set(server.checks.map((c) => `${c.habitId}|${c.date}`));
   const waiting = habitQueue.get();
-  for (const c of waiting) {
+  for (const c of [...landed, ...waiting]) {
     if (c.kind === 'habit') habits.set(c.id, { ...(habits.get(c.id) ?? { courses: [] }), ...c.body, id: c.id });
     else if (c.kind === 'delete') habits.delete(c.id);
     else if (c.done) done.add(`${c.habitId}|${c.date}`);

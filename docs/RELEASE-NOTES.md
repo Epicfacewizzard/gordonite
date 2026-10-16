@@ -1,5 +1,21 @@
 # Release notes
 
+## 0.10.2 — 2026-10-16 — A new habit no longer vanishes after Save
+
+Version **0.10.2** (a fix: third number). Client only, no schema change; going back to 0.10.1 is the image swap only.
+
+**Fixed**
+
+- **Creating a habit looked broken on a slow connection.** After Save, the habit showed only until the phone had sent
+  it; the screen then asked the server for the list again, and when that took more than a second (mobile data over
+  WireGuard) the app answered from the phone's copy, which was kept before the habit existed. The habit disappeared
+  until a later reload, inviting a second, duplicate habit. The same applied to ticking a day. A change the server has
+  taken now stays on screen until a list asked for after it comes from the server itself
+  (`client/src/habit-data.js`).
+
+**Tests:** `tests/e2e/skin-habits.test.js` "a new habit stays on screen while the server is slow to list the habits
+again" (slows the list to 3 s; failed before the fix, passes after). Unit 317/317.
+
 ## 0.10.1 — 2026-10-16 — The dashboard note keeps the tag you picked when offline
 
 Version **0.10.1** (a fix: third number). Client only, no schema change; going back to 0.10.0 is the image swap only.

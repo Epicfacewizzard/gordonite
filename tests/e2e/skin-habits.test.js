@@ -94,6 +94,30 @@ describe('habits', () => {
       await page.getByTestId('habit-today').filter({ hasText: 'Drink water' }).locator('input:checked').waitFor();
     }));
 
+  test('a new habit stays on screen while the server is slow to list the habits again', () =>
+    withPhone(browser, async ({ page, app }) => {
+      // Over the VPN on mobile data the list can take seconds; after one second the app shows the phone's copy, which
+      // was kept before the habit existed. The habit used to vanish from the screen as soon as it had been sent.
+      let slow = false;
+      await page.route('**/api/habits?**', async (route) => {
+        if (slow) await new Promise((r) => setTimeout(r, 3000));
+        await route.continue().catch(() => {});
+      });
+      await page.goto(`${app.url}/#/habits`);
+      await page.getByTestId('habits').waitFor();
+      await page.waitForTimeout(300); // the first list is kept as the phone copy
+      slow = true;
+      await page.getByTestId('habit-new').tap();
+      await page.getByTestId('habit-name').fill('Drink water');
+      await page.getByTestId('habit-save').tap();
+      await until(async () => (await app.api('GET', '/api/habits')).json.habits.length === 1, 'the habit on the server');
+      const card = page.getByTestId('habit-card').filter({ hasText: 'Drink water' });
+      await page.waitForTimeout(1500); // sent, and the list asked for again is answered from the old phone copy
+      assert.equal(await card.count(), 1, 'shown while the list is slow');
+      await page.waitForTimeout(2500); // the slow list arrives
+      assert.equal(await card.count(), 1, 'shown once the server lists it');
+    }));
+
   test('logging Betaderm in the skin log starts the linked course: the habit is due and ticked for today', () =>
     withPhone(browser, async ({ page, app }) => {
       const id = newId();
