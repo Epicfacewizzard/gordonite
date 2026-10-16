@@ -166,7 +166,7 @@ export const api = {
   habits: (from, to) => request('GET', `/api/habits?from=${from}&to=${to}`),
   saveHabit: (id, body) => request('PUT', `/api/habits/${enc(id)}`, body),
   deleteHabit: (id) => request('DELETE', `/api/habits/${enc(id)}`),
-  checkHabit: (id, date) => request('PUT', `/api/habits/${enc(id)}/checks/${date}`, {}),
+  checkHabit: (id, date, entry = {}) => request('PUT', `/api/habits/${enc(id)}/checks/${date}`, entry),
   uncheckHabit: (id, date) => request('DELETE', `/api/habits/${enc(id)}/checks/${date}`),
   people: () => request('GET', '/api/people'),
   savePerson: (noteId, profile) => request('PUT', `/api/people/${enc(noteId)}`, { profile }),

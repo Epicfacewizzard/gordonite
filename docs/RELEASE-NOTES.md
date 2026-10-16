@@ -1,5 +1,37 @@
 # Release notes
 
+## 0.11.0 — 2026-10-16 — Habits with more options (built and tested, not deployed)
+
+Version **0.11.0** (new features). **Schema change: v9 → v10** (`habits.options`, `habit_checks.value` and
+`habit_checks.skip`; existing rows keep their meaning). Version 0.10.x refuses a v10 database, so going back needs the
+pre-update backup the deploy script takes, not only the image swap. Includes the 0.10.2 fix below.
+
+Which options to add, and how they behave, was chosen from the open-source Loop Habit Tracker (GPL-3.0); only its
+features and behaviour were used, no code. Details in [docs/HABITS.md](HABITS.md).
+
+**New**
+
+- **How often:** besides chosen weekdays, *N times a week*, *N times a month*, or *once every N days*. Such a habit is
+  on the Dashboard until the period's target is reached ("1 of 3 this week"), and its streak counts whole weeks,
+  months or periods.
+- **Number habits:** a target per day, *at least* or *at most*, with a unit ("at least 8 glasses"). The Dashboard row
+  and the week squares open a box to enter the number; a number short of the target shows but is not done.
+- **Colour** (eight choices), **question** shown on the Dashboard, and a **reminder time** that is shown and orders the
+  Dashboard. There are no notifications yet (waits for the Android shell).
+- **Archive / Unarchive** (hidden from the Dashboard and list, history kept) and **reorder** with ↑ / ↓ on each card.
+- **Skip a day** (ill, away): neither done nor missed, never breaks a streak, counts as one of the times in a week or
+  month habit.
+- **A habit's own page** (tap its name): score, current and best streak, days done, and a month calendar where each day
+  can be ticked, given a number, skipped or cleared. The score is a running average in which recent days weigh most.
+- The app now loads 400 days of check-ins (was 120) so the page's streaks and score have a year to work with.
+
+**Compatibility:** an older app still open on a phone keeps working: its ticks keep a day's number or skip as they
+are, and saving a habit from it keeps the new options (the server keeps whatever a save leaves out).
+
+**Tests:** unit 324/324 (new: periods, number targets, skips, best streak and score in `tests/client/habits.test.js`;
+options, values, skips, old-app saves and export/import in `tests/server/habits.test.js`). Browser:
+`tests/e2e/skin-habits.test.js` "habit options" group (3 new tests) and the whole file pass.
+
 ## 0.10.2 — 2026-10-16 — A new habit no longer vanishes after Save
 
 Version **0.10.2** (a fix: third number). Client only, no schema change; going back to 0.10.1 is the image swap only.

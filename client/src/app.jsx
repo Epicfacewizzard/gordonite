@@ -189,7 +189,7 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' || route.startsWith('/people/') ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/skin' ? 'Skin log' : route === '/habits' ? 'Habits' : route === '/tags' ? 'Tags' : 'Dashboard';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' || route.startsWith('/people/') ? 'People' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/skin' ? 'Skin log' : route === '/habits' || route.startsWith('/habits/') ? 'Habits' : route === '/tags' ? 'Tags' : 'Dashboard';
   return (
     <header class="topbar">
       {!onHome && (
@@ -316,8 +316,8 @@ export function App() {
     view = <TrashView config={config} />;
   } else if (route === '/data') {
     view = <DataView config={config} />;
-  } else if (route === '/habits') {
-    view = <HabitsView config={config} />;
+  } else if (route === '/habits' || route.startsWith('/habits/')) {
+    view = <HabitsView config={config} open={route.startsWith('/habits/') ? route.slice(8) : null} />;
   } else if (route === '/skin') {
     view = <SkinView config={config} />;
   } else if (route === '/share' || route.startsWith('/share/')) {

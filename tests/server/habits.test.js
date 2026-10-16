@@ -74,3 +74,60 @@ test('habits and check-ins travel in the JSON export and come back on import', a
     await other.close();
   }
 });
+
+test('frequency, numbers with a target, colour, question, reminder and archive are kept; bad ones are refused', async () => {
+  const id = uuid();
+  const custom = { freq: { type: 'week', times: 3 }, kind: 'number', unit: 'glasses', target: 8, targetType: 'atLeast', color: 'blue', question: 'Did you drink water?', reminder: '21:00', archived: false };
+  assert.equal((await app.api('PUT', `/api/habits/${id}`, habit({ name: 'Water', ...custom }))).status, 200);
+  let h = (await list()).habits.find((x) => x.id === id);
+  for (const [k, v] of Object.entries(custom)) assert.deepEqual(h[k], v, k);
+
+  // an app from before these options saves the habit without them: they stay
+  await app.api('PUT', `/api/habits/${id}`, habit({ name: 'Water!' }));
+  h = (await list()).habits.find((x) => x.id === id);
+  assert.equal(h.name, 'Water!');
+  assert.deepEqual(h.freq, custom.freq);
+  assert.equal(h.target, 8);
+
+  await app.api('PUT', `/api/habits/${id}`, habit({ name: 'Water', ...custom, archived: true }));
+  assert.equal((await list()).habits.find((x) => x.id === id).archived, true, 'archived habits are still listed, marked');
+
+  const code = async (over) => (await app.api('PUT', `/api/habits/${uuid()}`, habit(over))).json.error?.code;
+  assert.equal(await code({ freq: { type: 'week', times: 9 } }), 'bad_options');
+  assert.equal(await code({ freq: { type: 'every', n: 0 } }), 'bad_options');
+  assert.equal(await code({ kind: 'number' }), 'bad_options', 'a number habit needs a target');
+  assert.equal(await code({ color: 'chartreuse' }), 'bad_options');
+  assert.equal(await code({ reminder: '25:00' }), 'bad_options');
+  assert.equal(await code({ freq: { type: 'week', times: 2 }, trigger: { product: 'Betaderm', days: 7 } }), 'bad_trigger');
+  const old = (await list()).habits.find((x) => x.name === 'Read');
+  assert.equal(old?.kind ?? 'yesno', 'yesno', 'a habit from before reads as yes-or-no');
+});
+
+test('a check-in can carry a number or be a skipped day; a plain tick keeps what the day has', async () => {
+  const id = uuid();
+  await app.api('PUT', `/api/habits/${id}`, habit({ kind: 'number', target: 8 }));
+  const day = addDays(today(), -1);
+  await app.api('PUT', `/api/habits/${id}/checks/${day}`, { value: 6.5, skip: false });
+  await app.api('PUT', `/api/habits/${id}/checks/${today()}`, { value: null, skip: true });
+  let c = (await list()).checks.filter((x) => x.habitId === id);
+  assert.deepEqual(c.map(({ date, value, skip }) => ({ date, value, skip })), [{ date: day, value: 6.5, skip: false }, { date: today(), value: null, skip: true }]);
+  await app.api('PUT', `/api/habits/${id}/checks/${day}`); // an older app's tick
+  assert.equal((await list()).checks.find((x) => x.habitId === id && x.date === day).value, 6.5);
+  await app.api('PUT', `/api/habits/${id}/checks/${day}`, { value: 9, skip: false });
+  c = (await list()).checks.find((x) => x.habitId === id && x.date === day);
+  assert.equal(c.value, 9, 'replaced');
+  assert.equal((await app.api('PUT', `/api/habits/${id}/checks/${day}`, { value: 'lots' })).json.error.code, 'bad_value');
+
+  const exported = JSON.parse((await app.api('GET', '/api/export/json')).text);
+  assert.equal(exported.habits.find((h) => h.id === id).target, 8);
+  const other = await startServer({ HOME_TZ: 'America/Edmonton' });
+  try {
+    await other.api('POST', '/api/import?mode=merge', exported);
+    const l = (await other.api('GET', '/api/habits')).json;
+    assert.equal(l.habits.find((h) => h.id === id).kind, 'number');
+    assert.ok(l.checks.some((x) => x.habitId === id && x.date === today() && x.skip));
+    assert.ok(l.checks.some((x) => x.habitId === id && x.date === day && x.value === 9));
+  } finally {
+    await other.close();
+  }
+});

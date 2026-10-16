@@ -139,3 +139,93 @@ describe('habits', () => {
       await page.getByTestId('habit-today').filter({ hasText: 'Betaderm course' }).locator('input:checked').waitFor();
     }));
 });
+
+describe('habit options', () => {
+  const habits = async (app) => (await app.api('GET', '/api/habits')).json;
+
+  test('a number habit, 3 times a week, with a colour and reminder: made in the editor, entered on the Dashboard', () =>
+    withPhone(browser, async ({ page, app }) => {
+      await page.goto(`${app.url}/#/habits`);
+      await page.getByTestId('habit-new').tap();
+      await page.getByTestId('habit-name').fill('Water');
+      await page.getByTestId('habit-question').fill('Did you drink enough?');
+      await page.getByTestId('habit-kind-number').check();
+      await page.getByTestId('habit-target').fill('8');
+      await page.getByTestId('habit-unit').fill('glasses');
+      await page.getByTestId('habit-freq').selectOption('week');
+      await page.getByTestId('habit-times').fill('3');
+      await page.getByTestId('habit-color-blue').check();
+      await page.getByTestId('habit-reminder').fill('09:00');
+      await page.getByTestId('habit-save').tap();
+      await until(async () => (await habits(app)).habits.length === 1, 'the habit on the server');
+      const h = (await habits(app)).habits[0];
+      assert.deepEqual(
+        { freq: h.freq, kind: h.kind, target: h.target, unit: h.unit, color: h.color, reminder: h.reminder, question: h.question },
+        { freq: { type: 'week', times: 3 }, kind: 'number', target: 8, unit: 'glasses', color: 'blue', reminder: '09:00', question: 'Did you drink enough?' },
+      );
+
+      await page.goto(`${app.url}/#/`);
+      const row = page.getByTestId('habit-today').filter({ hasText: 'Water' });
+      assert.match(await row.textContent(), /at least 8 glasses · Did you drink enough\? · 0 of 3 this week · 9:00/);
+      await row.getByTestId('habit-today-amount').tap();
+      await page.getByTestId('habit-entry-value').fill('9');
+      await page.getByTestId('habit-entry-save').tap();
+      await until(async () => (await habits(app)).checks.some((c) => c.date === today() && c.value === 9), 'the number on the server');
+      await page.getByTestId('habit-today').filter({ hasText: '1 of 3 this week' }).waitFor();
+
+      await page.goto(`${app.url}/#/habits`);
+      await page.getByRole('button', { name: `Water, ${today()}: 9, target met` }).waitFor();
+    }));
+
+  test('a habit’s own page shows streaks and score; a skipped day keeps the streak', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const id = newId();
+      await app.api('PUT', `/api/habits/${id}`, { name: 'Stretch', days: [0, 1, 2, 3, 4, 5, 6], created: addDays(today(), -4) });
+      for (const d of [-4, -3, -1]) await app.api('PUT', `/api/habits/${id}/checks/${addDays(today(), d)}`);
+      await page.goto(`${app.url}/#/habits`);
+      await page.getByTestId('habit-open').filter({ hasText: 'Stretch' }).tap();
+      await page.getByTestId('habit-detail').waitFor();
+      assert.equal(await page.getByTestId('habit-best-streak').textContent(), '2');
+      assert.equal(await page.getByTestId('habit-current-streak').textContent(), '1');
+      assert.equal(await page.getByTestId('habit-total').textContent(), '3');
+
+      // the missed day two days ago was really a day away: skip it, and the streak runs through it
+      await page.getByRole('button', { name: `Stretch, ${addDays(today(), -2)}: not done` }).tap();
+      await page.getByTestId('habit-entry-skip').tap();
+      await until(async () => (await habits(app)).checks.some((c) => c.date === addDays(today(), -2) && c.skip), 'the skipped day on the server');
+      await until(async () => (await page.getByTestId('habit-current-streak').textContent()) === '3', 'the streak through the skipped day');
+      assert.notEqual(await page.getByTestId('habit-score').textContent(), '0%');
+      await page.getByRole('button', { name: `Stretch, ${addDays(today(), -2)}: skipped` }).waitFor();
+    }));
+
+  test('habits are reordered with the arrows, and an archived habit leaves the Dashboard until unarchived', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const a = newId();
+      const b = newId();
+      await app.api('PUT', `/api/habits/${a}`, { name: 'Alpha', days: [0, 1, 2, 3, 4, 5, 6], created: today(), sort: 10 });
+      await app.api('PUT', `/api/habits/${b}`, { name: 'Bravo', days: [0, 1, 2, 3, 4, 5, 6], created: today(), sort: 20 });
+      await page.goto(`${app.url}/#/habits`);
+      const names = () => page.getByTestId('habit-open').allTextContents();
+      await until(async () => (await names()).length === 2, 'both habits');
+      assert.deepEqual(await names(), ['Alpha', 'Bravo']);
+      await page.getByRole('button', { name: 'Move Bravo up' }).tap();
+      await until(async () => (await names())[0] === 'Bravo', 'Bravo first');
+      await until(async () => (await habits(app)).habits.map((h) => h.name).join() === 'Bravo,Alpha', 'the order on the server');
+
+      await page.getByRole('button', { name: 'Edit Alpha' }).tap();
+      await page.getByTestId('habit-archive').tap();
+      await until(async () => (await habits(app)).habits.find((h) => h.id === a).archived, 'archived on the server');
+      assert.deepEqual(await names(), ['Bravo']);
+      await page.getByTestId('habit-archived').locator('summary').tap();
+      assert.match(await page.getByTestId('habit-archived').textContent(), /Archived \(1\)Alpha/);
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('habit-today').filter({ hasText: 'Bravo' }).waitFor();
+      assert.equal(await page.getByTestId('habit-today').filter({ hasText: 'Alpha' }).count(), 0, 'not on the Dashboard');
+
+      await page.goto(`${app.url}/#/habits`);
+      await page.getByTestId('habit-archived').locator('summary').tap();
+      await page.getByTestId('habit-archived').getByRole('button', { name: 'Unarchive' }).tap();
+      await until(async () => (await names()).length === 2, 'back in the list');
+      assert.equal((await habits(app)).habits.find((h) => h.id === a).archived, false);
+    }));
+});

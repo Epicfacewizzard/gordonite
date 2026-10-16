@@ -17,7 +17,7 @@ Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language sum
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
 | Version on `origin/main` | **0.10.0** (`c6ba5bf`, pushed 2026-10-15): People as profile pages ([docs/PEOPLE.md](docs/PEOPLE.md)) on top of 0.9.0 |
-| Waiting to be deployed | Nothing |
+| Waiting to be deployed | Branch `feature/habit-customization` (not pushed): **0.10.2** (a new habit no longer vanishes after Save on a slow connection) and **0.11.0** (habit options: frequency, number habits, colour, question, reminder time, archive, reorder, skip, a page per habit; **schema v10**, so a rollback needs the pre-update backup). [docs/HABITS.md](docs/HABITS.md) |
 | Version running on the server | **0.10.0** (`c6ba5bf`, deployed 2026-10-15; `/api/health` reported `0.10.0`): People profile pages (0.10.0), skin log and habits (0.9.0), offline use and the installable app (0.7.0–0.8.1). Database schema **v9**. Installed on the S24 by the owner |
 | Habit tracker beta | Branch `codex/habit-tracker-beta-test` (another agent, browser-only habits, preview 0.8.2-habits-preview.1) was used as the reference for 0.9.0's habits; it is not merged and can be deleted once 0.9.0 is accepted |
 | HTTPS address | `https://gordonite.duckdns.org` (2026-10-15): DuckDNS name → `192.168.1.50`, Nginx Proxy Manager on the server (admin `http://192.168.1.50:81`) with a Let's Encrypt certificate by DNS challenge; reachable only on the LAN or WireGuard. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain). `http://192.168.1.50:8082` still works |

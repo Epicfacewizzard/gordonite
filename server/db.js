@@ -166,6 +166,14 @@ const MIGRATIONS = [
     updated_at TEXT NOT NULL
   );
   `,
+  // v10: habit customisation (see docs/HABITS.md). `options` (JSON) holds frequency, yes-or-no or number with a target,
+  // colour, question, reminder time and archived; a check-in can carry the number entered (`value`) or be a skipped
+  // day (`skip` = 1). Rows from before keep their meaning: options {} is a yes-or-no habit on its weekdays.
+  `
+  ALTER TABLE habits ADD COLUMN options TEXT NOT NULL DEFAULT '{}';
+  ALTER TABLE habit_checks ADD COLUMN value REAL;
+  ALTER TABLE habit_checks ADD COLUMN skip INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

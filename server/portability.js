@@ -73,10 +73,13 @@ export function exportAll(db, cfg) {
       .prepare('SELECT id, score, note, day, logged_at AS loggedAt, created_at AS createdAt, deleted_at AS deletedAt FROM mood_entries ORDER BY logged_at, id')
       .all(),
     habits: db
-      .prepare('SELECT id, name, detail, days, created, trigger, courses, sort, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM habits ORDER BY sort, created_at, id')
+      .prepare('SELECT id, name, detail, days, created, trigger, courses, sort, options, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM habits ORDER BY sort, created_at, id')
       .all()
-      .map((h) => ({ ...h, days: JSON.parse(h.days), trigger: h.trigger ? JSON.parse(h.trigger) : null, courses: JSON.parse(h.courses) })),
-    habitChecks: db.prepare('SELECT habit_id AS habitId, check_date AS date, source, checked_at AS checkedAt FROM habit_checks ORDER BY check_date, habit_id').all(),
+      .map(({ options, ...h }) => ({ ...h, ...JSON.parse(options), days: JSON.parse(h.days), trigger: h.trigger ? JSON.parse(h.trigger) : null, courses: JSON.parse(h.courses) })),
+    habitChecks: db
+      .prepare('SELECT habit_id AS habitId, check_date AS date, source, checked_at AS checkedAt, value, skip FROM habit_checks ORDER BY check_date, habit_id')
+      .all()
+      .map((c) => ({ ...c, skip: c.skip === 1 })),
     skinEntries: db
       .prepare(
         `SELECT id, entry_date AS date, entry_time AS time, data, text, note_id AS noteId, follows_id AS followsId,
@@ -334,17 +337,18 @@ export function importAll(db, cfg, data, mode) {
 
   const addHabits = () => {
     const insert = db.prepare(
-      'INSERT OR IGNORE INTO habits (id, name, detail, days, created, trigger, courses, sort, created_at, updated_at, deleted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      'INSERT OR IGNORE INTO habits (id, name, detail, days, created, trigger, courses, sort, options, created_at, updated_at, deleted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
     );
     const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : new Date().toISOString());
     for (const raw of data.habits ?? []) {
       const h = cleanHabit(raw);
-      const res = insert.run(raw.id, h.name, h.detail, h.days, h.created, h.trigger, h.courses, h.sort, when(raw.createdAt), when(raw.updatedAt), raw.deletedAt ? when(raw.deletedAt) : null);
+      const res = insert.run(raw.id, h.name, h.detail, h.days, h.created, h.trigger, h.courses, h.sort, h.options, when(raw.createdAt), when(raw.updatedAt), raw.deletedAt ? when(raw.deletedAt) : null);
       report.habitsAdded += Number(res.changes);
     }
-    const check = db.prepare('INSERT OR IGNORE INTO habit_checks (habit_id, check_date, source, checked_at) VALUES (?,?,?,?)');
+    const check = db.prepare('INSERT OR IGNORE INTO habit_checks (habit_id, check_date, source, checked_at, value, skip) VALUES (?,?,?,?,?,?)');
     for (const c of data.habitChecks ?? []) {
-      const res = check.run(c.habitId, c.date, typeof c.source === 'string' ? c.source.slice(0, 20) : 'import', when(c.checkedAt));
+      const value = typeof c.value === 'number' && Number.isFinite(c.value) ? c.value : null;
+      const res = check.run(c.habitId, c.date, typeof c.source === 'string' ? c.source.slice(0, 20) : 'import', when(c.checkedAt), value, c.skip === true ? 1 : 0);
       report.habitChecksAdded += Number(res.changes);
     }
   };

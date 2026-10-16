@@ -6,7 +6,7 @@
 .habit-today-list { margin: 8px 0; }
 .habit-today-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
 .habit-today-row:last-child { border: 0; }
-.habit-today-row input { width: 21px; height: 21px; flex: none; accent-color: var(--accent); }
+.habit-today-row input { width: 21px; height: 21px; flex: none; accent-color: var(--habit, var(--accent)); }
 .habit-detail { display: block; color: var(--muted); font-size: .78rem; }
 .habit-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
 .habit-summary > div { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
@@ -15,7 +15,7 @@
 .habit-week-nav { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 20px 0 8px; }
 .habit-week-nav strong { font-size: .84rem; text-align: center; }
 .habit-cards { display: grid; gap: 14px; margin: 14px 0; }
-.habit-card { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 16px; }
+.habit-card { border: 1px solid var(--line); border-left: 4px solid var(--habit, var(--accent)); border-radius: 12px; background: var(--surface); padding: 16px; }
 .habit-card p { margin: 4px 0; }
 .habit-card .icon-btn { flex: none; }
 .habit-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
@@ -23,7 +23,7 @@
 .habit-day-number { font-size: .8rem; }
 .habit-is-today { color: var(--accent); font-weight: 650; }
 .habit-check { width: 100%; max-width: 52px; min-height: 44px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; font: inherit; font-size: 1.1rem; margin-top: 4px; }
-.habit-check.habit-done { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.habit-check.habit-done { background: var(--habit, var(--accent)); border-color: var(--habit, var(--accent)); color: var(--accent-contrast); }
 .habit-check:disabled { cursor: default; opacity: .45; }
 .habit-streak { padding-top: 12px; }
 .habit-field { display: block; font-size: .85rem; margin: 16px 0 6px; }
@@ -51,3 +51,38 @@
 .habit-course label { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
 .habit-course input[type=number] { width: 4.5em; }
 .habit-course-chip { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; background: var(--ok-bg); color: var(--text); }
+/* Habit options (0.11.0): colour (--habit, set on the card or row), numbers, skipped days, the habit's own page. */
+.habit-heading h3 a { color: inherit; text-decoration: none; }
+.habit-heading h3 a:hover { text-decoration: underline; }
+.habit-card-tools { display: flex; gap: 2px; flex: none; }
+.habit-card-tools .icon-btn:disabled { opacity: .3; }
+.habit-check.habit-partial { border-color: var(--habit, var(--accent)); color: var(--habit, var(--accent)); }
+.habit-check.habit-skipped { color: var(--muted); border-style: dashed; }
+.habit-check { font-size: .95rem; }
+.habit-amount { flex: none; min-width: 44px; min-height: 36px; padding: 0 8px; border-radius: 9px; border: 1px solid var(--habit, var(--accent)); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+.habit-amount.habit-done { background: var(--habit, var(--accent)); color: var(--accent-contrast); }
+.habit-segment { gap: 16px; margin: 8px 0; }
+.habit-segment label, .habit-times { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.habit-target { align-items: center; gap: 8px; flex-wrap: wrap; }
+.habit-target input { width: 6em; }
+.habit-times input { width: 4.5em; }
+.habit-days select { margin: 8px 0; max-width: 100%; }
+.habit-colors { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.habit-swatch { position: relative; cursor: pointer; }
+.habit-swatch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.habit-swatch span { display: block; width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; box-shadow: 0 0 0 1px var(--line); }
+.habit-swatch input:checked + span { border-color: var(--text); }
+.habit-swatch input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
+.habit-title { border-left: 4px solid var(--habit, var(--accent)); padding-left: 10px; }
+.habit-summary-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.habit-summary-4 strong { color: var(--habit, var(--accent)); }
+.habit-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 12px 0; }
+.habit-month-head { text-align: center; color: var(--muted); font-size: .7rem; }
+.habit-other-month { opacity: .45; }
+.habit-archived { margin: 20px 0; }
+.habit-archived summary { cursor: pointer; color: var(--muted); }
+.habit-archived-row { justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+@media (max-width: 400px) {
+  .habit-summary-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .habit-month { gap: 3px; }
+}
