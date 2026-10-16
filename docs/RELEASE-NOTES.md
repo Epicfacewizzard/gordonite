@@ -1,5 +1,22 @@
 # Release notes
 
+## 0.10.1 — 2026-10-16 — The dashboard note keeps the tag you picked when offline
+
+Version **0.10.1** (a fix: third number). Client only, no schema change; going back to 0.10.0 is the image swap only.
+
+**Fixed**
+
+- **The dashboard note switched back to daily-jots on its own.** Picking another tag (a starred one) above today's
+  note saves the choice on the server. With the server out of reach the save gave up up to 15 s later and put the old
+  tag back, and every return to the dashboard read the old tag from the server again, so the note seemed to jump away
+  from the tag you were writing in. A pick the server cannot be reached for is now kept on the device
+  (`localStorage` key `hq-daily-tag-unsent`), a line under the chips says so, and it is sent when the app is focused
+  or comes back online. Only a refusal from the server puts the old tag back. A late answer from the server can no
+  longer undo a pick made while the page was loading. Test: `tests/e2e/today.test.js` ("a tag picked while the server
+  cannot be reached …").
+- Known limit: Settings → "Today's note comes from" still shows the server's tag until the pick is sent.
+
+
 ## 0.10.0 — 2026-10-15 — People as profile pages (deployed 2026-10-15)
 
 Version **0.10.0** (new feature). **Schema change: v8 → v9** (`people`). The database is migrated on start. Going back

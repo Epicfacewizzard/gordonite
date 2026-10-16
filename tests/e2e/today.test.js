@@ -178,6 +178,39 @@ describe('choosing where the dashboard note comes from', () => {
       assert.deepEqual(page.errors, []);
     }));
 
+  test('a tag picked while the server cannot be reached stays picked, and is sent once it can be', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const tag = (await app.api('POST', '/api/tags', { path: 'work-log' })).json.tag;
+      await app.api('PUT', `/api/tags/${tag.id}/favorite`, { favorite: true });
+      await page.goto(`${app.url}/#/`);
+      await todayNote(page).waitFor();
+      await page.route('**/api/settings', (r) => r.abort('connectionfailed'));
+
+      await choice(page, 'work-log').tap();
+      await page.getByTestId('daily-tag-unsent').waitFor();
+      await page.waitForTimeout(500);
+      assert.equal(await choice(page, 'work-log').getAttribute('aria-checked'), 'true', 'the failed save does not put daily-jots back');
+      assert.equal((await app.api('GET', '/api/config')).json.dailyTag, 'daily-jots');
+
+      // leaving the dashboard and coming back, or reloading, keeps the pick (the server still says daily-jots)
+      await page.goto(`${app.url}/#/tasks`);
+      await page.goto(`${app.url}/#/`);
+      await page.getByTestId('daily-tag-from').waitFor();
+      await page.waitForTimeout(500);
+      assert.equal(await choice(page, 'work-log').getAttribute('aria-checked'), 'true', 'kept after coming back');
+      await page.reload();
+      await page.getByTestId('daily-tag-from').waitFor();
+      await page.waitForTimeout(500);
+      assert.equal(await choice(page, 'work-log').getAttribute('aria-checked'), 'true', 'kept after a reload');
+
+      // the server is back: the pick is sent the next time the app comes to the front
+      await page.unroute('**/api/settings');
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await page.getByTestId('daily-tag-unsent').waitFor({ state: 'detached' });
+      assert.equal((await app.api('GET', '/api/config')).json.dailyTag, 'work-log', 'sent to the server');
+      assert.equal(await choice(page, 'work-log').getAttribute('aria-checked'), 'true');
+    }));
+
   test('with nothing starred only the current tag shows, with no extra words; Settings still has every tag', () =>
     withPhone(browser, async ({ page, app }) => {
       await page.goto(`${app.url}/#/`);

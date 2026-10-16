@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, NetworkError } from '../api.js';
 import { sync } from '../sync.js';
 import { useSession, useToday } from '../hooks.js';
@@ -17,6 +17,26 @@ import { HabitsWidget } from './Habits.jsx';
 
 const longDate = (today) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(`${today}T00:00:00Z`));
+
+// A tag picked while the server cannot be reached is kept on this device and sent once it can be. Without this the
+// note snapped back to the old tag when the save gave up (up to 15 s later, so it looked like it switched on its own),
+// and again on every return to the dashboard, which reads the tag from the server.
+const UNSENT_KEY = 'hq-daily-tag-unsent';
+const unsentPick = () => {
+  try {
+    return localStorage.getItem(UNSENT_KEY) || null;
+  } catch {
+    return null;
+  }
+};
+const keepPick = (path) => {
+  try {
+    if (path) localStorage.setItem(UNSENT_KEY, path);
+    else localStorage.removeItem(UNSENT_KEY);
+  } catch {
+    /* storage may be unavailable: the pick still holds until the page is left */
+  }
+};
 
 const streamHref = (tag) => `#/t/${encodeURIComponent(tag).replaceAll('%2F', '/')}`;
 
@@ -62,7 +82,7 @@ function TasksWidget({ config }) {
 // Beside its heading, the tag it comes from can be changed in one tap: the current tag and every starred tag are
 // offered. Under it, the last couple of days' entries of that tag (EarlierNotes), greyed until tapped: a tap opens that
 // day for editing right there, and only one note is ever open for editing. A button brings in older days.
-function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTag }) {
+function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTag, unsent }) {
   useSession();
   const [pickError, setPickError] = useState('');
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
@@ -152,6 +172,11 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
           </div>
         )}
       </div>
+      {unsent && (
+        <p class="muted small" data-testid="daily-tag-unsent">
+          Kept on this phone; your other devices get it once the server can be reached.
+        </p>
+      )}
       {pickError && (
         <p class="error small" role="alert">
           {pickError}
@@ -236,31 +261,61 @@ function gridFor(shown) {
 export function TodayView({ config, onConfigChanged }) {
   const today = useToday(config.tz);
   const [tags, setTags] = useState([]);
-  const [dailyTag, setDailyTag] = useState(config.dailyTag ?? 'daily-jots');
+  const [dailyTag, setDailyTag] = useState(() => unsentPick() ?? config.dailyTag ?? 'daily-jots');
+  const [unsent, setUnsent] = useState(() => !!unsentPick());
+  const picked = useRef(false); // once a tag is picked here, a late answer from the server must not undo it
   const [visited, setVisited] = useState([]); // tags the note has come from since this page opened
   useEffect(() => {
     if (dailyTag) setVisited((v) => (v.includes(dailyTag) ? v : [...v, dailyTag]));
   }, [dailyTag]);
 
+  // Which tag today's note comes from is one setting kept on the server (the same one as in Settings). Offline, the
+  // pick stays on this device until it can be sent; only a refusal from the server puts the old tag back.
+  const send = async (path) => {
+    try {
+      await api.setSettings({ dailyTag: path });
+    } catch (err) {
+      if (err instanceof NetworkError) return setUnsent(true);
+      if (unsentPick() === path) keepPick(null);
+      setUnsent(!!unsentPick());
+      throw err;
+    }
+    if (unsentPick() === path) keepPick(null);
+    setUnsent(!!unsentPick());
+    onConfigChanged?.();
+  };
+  const sendUnsent = () => {
+    const path = unsentPick();
+    if (!path) return;
+    send(path).catch(() => api.config().then((c) => !picked.current && setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {}));
+  };
+
   useEffect(() => {
     api.tags().then((r) => setTags(r.tags)).catch(() => {});
-    api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
+    if (unsentPick()) sendUnsent();
+    else api.config().then((c) => !picked.current && !unsentPick() && setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
+    window.addEventListener('online', sendUnsent);
+    window.addEventListener('focus', sendUnsent);
+    return () => {
+      window.removeEventListener('online', sendUnsent);
+      window.removeEventListener('focus', sendUnsent);
+    };
   }, []);
 
-  // Which tag today's note comes from is one setting kept on the server (the same one as in Settings).
   const chooseDailyTag = async (next) => {
     const before = dailyTag;
+    picked.current = true;
     setDailyTag(next);
+    keepPick(next);
     try {
-      await api.setSettings({ dailyTag: next });
-      onConfigChanged?.();
+      await send(next);
     } catch (err) {
       setDailyTag(before);
       throw err;
     }
   };
 
-  const context = { config, today, tags, dailyTag, visited, chooseDailyTag };
+  const context = { config, today, tags, dailyTag, visited, chooseDailyTag, unsent };
   // A widget with nothing to show (starred tags, when none are starred) is left out, so it cannot hold a column open.
   const shown = getDashboard().filter((w) => w.shown && !(w.id === 'pinned' && !tags.some((t) => t.favorite)));
   return (
