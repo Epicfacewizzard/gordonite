@@ -6,11 +6,38 @@ import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
 import { dateInTz, isValidDateString, isValidTime, timeInTz, hasStarted, isOverdue } from '../shared/dates.js';
 import { DOC_FORMAT, attachmentsIn, plainText } from '../shared/doc.js';
-import { extractTasks, updateTask } from '../shared/tasks.js';
-import { markdownToDoc } from '../shared/markdown-import.js';
+import { extractTasks, updateTask, removeTask, findTask, taskText, patchedTaskAttrs } from '../shared/tasks.js';
+import { markdownToDoc, inlineToNodes } from '../shared/markdown-import.js';
 import { docToMarkdown } from './markdown.js';
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
+
+// get_note shows a task's picked dates after its text, " (due 2026-10-20 at 09:00)" / " (start note date)", and a
+// dismissed task with " (dismissed …)". They are not part of the text. This reads them back off the end of a line.
+const SCHEDULE = /\s*\((due|start) (\d{4}-\d{2}-\d{2}|note date)(?: at ([01]\d|2[0-3]):([0-5]\d))?\)|\s*\(dismissed [^()]*\)/y;
+const SCHEDULE_TAIL = /(?:\s*\((?:due|start) (?:\d{4}-\d{2}-\d{2}|note date)(?: at (?:[01]\d|2[0-3]):[0-5]\d)?\)|\s*\(dismissed [^()]*\))+\s*$/;
+export function splitSchedule(line) {
+  const tail = SCHEDULE_TAIL.exec(line);
+  if (!tail) return { text: line, schedule: null };
+  const schedule = { due: null, dueTime: null, start: null, startTime: null };
+  SCHEDULE.lastIndex = tail.index;
+  for (let m; (m = SCHEDULE.exec(line)); ) {
+    if (!m[1]) continue; // (dismissed …): kept from the task as it was
+    if (m[2] !== 'note date') schedule[m[1]] = m[2];
+    if (m[3]) schedule[`${m[1]}Time`] = `${m[3]}:${m[4]}`;
+  }
+  return { text: line.slice(0, tail.index), schedule };
+}
+
+// "find" as plain text: no \ escapes, ** or * marks, list or heading markers, or a task's shown dates.
+function plainFind(find) {
+  return splitSchedule(
+    find
+      .replace(/^\s*(?:[-*+]\s+(?:\[[ xX]\]\s+)?|#{1,6}\s+|\d+[.)]\s+)/, '')
+      .replace(/\\([\\`*_{}[\]()#+\-.!>|~])/g, '$1')
+      .replace(/\*\*|__/g, ''),
+  ).text.trim();
+}
 
 export class AssistantNotes {
   constructor(store) {
@@ -120,17 +147,14 @@ export class AssistantNotes {
       else for (const child of node.content ?? []) collect(child);
     };
     collect(doc);
-    const hits = [];
-    for (const block of blocks) {
-      const chars = [];
-      for (const n of block.content ?? []) {
-        if (n.type === 'hardBreak') chars.push({ ch: '\n', hard: true });
-        else for (const ch of n.text) chars.push({ ch, marks: n.marks });
-      }
-      const text = chars.map((c) => c.ch).join('');
-      const at = [];
-      for (let i = text.indexOf(find); i >= 0; i = text.indexOf(find, i + find.length)) at.push(i);
-      if (at.length) hits.push({ block, chars, at });
+    // Agents often copy "find" out of get_note's Markdown, with its \ escapes, ** marks, list markers and the
+    // "(due …)" a task line is shown with. When the text as given is not there, it is tried once without those.
+    let hits = this.#hits(blocks, find);
+    let matchedAs = null;
+    const plain = plainFind(find);
+    if (!hits.length && plain && plain !== find) {
+      hits = this.#hits(blocks, plain);
+      if (hits.length) find = matchedAs = plain;
     }
     const count = hits.reduce((n, h) => n + h.at.length, 0);
     if (count === 0) throw new HttpError(404, 'text_not_found', 'That text is not in the note. "find" is matched against plain text inside one paragraph, heading or list item, without Markdown symbols');
@@ -156,13 +180,30 @@ export class AssistantNotes {
       else delete block.content;
     }
     const res = this.store.saveNote(id, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
-    return { id, revision: res.revision, replaced: count };
+    return { id, revision: res.revision, replaced: count, ...(matchedAs ? { matchedAs } : {}) };
+  }
+
+  // Where "find" is, block by block: [{ block, chars, at: [start, ...] }].
+  #hits(blocks, find) {
+    const hits = [];
+    for (const block of blocks) {
+      const chars = [];
+      for (const n of block.content ?? []) {
+        if (n.type === 'hardBreak') chars.push({ ch: '\n', hard: true });
+        else for (const ch of n.text) chars.push({ ch, marks: n.marks });
+      }
+      const text = chars.map((c) => c.ch).join('');
+      const at = [];
+      for (let i = text.indexOf(find); i >= 0; i = text.indexOf(find, i + find.length)) at.push(i);
+      if (at.length) hits.push({ block, chars, at });
+    }
+    return hits;
   }
 
   // Replace the body under a heading (up to the next heading of the same or a higher level) with new Markdown.
   // The heading itself stays unless includeHeading is true, in which case the Markdown replaces it too ("" removes the
   // whole section). Tasks inside the replaced part are new tasks; tasks outside it are untouched.
-  replaceSection(id, { heading, markdown, includeHeading, expectedRevision }) {
+  replaceSection(id, { heading, markdown, includeHeading, occurrence, expectedRevision }) {
     const note = this.#liveNote(id);
     this.#reviewed(note, expectedRevision);
     if (typeof heading !== 'string' || !heading.replace(/^#+\s*/, '').trim()) throw new HttpError(400, 'bad_heading', '"heading" must be the heading text');
@@ -172,8 +213,9 @@ export class AssistantNotes {
     const top = note.doc.content ?? [];
     const matches = top.flatMap((n, i) => (n.type === 'heading' && plainText({ type: 'doc', content: [n] }).trim().toLowerCase() === want ? [i] : []));
     if (matches.length === 0) throw new HttpError(404, 'heading_not_found', 'No heading with that text. Use the heading text as shown, without the # marks');
-    if (matches.length > 1) throw new HttpError(409, 'ambiguous', `${matches.length} headings have that text`, { matches: matches.length });
-    const start = matches[0];
+    if (occurrence !== undefined && (!Number.isInteger(occurrence) || occurrence < 1 || occurrence > matches.length)) throw new HttpError(400, 'bad_occurrence', `"occurrence" must be 1 to ${matches.length}`);
+    if (matches.length > 1 && occurrence === undefined) throw new HttpError(409, 'ambiguous', `${matches.length} headings have that text. Set occurrence (1 = the first from the top) to pick one`, { matches: matches.length });
+    const start = matches[(occurrence ?? 1) - 1];
     const level = top[start].attrs.level;
     let end = top.findIndex((n, i) => i > start && n.type === 'heading' && n.attrs.level <= level);
     if (end < 0) end = top.length;
@@ -233,13 +275,153 @@ export class AssistantNotes {
       } else if (k === 'due' || k === 'start' || k === 'hideUntil') {
         if (v !== null && !isValidDateString(v)) throw new HttpError(400, 'bad_task', `"${k}" must be YYYY-MM-DD or null`);
         clean[k] = v;
+      } else if (k === 'text') {
+        // The task's own words (bold/italic Markdown allowed); tasks nested under it stay.
+        if (typeof v !== 'string' || !v.trim() || v.length > 5_000 || /\n/.test(v)) throw new HttpError(400, 'bad_task', '"text" must be one line of text');
+        clean.content = [{ type: 'paragraph', content: inlineToNodes(v.trim()) }];
       }
     }
-    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use checked, due, start, hidden, hideUntil or priority)');
+    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use text, checked, due, start, dueTime, startTime, hidden, hideUntil or priority)');
     const doc = updateTask(note.doc, taskId, clean);
-    if (!doc) throw new HttpError(404, 'not_found', 'Task not found in that note');
-    const res = this.store.saveNote(noteId, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid() });
+    if (!doc) throw new HttpError(404, 'task_not_found', 'No task with that id in that note. Read the note again with get_note: its "tasks" list has the ids');
+    const res = this.store.saveNote(noteId, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid(), ...(clean.content ? { keepPrevious: true } : {}) });
     return { id: noteId, taskId, revision: res.revision };
+  }
+
+  // Take one task (and anything nested under it) out of its note. The note before is kept in History.
+  deleteTask(noteId, taskId) {
+    const note = this.#liveNote(noteId);
+    const doc = removeTask(note.doc, taskId);
+    if (!doc) throw new HttpError(404, 'task_not_found', 'No task with that id in that note. Read the note again with get_note: its "tasks" list has the ids');
+    const res = this.store.saveNote(noteId, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
+    return { id: noteId, taskId, revision: res.revision, deleted: true };
+  }
+
+  // Move one task, unchanged (same id, dates and tick), to the end of another note's last task list. It is added to the
+  // other note first and only then taken out of this one, so a failure in between leaves it in both, never in neither.
+  // Both notes keep their previous text in History.
+  moveTask(noteId, taskId, toNoteId) {
+    const from = this.#liveNote(noteId);
+    const to = this.#liveNote(toNoteId);
+    if (from.id === to.id) throw new HttpError(400, 'same_note', 'The task is already in that note');
+    const item = findTask(from.doc, taskId);
+    if (!item) throw new HttpError(404, 'task_not_found', 'No task with that id in that note. Read the note again with get_note: its "tasks" list has the ids');
+    if (findTask(to.doc, taskId)) throw new HttpError(409, 'task_exists', 'The other note already has this task');
+    const content = [...(to.doc.content ?? [])];
+    let end = content.length;
+    while (end > 0 && content[end - 1].type === 'paragraph' && !content[end - 1].content?.length) end--; // above the blank line(s) left for writing
+    if (content[end - 1]?.type === 'taskList') content[end - 1] = { ...content[end - 1], content: [...content[end - 1].content, item] };
+    else content.splice(end, 0, { type: 'taskList', content: [item] });
+    const added = this.store.saveNote(to.id, { baseRevision: to.revision, doc: { ...to.doc, content }, docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
+    const removed = this.store.saveNote(from.id, { baseRevision: from.revision, doc: removeTask(from.doc, taskId), docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
+    return { taskId, from: { id: from.id, revision: removed.revision }, to: { id: to.id, revision: added.revision } };
+  }
+
+  // ----- the note itself: title, tags, the whole text, History, Trash -----
+
+  setTitle(id, title) {
+    const note = this.#liveNote(id);
+    if (note.kind !== 'note') throw new HttpError(400, 'no_title', 'Only free notes have a title. A daily entry is named by its tag and date');
+    if (typeof title !== 'string' && title !== null) throw new HttpError(400, 'bad_title', '"title" must be text (or "" to remove it)');
+    const res = this.store.saveNote(id, { baseRevision: note.revision, doc: note.doc, docFormat: DOC_FORMAT, opId: uuid(), title: title ?? '' });
+    return { id, revision: res.revision, title: this.store.getNote(id).title };
+  }
+
+  addTag(id, tag) {
+    this.#liveNote(id);
+    return { id, tags: this.store.addTagToNote(id, tag).map((t) => t.path) };
+  }
+
+  removeTag(id, tag) {
+    const note = this.#liveNote(id);
+    const path = normalizeTag(tag);
+    const found = note.tags.find((t) => t.path === path);
+    if (!found) throw new HttpError(404, 'tag_not_found', `The note is not tagged ${tag}. Its tags are: ${note.tags.map((t) => t.path).join(', ') || 'none'}`);
+    return { id, tags: this.store.removeTagFromNote(id, found.id).map((t) => t.path) };
+  }
+
+  /**
+   * Replace the whole note with new Markdown (from get_note, edited). A task line whose text is still there keeps its
+   * task: the same id, completion time, priority and hiding; its tick and its shown dates ("(due 2026-10-20)") are taken
+   * from the new line. Lines that match no task become new tasks; tasks left out are removed. The previous text is kept
+   * in History. Needs the revision that was read.
+   */
+  rewrite(id, { markdown, expectedRevision }) {
+    const note = this.#liveNote(id);
+    this.#reviewed(note, expectedRevision);
+    const doc = { ...note.doc, content: this.#blocks(markdown) };
+    const old = new Map(); // task text -> taskItems with that text, in order
+    const collectOld = (node) => {
+      if (node.type === 'taskItem' && node.attrs?.id) {
+        const t = taskText(node);
+        old.set(t, [...(old.get(t) ?? []), node]);
+      }
+      for (const child of node.content ?? []) collectOld(child);
+    };
+    collectOld(note.doc);
+    const counts = { kept: 0, added: 0 };
+    const walk = (node) => {
+      let next = node;
+      if (node.type === 'taskItem') {
+        const [first, ...rest] = node.content ?? [];
+        let schedule = null;
+        let head = first;
+        const lastText = first?.content?.at(-1);
+        if (lastText?.type === 'text') {
+          const split = splitSchedule(lastText.text);
+          if (split.schedule || split.text !== lastText.text) {
+            schedule = split.schedule;
+            const inline = [...first.content.slice(0, -1), ...(split.text ? [{ ...lastText, text: split.text.replace(/\s+$/, '') }] : [])].filter((n) => n.type !== 'text' || n.text);
+            head = { ...first, content: inline.length ? inline : undefined };
+            if (!head.content) delete head.content;
+          }
+        }
+        next = { ...node, content: [head, ...rest].filter(Boolean) };
+        const match = old.get(taskText(next))?.shift();
+        const sched = schedule ?? { due: null, dueTime: null, start: null, startTime: null };
+        if (match) {
+          counts.kept++;
+          next.attrs = patchedTaskAttrs(match.attrs, { ...sched, checked: !!node.attrs.checked }) ?? match.attrs;
+        } else {
+          counts.added++;
+          next.attrs = patchedTaskAttrs({ ...node.attrs }, sched);
+        }
+      }
+      return next.content ? { ...next, content: next.content.map(walk) } : next;
+    };
+    const content = doc.content.map(walk);
+    const removed = [...old.values()].reduce((n, list) => n + list.length, 0);
+    const res = this.store.saveNote(id, { baseRevision: note.revision, doc: { ...doc, content }, docFormat: DOC_FORMAT, opId: uuid(), keepPrevious: true });
+    return { id, revision: res.revision, tasks: { kept: counts.kept, added: counts.added, removed }, ...(res.unchanged ? { unchanged: true } : {}) };
+  }
+
+  listVersions(id) {
+    this.#liveNote(id);
+    return { id, versions: this.store.listVersions(id) };
+  }
+
+  getVersion(id, versionId) {
+    this.#liveNote(id);
+    const v = this.store.getVersion(id, checkId(versionId, 'version id'));
+    return { id, versionId: v.id, revision: v.revision, kind: v.kind, createdAt: v.createdAt, markdown: docToMarkdown(v.doc) };
+  }
+
+  // The text now is kept as a version first, so restoring can itself be undone.
+  restoreVersion(id, versionId) {
+    this.#liveNote(id);
+    const note = this.store.restoreVersion(id, checkId(versionId, 'version id'));
+    return { id, revision: note.revision };
+  }
+
+  listTrash() {
+    return {
+      notes: this.store.listTrash().map((n) => ({ id: n.id, title: n.title, kind: n.kind, date: n.date, tags: n.tags.map((t) => t.path), deletedAt: n.deletedAt, preview: plainText(n.doc).trim().slice(0, 160) })),
+    };
+  }
+
+  restoreNote(id, { dropConflictingTags } = {}) {
+    const { note, droppedTags } = this.store.restoreNote(checkId(id, 'note id'), { dropConflictingTags: dropConflictingTags === true });
+    return { id: note.id, revision: note.revision, droppedTags };
   }
 
   // What is open right now, with where each task sits: overdue / today / upcoming (next 7 days) / later / nodate.

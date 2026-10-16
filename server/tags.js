@@ -54,16 +54,19 @@ export function createTag(db, rawPath) {
 // Move a tag, with everything under it, to be a child of `into` ('' = top level) and set the order of that
 // parent's children (`order` lists the child names, including the moved one). Tag ids, notes and favourites stay
 // as they are; only paths change. Refuses to overwrite an existing tag or to move a tag into itself.
-export function moveTag(db, { from, into, order }) {
+// `name` renames it as well (the last part of its path); renamed where it is, it keeps its place in the order.
+export function moveTag(db, { from, into, order, name }) {
   const source = normalizeTag(from);
   const parent = into === '' || into == null ? '' : normalizeTag(into);
   if (!source || parent === null) throw new HttpError(400, 'bad_tag', 'Choose a valid tag to move and a valid place to put it');
   if (parent === source || parent.startsWith(source + '/')) throw new HttpError(400, 'bad_move', 'A tag cannot be moved into itself');
   const leaf = source.split('/').at(-1);
-  const target = parent ? `${parent}/${leaf}` : leaf;
+  const newLeaf = name === undefined || name === null ? leaf : normalizeTag(name);
+  if (!newLeaf || newLeaf.includes('/')) throw new HttpError(400, 'bad_tag', 'A new name is one part of a tag: letters, numbers, - _ and ., without /');
+  const target = parent ? `${parent}/${newLeaf}` : newLeaf;
   const oldParent = source.includes('/') ? source.slice(0, source.lastIndexOf('/')) : '';
   // (the names must all be plain, normalised names, at most 500, and include the tag being moved)
-  if (order !== undefined && (!Array.isArray(order) || cleanOrderNames(order)?.length !== order.length || !order.includes(leaf))) {
+  if (order !== undefined && (!Array.isArray(order) || cleanOrderNames(order)?.length !== order.length || !order.includes(newLeaf))) {
     throw new HttpError(400, 'bad_order', '"order" must list the names inside the destination, including the moved tag');
   }
   return tx(db, () => {
@@ -84,12 +87,14 @@ export function moveTag(db, { from, into, order }) {
       followTagMove(db, source, target);
     }
     const next = {};
-    for (const [key, list] of Object.entries(readTagOrder(db))) {
+    const was = readTagOrder(db);
+    for (const [key, list] of Object.entries(was)) {
       const inside = key === source || key.startsWith(source + '/');
       next[inside ? target + key.slice(source.length) : key] = key === oldParent ? list.filter((n) => n !== leaf) : list;
     }
     if (order !== undefined) next[parent] = order;
-    else if (next[parent]) next[parent] = [...next[parent].filter((n) => n !== leaf), leaf];
+    else if (parent === oldParent && newLeaf !== leaf && was[parent]?.includes(leaf)) next[parent] = was[parent].map((n) => (n === leaf ? newLeaf : n));
+    else if (next[parent]) next[parent] = [...next[parent].filter((n) => n !== newLeaf), newLeaf];
     writeTagOrder(db, next);
     return { from: source, path: target };
   });

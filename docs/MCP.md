@@ -3,7 +3,11 @@
 The local stdio bridge runs on your computer and calls the existing assistant API.
 It does not expose a public port or read SQLite directly. The server's history and
 conflict preservation apply to all writes. The trash tool requires explicit human
-confirmation and the reviewed revision. Edit tools (`replace_text`, `replace_section`) need the revision that was read and keep the earlier text in History. No permanent purge tool is exposed.
+confirmation and the reviewed revision. Edit tools (`replace_text`, `replace_section`, `rewrite_note`) need the revision that was read; every note edit keeps the earlier text in History. No permanent purge tool is exposed.
+
+**The bridge is the file the client runs.** Claude Desktop / Codex run `mcp/server.js` from the checkout named in
+their config. New tools only appear after that checkout is updated (`git pull`, `npm ci`) and the client restarted,
+and they only work once the server is deployed at the same version or later.
 
 ## Private configuration
 
@@ -19,7 +23,8 @@ and outside OneDrive with these fields:
 take in (see "Files" below). Without it, only the file tools that work on files already stored are available; the
 inbox tools say so. It can also be set with the `GORDONITE_INBOX` environment variable.
 
-The token grants reading notes, adding content and updating tasks. Never commit it.
+The token grants reading and changing notes, tasks, tags, moods, habits, the skin log and People details (never a
+permanent delete). Never commit it.
 Use LAN at home and your VPN away. Plain HTTP sends the key over your home network;
 use a trusted LAN/VPN now, and HTTPS when you configure a stable secure address.
 
@@ -60,7 +65,25 @@ remote HTTPS MCP deployment, outside this VPN-only computer setup.
 ## Tools and failure handling
 
 `ping`, `overview`, `search_notes`, `get_note`, `create_note`, `append_note`,
-`append_daily`, `replace_text`, `replace_section`, `update_task`, `trash_note`, `get_moods`, `log_mood` (log a mood only when asked). Ask the human before trashing each
+`append_daily`, `replace_text`, `replace_section`, `update_task`, `trash_note`, `get_moods`, `log_mood` (log a mood only when asked).
+
+Editing (0.11.0; the server must be 0.11.0 or later, or these say the server is older than the bridge):
+
+| Area | Tools |
+|---|---|
+| Notes | `set_note_title`, `add_note_tag`, `remove_note_tag`, `rewrite_note` (whole text from edited `get_note` Markdown; tasks keep their ids), `list_versions`, `get_version`, `restore_version` (undo), `list_trash`, `restore_note` |
+| Tasks | `update_task` (now also `text`, `priority`, `hideUntil`), `delete_task`, `move_task` |
+| Tags and settings | `list_tags`, `move_tag` (rename and/or move), `set_tag` (star, daily entry on/off), `set_daily_tag` |
+| Moods | `edit_mood`, `delete_mood`, `restore_mood` |
+| Habits | `get_habits`, `add_habit`, `edit_habit`, `delete_habit`, `tick_habit` |
+| Skin log | `get_skin_log`, `log_skin`, `edit_skin_entry`, `delete_skin_entry` (each also writes or removes the line in the month's note) |
+| People | `list_people`, `get_person`, `update_person` (details), `log_conversation` |
+
+What each one sends and what the server does is in [ASSISTANT.md](ASSISTANT.md). Deletes are soft and each tool's
+description says how to undo it; there is still no purge. When a tool is refused, the server's reason is passed to the
+agent (for example "No task with that id in that note. Read the note again …"), so it can correct itself.
+
+Ask the human before trashing each
 specific note. Keep client tool approvals enabled; `confirmed:true` is a client
 assertion, not independent proof of a human response. Trash is retained according
 to the configured retention period. Only write or edit when the user requests it. Read the note first and pass its revision to the edit tools; after a rejected edit, read again. Returned note
@@ -96,7 +119,7 @@ The bridge now prints why it could not start (visible in the client's log, e.g. 
 If the bridge starts but tools fail with HTTP 401, the key no longer matches the server's `ASSISTANT_TOKEN`
 (for example after a redeploy or a rotated key); update the private file, not the repository.
 
-Test the protocol and actual API integration with `node --test tests/server/mcp.test.js`.
+Test the protocol and actual API integration with `node --test tests/server/mcp.test.js tests/server/mcp-edit.test.js`.
 Stop access by removing the MCP entry and unsetting the server's ASSISTANT_TOKEN.
 
 For an assistant handoff, start with [mcp-bridge.md](../mcp-bridge.md).

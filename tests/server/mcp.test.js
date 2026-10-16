@@ -17,8 +17,9 @@ test('MCP stdio handshake, tool discovery, authenticated writes/readback, histor
   try {
     c = await connect(token);
     const tools = (await c.listTools()).tools;
-    assert.equal(tools.length, 18);
-    assert.ok(!tools.some(t => /delete|purge/.test(t.name)), 'no permanent delete or purge tool');
+    assert.equal(tools.length, 49);
+    assert.ok(!tools.some(t => /purge|empty_trash/.test(t.name)), 'no permanent delete or purge tool');
+    for (const t of tools.filter(t => /^delete_/.test(t.name))) assert.match(t.description, /History|restore_|brings it back|logged again/, `${t.name} says how to undo it`);
     const call = async (name, args = {}) => {
       const r = await c.callTool({ name, arguments: args });
       assert.ok(!r.isError, JSON.stringify(r));

@@ -1,5 +1,45 @@
 # Release notes
 
+## 0.12.0 — 2026-10-16 — Agents can edit everything they can read, habit options included
+
+Version **0.11.0** (new feature). Server and MCP bridge only; no client or schema change, so going back to 0.10.x is
+the image swap only. (0.10.2 is taken by the habits fix on `feature/habit-customization`.)
+
+**Added** (assistant door and MCP bridge; see [ASSISTANT.md](ASSISTANT.md), [MCP.md](MCP.md))
+
+- **Notes:** rename (`set_note_title`), add/remove a tag, rewrite the whole text from edited Markdown
+  (`rewrite_note`: unchanged task lines keep their task; the shown `(due …)` is read back as the date), History
+  (`list_versions`, `get_version`, `restore_version`), Trash (`list_trash`, `restore_note`).
+- **Tasks:** `update_task` takes `text`, `priority` and `hideUntil`; `delete_task`; `move_task` to another note.
+- **Tags and settings:** `list_tags`, `move_tag` (rename and/or move; a rename keeps its place in the order and the
+  daily tag follows), `set_tag` (star, daily entry), `set_daily_tag`. `moveTag` on the server takes an optional `name`.
+- **Moods:** `edit_mood` (new server function `updateMood`), `delete_mood`, `restore_mood`.
+- **Habits, skin log, People** (agents could not even read these before): `get_habits`, `add_habit`, `edit_habit`,
+  `delete_habit`, `tick_habit`; `get_skin_log`, `log_skin`, `edit_skin_entry`, `delete_skin_entry` (the line in the
+  month note is written, moved or removed as the Skin screen does); `list_people`, `get_person`, `update_person`,
+  `log_conversation`.
+- `ping` returns the server version and the daily tag.
+
+**Fixed** (why agents' edits failed)
+
+- The bridge hid the server's reason for most refusals: a wrong task id came back as "Check the note ID and whether
+  assistant access is enabled". Every refusal now carries the server's message and code, and an unknown route says the
+  server is older than the bridge.
+- `update_task` refused a missing task with code `not_found`; it is now `task_not_found` with what to do next.
+- `replace_text` failed when "find" was copied from `get_note` with its Markdown (`\_`, `**`, `- [ ] `, a task's
+  `(due …)`): it now tries once without those and says what it matched (`matchedAs`).
+- `replace_section` could not be used when two headings had the same text: `occurrence` picks one.
+- Tool descriptions say how `get_note` shows task dates and how each delete is undone.
+
+**Known limits**
+
+- Records (moods, habits, skin entries, tags, people details) have no revision: an agent's change applies to what is
+  saved then, like the app's own saves. Changes to a mood, habit or person return the previous values.
+- A note's date still cannot be changed (the app cannot either).
+- The bridge used by Claude Desktop/Codex is the checkout their config names; it needs updating to get the new tools.
+
+Tests: `tests/server/mcp-edit.test.js` (every new tool through the stdio bridge), `tests/server/mcp.test.js` (49 tools).
+
 ## 0.11.0 — 2026-10-16 — Habits with more options (built and tested, not deployed)
 
 Version **0.11.0** (new features). **Schema change: v9 → v10** (`habits.options`, `habit_checks.value` and

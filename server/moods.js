@@ -60,6 +60,22 @@ export function listMoods(db, cfg, { from = null, to = null } = {}) {
   };
 }
 
+/**
+ * Change a saved entry's score, note or time (each optional; note null or "" removes it). The app itself only adds
+ * and deletes entries; this is for the assistant. Returns the entry before and after, so a change can be put back.
+ */
+export function updateMood(db, cfg, id, body) {
+  const row = db.prepare('SELECT * FROM mood_entries WHERE id = ? AND deleted_at IS NULL').get(checkId(id, 'mood id'));
+  if (!row) throw new HttpError(404, 'mood_not_found', 'No such mood entry (it may have been deleted). get_moods lists the entries and their ids');
+  if (!body || typeof body !== 'object') throw new HttpError(400, 'bad_body', 'Missing body');
+  if (body.score !== undefined && (!Number.isInteger(body.score) || body.score < 1 || body.score > 5)) throw new HttpError(400, 'bad_score', 'score must be a whole number from 1 to 5');
+  const score = body.score ?? row.score;
+  const note = body.note === undefined ? row.note : cleanNote(body.note);
+  const at = body.at === undefined ? row.logged_at : loggedAt(body.at);
+  db.prepare('UPDATE mood_entries SET score = ?, note = ?, logged_at = ?, day = ? WHERE id = ?').run(score, note, at, dateInTz(new Date(at), cfg.tz), row.id);
+  return { mood: toMood(db.prepare('SELECT * FROM mood_entries WHERE id = ?').get(row.id)), previous: toMood(row) };
+}
+
 /** Undo a delete: the entry counts again (in the table, the streak and the averages). Idempotent. */
 export function restoreMood(db, id) {
   const row = db.prepare('SELECT * FROM mood_entries WHERE id = ?').get(checkId(id, 'mood id'));

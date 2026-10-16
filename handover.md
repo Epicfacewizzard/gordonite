@@ -76,7 +76,7 @@ HEIC converted to JPEG with the original kept, assistant tools and an inbox-fold
   The real image built on the server without trouble, and a real HEIC photo was converted inside the running
   container afterwards (checked through the live API; the test file was hidden again). The pre-update backup is
   `hq-manual-20261013-045146.sqlite` (schema v5); the rollback image is `gordonite:rollback-before-bf48e8b`.
-- Bridge: 18 tools; `inboxDir` in the private config file enables `list_inbox` / `upload_file` (confined to that
+- Bridge: 18 tools (49 since 0.11.0, the edit tools: docs/MCP.md); `inboxDir` in the private config file enables `list_inbox` / `upload_file` (confined to that
   folder). Existing assistant config files keep working unchanged.
 - Tests: unit 137/137; the browser suite has the same known/pre-existing failures as 0.4.4 (see the 0.5.0 release
   notes). Not yet checked on a real phone: camera capture from the paperclip and HEIC from an iPhone.
