@@ -95,4 +95,4 @@ repository and out of shared folders: it holds personal details.
 * A photo needs a connection to add (the file goes to the server); the rest works offline.
 * The vault's overview page (`PRM`, tagged `05-people`) shows in the list like a person; take the tag off it, or
   leave it.
-* The assistant (MCP) does not read or write details yet.
+* Agents read and write details since 0.12.0 (docs/MCP.md). A person's page also lists **Tasks with them** (docs/PROJECTS.md).

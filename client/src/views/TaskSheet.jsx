@@ -5,6 +5,65 @@ import { findDatePhrases } from '../../../shared/taskdates.js';
 import { PriorityStar } from './TaskMenus.jsx';
 import { RepeatEditor, CompletionList } from './TaskRepeat.jsx';
 import { repeatZone, findRepeatPhrase } from '../../../shared/repeat.js';
+import { useProjects } from '../projects-data.js';
+import { usePeople } from './PersonProfile.jsx';
+import { AREAS, AREA_LABEL, projectOfNote, waitingLabel } from '../../../shared/projects.js';
+
+/**
+ * Which project the task is in, who it is with, and whether it is waiting for their reply (docs/PROJECTS.md). Every
+ * change goes straight to onChange, like the rest of the details. `tags` are the note's tags, to name the project the
+ * task is in through its note.
+ */
+function TaskLinks({ values, change, today, tags, uid }) {
+  const { projects } = useProjects();
+  const { people } = usePeople();
+  const fromNote = tags ? projectOfNote(tags, projects) : null;
+  const choosable = projects.filter((p) => p.status === 'active' || p.id === values.project);
+  const person = people.find((x) => x.noteId === values.person);
+  return (
+    <>
+      <div class="field" data-testid="field-project">
+        <label for={`task-project-${uid}`}>Project</label>
+        <select id={`task-project-${uid}`} value={values.project ?? ''} onChange={(e) => change({ project: e.currentTarget.value || null })} data-testid="input-project">
+          <option value="">{fromNote ? `From its note: ${fromNote.name}` : tags ? 'None (its note is in no project)' : 'From its note'}</option>
+          {AREAS.map((area) => {
+            const list = choosable.filter((p) => p.area === area);
+            return list.length > 0 && (
+              <optgroup key={area} label={AREA_LABEL[area]}>
+                {list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </optgroup>
+            );
+          })}
+          {values.project && !projects.some((p) => p.id === values.project) && <option value={values.project}>A removed project</option>}
+        </select>
+      </div>
+      <div class="field" data-testid="field-person">
+        <label for={`task-person-${uid}`}>With</label>
+        <select id={`task-person-${uid}`} value={values.person ?? ''} onChange={(e) => change(e.currentTarget.value ? { person: e.currentTarget.value } : { person: null, waitingSince: null })} data-testid="input-person">
+          <option value="">No one</option>
+          {people.map((x) => <option key={x.noteId} value={x.noteId}>{x.title}</option>)}
+          {values.person && !person && <option value={values.person}>Someone not in People now</option>}
+        </select>
+        {values.person && (
+          <>
+            <label class="check-row">
+              <input type="checkbox" checked={!!values.waitingSince} onChange={(e) => change({ waitingSince: e.currentTarget.checked ? today : null })} data-testid="input-waiting" />
+              <span>Waiting for {person ? person.title : 'their'}{person ? '’s' : ''} reply</span>
+            </label>
+            {values.waitingSince && (
+              <div class="row small">
+                <label for={`task-waiting-${uid}`}>Since</label>
+                <input id={`task-waiting-${uid}`} type="date" max={today} value={values.waitingSince} onChange={(e) => e.currentTarget.value && change({ waitingSince: e.currentTarget.value })} data-testid="input-waiting-since" />
+                <span class="muted">{waitingLabel(values.waitingSince, today)}</span>
+                <button type="button" class="btn" onClick={() => change({ waitingSince: null })} data-testid="task-got-reply">Got a reply</button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
 
 /**
  * Everything about one task in one place: when it is due, when it starts, hide until, priority, and hiding it
@@ -13,10 +72,10 @@ import { repeatZone, findRepeatPhrase } from '../../../shared/repeat.js';
  * loses anything. Shown inline when a task is expanded in the list, and in a sheet from the editor.
  * `uid` keeps the field ids unique when several are open at once.
  */
-export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid = 'sheet', onChange, onDone, onDelete, onMove }) {
+export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags = null, uid = 'sheet', onChange, onDone, onDelete, onMove }) {
   const [moveMessage, setMoveMessage] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [values, setValues] = useState({ dueTime: picked.dueTime ?? null, startTime: picked.startTime ?? null, due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null });
+  const [values, setValues] = useState({ dueTime: picked.dueTime ?? null, startTime: picked.startTime ?? null, due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null, project: picked.project ?? null, person: picked.person ?? null, waitingSince: picked.waitingSince ?? null });
   const phrases = findDatePhrases(text, noteDate);
   const typed = { due: null, start: null, dueWords: '', startWords: '' };
   for (const p of phrases) {
@@ -81,6 +140,7 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid 
           )}
         </p>
       )}
+      <TaskLinks values={values} change={change} today={today} tags={tags} uid={uid} />
       {onMove && <div class="row"><button type="button" class="btn" data-testid="task-move-up" onClick={() => setMoveMessage(onMove(-1) ? null : 'Already first at this level.')}>Move up</button><button type="button" class="btn" data-testid="task-move-down" onClick={() => setMoveMessage(onMove(1) ? null : 'Already last at this level.')}>Move down</button></div>}
       {moveMessage && <p class="small muted" role="status">{moveMessage}</p>}
       {field('due', 'Due')}

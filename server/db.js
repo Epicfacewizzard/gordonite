@@ -174,6 +174,24 @@ const MIGRATIONS = [
   ALTER TABLE habit_checks ADD COLUMN value REAL;
   ALTER TABLE habit_checks ADD COLUMN skip INTEGER NOT NULL DEFAULT 0;
   `,
+  // v11: projects (see docs/PROJECTS.md). A project has an area (personal | school | club), a status
+  // (active | done | archived), the tag whose notes are in it (tag_id: by id, so a renamed or moved tag keeps its
+  // project) and optionally an overview note. Neither is a foreign key: a project outlives a trashed note. Tasks name
+  // a project, a person and a waiting day as attributes in their note, not here. Removing a project is soft.
+  `
+  CREATE TABLE projects (
+    id               TEXT PRIMARY KEY,
+    name             TEXT NOT NULL,
+    area             TEXT NOT NULL,
+    status           TEXT NOT NULL DEFAULT 'active',
+    tag_id           TEXT,
+    overview_note_id TEXT,
+    sort             INTEGER NOT NULL DEFAULT 0,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL,
+    deleted_at       TEXT
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -12,6 +12,7 @@ import { markdownToDoc, inlineToNodes } from '../shared/markdown-import.js';
 import { docToMarkdown } from './markdown.js';
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
+import { isPersonTags } from '../shared/people.js';
 
 // get_note shows a task's picked dates after its text, " (due 2026-10-20 at 09:00)" / " (start note date)", and a
 // dismissed task with " (dismissed …)". They are not part of the text. This reads them back off the end of a line.
@@ -283,13 +284,38 @@ export class AssistantNotes {
       } else if (k === 'skip' || k === 'undoCompletion') {
         if (v !== true) throw new HttpError(400, 'bad_task', `"${k}" must be true`);
         clean[k] = v;
+      } else if (k === 'project') {
+        // A project of its own (docs/PROJECTS.md); null goes back to the note's project.
+        if (v !== null) {
+          const p = this.store.db.prepare('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL').get(checkId(v, 'project id'));
+          if (!p) throw new HttpError(404, 'project_not_found', 'No such project. list_projects lists them');
+        }
+        clean.project = v;
+      } else if (k === 'person') {
+        // Who the task is with: a People note (tagged 05-people). null takes the person off (and stops waiting).
+        if (v !== null) {
+          const person = this.store.getNote(checkId(v, 'person note id'));
+          if (!person || person.deletedAt || !isPersonTags(person.tags.map((t) => t.path))) throw new HttpError(404, 'person_not_found', 'No such person. list_people lists them (use their noteId)');
+        }
+        clean.person = v;
+        if (v === null) clean.waitingSince = null;
+      } else if (k === 'waiting') {
+        if (typeof v !== 'boolean') throw new HttpError(400, 'bad_task', '"waiting" must be true or false');
+        clean.waitingSince = v ? (patch.waitingSince ?? this.#today()) : null;
+      } else if (k === 'waitingSince') {
+        if (v !== null && !isValidDateString(v)) throw new HttpError(400, 'bad_task', '"waitingSince" must be YYYY-MM-DD or null');
+        if (patch.waiting === undefined) clean.waitingSince = v;
       } else if (k === 'text') {
         // The task's own words (bold/italic Markdown allowed); tasks nested under it stay.
         if (typeof v !== 'string' || !v.trim() || v.length > 5_000 || /\n/.test(v)) throw new HttpError(400, 'bad_task', '"text" must be one line of text');
         clean.content = [{ type: 'paragraph', content: inlineToNodes(v.trim()) }];
       }
     }
-    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use text, checked, due, start, dueTime, startTime, hidden, hideUntil, priority, repeat, skip or undoCompletion)');
+    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use text, checked, due, start, dueTime, startTime, hidden, hideUntil, priority, repeat, skip, undoCompletion, project, person, waiting or waitingSince)');
+    if (clean.waitingSince) {
+      const task = findTask(note.doc, taskId);
+      if (task && !(clean.person ?? task.attrs?.person)) throw new HttpError(400, 'bad_task', 'Waiting needs a person: give person (a People noteId) too');
+    }
     const doc = updateTask(note.doc, taskId, clean, { noteDate: note.date, tz: this.store.cfg.tz });
     if (doc && (clean.skip || clean.undoCompletion) && JSON.stringify(doc) === JSON.stringify(note.doc)) throw new HttpError(400, 'bad_task', clean.skip ? 'Only a repeating task can be skipped' : 'There is no completion to undo on that task');
     if (!doc) throw new HttpError(404, 'task_not_found', 'No task with that id in that note. Read the note again with get_note: its "tasks" list has the ids');
@@ -351,7 +377,7 @@ export class AssistantNotes {
 
   /**
    * Replace the whole note with new Markdown (from get_note, edited). A task line whose text is still there keeps its
-   * task: the same id, completion time, priority and hiding; its tick and its shown dates ("(due 2026-10-20)") are taken
+   * task: the same id, completion time, priority, hiding, project, person and waiting; its tick and its shown dates ("(due 2026-10-20)") are taken
    * from the new line. Lines that match no task become new tasks; tasks left out are removed. The previous text is kept
    * in History. Needs the revision that was read.
    */

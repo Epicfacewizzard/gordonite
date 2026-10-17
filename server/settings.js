@@ -6,13 +6,15 @@
 //   daily tag        which tag's entry for today the dashboard shows for writing (default "daily-jots")
 //   home time zone   what "today" means (an IANA name; the HOME_TZ environment value is only the starting point)
 //   tag order        the order folders are shown in: { parentPath: [childName, ...] }, '' being the top level
+//   area folders     where a new project's tag is made for each area: { personal, school, club } (docs/PROJECTS.md)
 import { normalizeTag } from '../shared/tags.js';
 import { isValidTimeZone } from '../shared/dates.js';
+import { AREAS, cleanAreaFolders } from '../shared/projects.js';
 import { HttpError } from './errors.js';
 
 export const DEFAULT_DAILY_TAG = 'daily-jots';
 const MAX_ORDER_NAMES = 500;
-const KEYS = { dailyTag: 'daily_tag', timeZone: 'home_tz', tagOrder: 'tag_order' };
+const KEYS = { dailyTag: 'daily_tag', timeZone: 'home_tz', tagOrder: 'tag_order', areaFolders: 'project_area_folders' };
 
 const read = (db, key) => db.prepare('SELECT value FROM meta WHERE key = ?').get(key)?.value ?? null;
 const write = (db, key, value) =>
@@ -84,6 +86,27 @@ export function writeTagOrder(db, order) {
   write(db, KEYS.tagOrder, JSON.stringify(order));
 }
 
+// ---- project area folders ----
+
+/** Where each area's new projects get their tag: { personal, school, club } (the vault's folders unless changed). */
+export function areaFolders(db) {
+  try {
+    return cleanAreaFolders(JSON.parse(read(db, KEYS.areaFolders) ?? '{}'), normalizeTag);
+  } catch {
+    return cleanAreaFolders(null, normalizeTag);
+  }
+}
+
+export function setAreaFolders(db, raw) {
+  if (!raw || typeof raw !== 'object') throw new HttpError(400, 'bad_folders', 'Give a folder for personal, school and club');
+  for (const a of AREAS) {
+    if (raw[a] !== undefined && !normalizeTag(raw[a])) throw new HttpError(400, 'bad_tag', `The ${a} folder must be a tag name`);
+  }
+  const next = cleanAreaFolders({ ...areaFolders(db), ...raw }, normalizeTag);
+  write(db, KEYS.areaFolders, JSON.stringify(next));
+  return next;
+}
+
 // ---- export and import ----
 
 /** What goes into a JSON export under "settings" (the time zone is its own top-level field there). */
@@ -93,6 +116,7 @@ export function exportSettings(db) {
   if (daily) settings.dailyTag = daily;
   const order = readTagOrder(db);
   if (Object.keys(order).length) settings.tagOrder = order;
+  if (read(db, KEYS.areaFolders)) settings.projectAreaFolders = areaFolders(db);
   return settings;
 }
 
@@ -106,5 +130,6 @@ export function importSettings(db, data, mode) {
   if (daily) put(db, KEYS.dailyTag, daily);
   const order = cleanTagOrder(data.settings?.tagOrder);
   if (order) put(db, KEYS.tagOrder, JSON.stringify(order));
+  if (data.settings?.projectAreaFolders) put(db, KEYS.areaFolders, JSON.stringify(cleanAreaFolders(data.settings.projectAreaFolders, normalizeTag)));
   if (typeof data.homeTimeZone === 'string' && isValidTimeZone(data.homeTimeZone)) put(db, KEYS.timeZone, data.homeTimeZone);
 }

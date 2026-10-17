@@ -170,6 +170,13 @@ export const api = {
   uncheckHabit: (id, date) => request('DELETE', `/api/habits/${enc(id)}/checks/${date}`),
   people: () => request('GET', '/api/people'),
   savePerson: (noteId, profile) => request('PUT', `/api/people/${enc(noteId)}`, { profile }),
+  projects: () => request('GET', '/api/projects'),
+  createProject: (body) => request('POST', '/api/projects', body),
+  saveProject: (id, body) => request('PUT', `/api/projects/${enc(id)}`, body),
+  removeProject: (id) => request('DELETE', `/api/projects/${enc(id)}`),
+  restoreProject: (id) => request('POST', `/api/projects/${enc(id)}/restore`, {}),
+  addNotesToProject: (id, noteIds) => request('POST', `/api/projects/${enc(id)}/notes`, { noteIds }),
+  setAreaFolders: (folders) => request('PUT', '/api/projects/folders', folders),
   notes: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== false).map(([k, v]) => [k, v === true ? '1' : String(v)]));
     return request('GET', `/api/notes?${qs}`);

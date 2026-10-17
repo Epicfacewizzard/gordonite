@@ -7,6 +7,7 @@ import { checkId } from './ids.js';
 import { cleanSkinEntry } from './skin.js';
 import { cleanHabit } from './habits.js';
 import { cleanPersonProfile } from './people.js';
+import { cleanProjectFields } from '../shared/projects.js';
 import { exportSettings, importSettings, savedTimeZone } from './settings.js';
 import { noteToMarkdownFile } from './markdown.js';
 import { makeZip } from './zip.js';
@@ -93,6 +94,10 @@ export function exportAll(db, cfg) {
       .prepare('SELECT note_id AS noteId, data, created_at AS createdAt, updated_at AS updatedAt FROM people ORDER BY note_id')
       .all()
       .map(({ data, ...p }) => ({ ...p, profile: JSON.parse(data) })),
+    // Projects (docs/PROJECTS.md); tagId is the id of a tag in this export's tags.
+    projects: db
+      .prepare('SELECT id, name, area, status, tag_id AS tagId, overview_note_id AS overviewNoteId, sort, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM projects ORDER BY area, sort, id')
+      .all(),
     // What the files are called and where they are used. The bytes are not in this JSON: take them with the files
     // zip (Data page) or by copying the files folder next to the database.
     attachments: db
@@ -252,6 +257,17 @@ function validateExport(data) {
       }
     }
   }
+  if (data.projects !== undefined) {
+    if (!Array.isArray(data.projects)) throw bad('projects must be an array');
+    for (const p of data.projects) {
+      checkId(p?.id, 'project id');
+      try {
+        cleanProjectFields(p);
+      } catch (err) {
+        throw bad(`project ${p.id}: ${err.message}`);
+      }
+    }
+  }
   const noteIds = new Set();
   const slots = new Set();
   for (const n of data.notes) {
@@ -303,6 +319,7 @@ export function importAll(db, cfg, data, mode) {
     habitsAdded: 0,
     habitChecksAdded: 0,
     peopleAdded: 0,
+    projectsAdded: 0,
   };
 
   const insertNote = db.prepare(
@@ -376,6 +393,19 @@ export function importAll(db, cfg, data, mode) {
     }
   };
 
+  // Projects: merge adds the ones missing here and never changes one already here. Its tag is mapped like a note's.
+  const addProjects = (tagIdFor) => {
+    const insert = db.prepare(
+      'INSERT OR IGNORE INTO projects (id, name, area, status, tag_id, overview_note_id, sort, created_at, updated_at, deleted_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    );
+    const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : new Date().toISOString());
+    for (const raw of data.projects ?? []) {
+      const f = cleanProjectFields(raw);
+      const res = insert.run(raw.id, f.name, f.area, f.status, tagIdFor.get(raw.tagId) ?? null, f.overviewNoteId ?? null, f.sort ?? 0, when(raw.createdAt), when(raw.updatedAt), raw.deletedAt ? when(raw.deletedAt) : null);
+      report.projectsAdded += Number(res.changes);
+    }
+  };
+
   // File records come across only when their bytes are already here (copied with the files folder, or the same
   // server). Records for files this server does not have are skipped and counted, never created empty.
   const addAttachments = () => {
@@ -416,7 +446,7 @@ export function importAll(db, cfg, data, mode) {
     importSettings(db, data, mode);
 
     if (mode === 'replace') {
-      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries; DELETE FROM skin_entries; DELETE FROM habit_checks; DELETE FROM habits; DELETE FROM people;');
+      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries; DELETE FROM skin_entries; DELETE FROM habit_checks; DELETE FROM habits; DELETE FROM people; DELETE FROM projects;');
       for (const t of data.tags) {
         db.prepare('INSERT INTO tags (id, path, created_at, favorite, daily) VALUES (?,?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0, t.daily === false ? 0 : 1);
         tagIdFor.set(t.id, t.id);
@@ -430,6 +460,7 @@ export function importAll(db, cfg, data, mode) {
       addSkinEntries();
       addHabits();
       addPeople();
+      addProjects(tagIdFor);
       addAttachments();
       return;
     }
@@ -490,6 +521,7 @@ export function importAll(db, cfg, data, mode) {
     addSkinEntries();
     addHabits();
     addPeople();
+    addProjects(tagIdFor);
     addAttachments();
   });
   const savedTz = savedTimeZone(db);

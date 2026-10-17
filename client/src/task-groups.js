@@ -3,6 +3,7 @@
 // task-data.js) and "now", so the rules are tested without drawing anything (tests/client/task-groups.test.js).
 import { addDays, dateInTz, hasStarted, isOverdue } from '../../shared/dates.js';
 import { priorityRank, taskKey } from '../../shared/tasks.js';
+import { byWaitingLongest, isWaiting } from '../../shared/projects.js';
 
 export const COMPACT_UNDATED = 5; // the dashboard's box shows this many with no date...
 export const COMPACT_DAYS = 7; // ...and what is due within this many days
@@ -28,18 +29,21 @@ export function bucketOf(t, { today, now, touched = new Set(), pinned = null }) 
   if (!hasStarted(t.start, t.startTime, today, now)) return 'later';
   if (isOverdue(t.due, t.dueTime, today, now)) return 'overdue';
   if (t.due === today) return 'today';
+  // Waiting on someone's reply (docs/PROJECTS.md): its own section, unless it is overdue or due today.
+  if (isWaiting(t)) return 'waiting';
   if (t.due) return 'upcoming';
   return 'anytime';
 }
 
-/** The rows divided into sections, each in its order: { overdue, today, upcoming, anytime, later, hidden, done, dismissed }. */
+/** The rows divided into sections, each in its order: { overdue, today, waiting, upcoming, anytime, later, hidden, done, dismissed }. */
 export function groupTasks(tasks, ctx) {
-  const buckets = { overdue: [], today: [], upcoming: [], anytime: [], later: [], hidden: [], done: [], dismissed: [] };
+  const buckets = { overdue: [], today: [], waiting: [], upcoming: [], anytime: [], later: [], hidden: [], done: [], dismissed: [] };
   for (const t of tasks ?? []) buckets[bucketOf(t, ctx)].push(t);
   buckets.overdue.sort(byPriorityThen(byDate('due')));
   buckets.today.sort(byPriorityThen(byDate('due')));
   buckets.upcoming.sort(byPriorityThen(byDate('due')));
   buckets.later.sort(byDate('start'));
+  buckets.waiting.sort(byWaitingLongest);
   buckets.anytime.sort(byPriorityThen(() => 0)); // sort is stable: the rest keep their order
   return buckets;
 }
@@ -68,7 +72,7 @@ export function visibleSections(buckets, { level, compact, today }) {
   const undatedShown = compact ? buckets.anytime.slice(0, COMPACT_UNDATED) : buckets.anytime;
   const undatedMore = compact ? buckets.anytime.length - undatedShown.length : 0;
   // Tasks ticked on this screen stay listed but no longer count as open.
-  const openCount = [...buckets.overdue, ...buckets.today, ...buckets.upcoming, ...buckets.anytime].filter((t) => !t.checked).length;
+  const openCount = [...buckets.overdue, ...buckets.today, ...buckets.waiting, ...buckets.upcoming, ...buckets.anytime].filter((t) => !t.checked).length;
   const listed = buckets.overdue.length + (showToday ? buckets.today.length : 0) + (showUpcoming ? upcomingShown.length : 0) + (showUndated ? undatedShown.length : 0);
   return { showToday, showUpcoming, showUndated, upcomingShown, undatedShown, undatedMore, openCount, listed };
 }

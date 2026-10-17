@@ -15,6 +15,7 @@ import {
   logEntries,
   sinceLabel,
 } from '../../../shared/people.js';
+import { PersonTasks } from './PersonTasks.jsx';
 import { loadPeople, peopleQueue, peopleState, savePersonProfile, subscribePeople } from '../people-data.js';
 
 // A person's details at the top of their page (see docs/PEOPLE.md), laid out like the Personal CRM preview: a grid
@@ -249,6 +250,7 @@ export function PersonProfile({ noteId, name = '', today, session = null, editor
           )}
         </div>
       )}
+      <PersonTasks noteId={noteId} today={today} />
       {state.isWaiting(noteId) && !refused && <p class="muted small">Details waiting to be sent.</p>}
       {refused && (
         <p class="banner error small" role="alert">

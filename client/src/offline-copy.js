@@ -15,7 +15,7 @@ const STORE = 'responses';
 export function copyKey(path) {
   const [p, q = ''] = path.split('?');
   const params = new URLSearchParams(q);
-  if (p === '/api/config' || p === '/api/tags' || p === '/api/tasks' || p === '/api/moods' || p === '/api/skin' || p === '/api/habits' || p === '/api/people') return path;
+  if (p === '/api/config' || p === '/api/tags' || p === '/api/tasks' || p === '/api/moods' || p === '/api/skin' || p === '/api/habits' || p === '/api/people' || p === '/api/projects') return path;
   if (p === '/api/notes') return path; // a list (a search, a tag, a page)
   if (/^\/api\/notes\/[^/]+$/.test(p)) return p;
   if (p === '/api/stream' && params.get('tag') && !params.get('before')) return path; // the first page of a stream

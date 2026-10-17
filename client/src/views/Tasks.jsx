@@ -13,6 +13,10 @@ import { getShiftDismiss, getDoneDays } from '../prefs.js';
 import { DateRangePicker } from './DateRangePicker.jsx';
 import { TaskTextEditor } from './TaskTextEditor.jsx';
 import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
+import { useProjects } from '../projects-data.js';
+import { usePeople } from './PersonProfile.jsx';
+import { TaskLinkChips } from './TaskChips.jsx';
+
 
 // A date typed in the text ("due fri") shown dimmer than the rest, so you can see it was understood.
 function TaskText({ text, date }) {
@@ -50,6 +54,8 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
   // copy of every note it holds changes to. This screen keeps only how it is shown (what is open, the range, the menus).
   const data = useTaskData();
   const tasks = data.tasks();
+  const { projects } = useProjects();
+  const { people } = usePeople();
   const [actionError, setActionError] = useState(null); // a change that did not stick
   const error = actionError ?? data.error();
   const [open, setOpen] = useState({ done: false, hidden: false, later: false, dismissed: false });
@@ -154,6 +160,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
             {t.due && <span class={`task-chip${overdue ? ' overdue' : ''}`} data-testid="chip-due">due {formatDateLabel(t.due, today)}{t.dueTime && ` at ${t.dueTime}`}</span>}
             {t.repeat && !t.dismissedAt && <span class="task-chip" data-testid="chip-repeat" title={`Repeats ${repeatLabel(t.repeat)}`}>↻ {repeatLabel(t.repeat, { withFrom: false })}</span>}
             {t.start && <span class="task-chip" data-testid="chip-start">starts {formatDateLabel(t.start, today)}{t.startTime && ` at ${t.startTime}`}</span>}
+            <TaskLinkChips task={t} today={today} projects={projects} people={people} />
             {t.hidden && <span class="task-chip" data-testid="chip-hidden">hidden</span>}
             {!t.hidden && t.hideUntil && t.hideUntil > today && <span class="task-chip" data-testid="chip-hidden">hidden until {formatDateShort(t.hideUntil)}</span>}
             <span>
@@ -190,8 +197,9 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
               noteDate={t.date}
               noteId={t.noteId}
               where={`${t.tags[0] ?? 'No tag'} · ${formatDateShort(t.date)}`}
+              tags={t.tags}
               today={today}
-              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt, repeat: t.repeatFrom === 'set' ? t.repeat : null, completions: t.completions }}
+              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt, repeat: t.repeatFrom === 'set' ? t.repeat : null, completions: t.completions, project: t.project, person: t.person, waitingSince: t.waitingSince }}
               onChange={(patch) => apply(t, patch)}
               onDelete={() => apply(t, null)}
               onDone={() => toggleExpanded(t)}
@@ -298,6 +306,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
       )}
       {section('overdue', 'Overdue', buckets.overdue)}
       {showToday && section('today', 'Due today', buckets.today)}
+      {!compact && section('waiting', 'Waiting on', buckets.waiting)}
       {showUpcoming && section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
       {compact && showUndated && section('anytime', 'No date', undatedShown)}
       {compact && showUndated && undatedMore > 0 && (

@@ -94,3 +94,10 @@
 .person-card[aria-current='true'] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); background: var(--ok-bg); }
 /* the formatting toolbar only while the person's note has the cursor, so it does not cover the list */
 body:not([data-editing]) .people-open .toolbar { display: none; }
+
+/* Tasks with a person (docs/PROJECTS.md). */
+.person-tasks { margin: 16px 0 8px; }
+.person-task-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.person-task { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.person-task-text { display: block; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+.person-task .task-meta { margin-top: 4px; font-size: .8rem; }

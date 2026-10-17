@@ -12,6 +12,9 @@
 //   priority  'both' | 'urgent' | 'important'   (none = no attribute)
 //   repeat    { every, unit, days?, day?, from }   a recurring task (shared/repeat.js); "every 2 weeks" typed works too
 //   completions  [{ at, due, skipped?, prev? }]  a repeating task's history: ticking it records one and moves `due` on
+//   project   a project id: the task's own project instead of its note's (docs/PROJECTS.md)
+//   person    a People note id: who the task is with
+//   waitingSince YYYY-MM-DD  waiting for that person's reply since this day
 // A date typed in the text ("due fri", see taskdates.js) is used when no date was picked;
 // a picked date always wins.
 import { addDays, formatDateShort } from './dates.js';
@@ -35,7 +38,7 @@ export const taskText = (item) =>
 
 /**
  * What one task (a taskItem node as JSON) is right now, with dates typed in its text taken into account:
- * { text, checked, due, start, hidden, hideUntil, priority, dueFrom, startFrom } where due/start are the effective
+ * { text, checked, due, start, hidden, hideUntil, priority, project, person, waitingSince, dueFrom, startFrom } where due/start are the effective
  * dates and dueFrom/startFrom say where each came from: 'set' (picked), 'text' (typed) or null.
  */
 export function describeTask(item, noteDate) {
@@ -56,6 +59,9 @@ export function describeTask(item, noteDate) {
     hidden: !!a.hidden,
     hideUntil: a.hideUntil ?? null,
     priority: a.priority ?? null,
+    project: a.project ?? null,
+    person: a.person ?? null,
+    waitingSince: a.waitingSince ?? null,
     dueFrom: a.due ? 'set' : typed.due ? 'text' : null,
     startFrom: a.start ? 'set' : typed.start ? 'text' : null,
     ...repeatOf(a, text),
@@ -124,6 +130,9 @@ export function taskRecords({ id, doc, date, tags, revision = 0 }) {
     hidden: t.hidden,
     hideUntil: t.hideUntil,
     priority: t.priority,
+    project: t.project,
+    person: t.person,
+    waitingSince: t.waitingSince,
     dueFrom: t.dueFrom,
     startFrom: t.startFrom,
     repeat: t.repeat,
@@ -136,7 +145,7 @@ export function taskRecords({ id, doc, date, tags, revision = 0 }) {
 }
 
 // Attributes that are only stored when they mean something, so untouched tasks stay exactly as before.
-const OPTIONAL = { dueTime: (v) => !v, startTime: (v) => !v, due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v, dismissedAt: (v) => !v, completedAt: (v) => !v, repeat: (v) => !v, completions: (v) => !v?.length };
+const OPTIONAL = { dueTime: (v) => !v, startTime: (v) => !v, due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v, project: (v) => !v, person: (v) => !v, waitingSince: (v) => !v, dismissedAt: (v) => !v, completedAt: (v) => !v, repeat: (v) => !v, completions: (v) => !v?.length };
 
 function tidyAttrs(attrs) {
   const next = { ...attrs };
@@ -265,6 +274,7 @@ export function taskMetaLabel(attrs) {
   if (attrs?.due) parts.push(`due ${formatDateShort(attrs.due)}${attrs.dueTime ? ` at ${attrs.dueTime}` : ''}`);
   if (attrs?.start) parts.push(`starts ${formatDateShort(attrs.start)}${attrs.startTime ? ` at ${attrs.startTime}` : ''}`);
   if (attrs?.repeat) parts.push(`repeats ${repeatLabel(attrs.repeat)}`);
+  if (attrs?.waitingSince) parts.push(`waiting since ${formatDateShort(attrs.waitingSince)}`);
   if (attrs?.hidden) parts.push('hidden');
   else if (attrs?.hideUntil) parts.push(`hidden until ${formatDateShort(attrs.hideUntil)}`);
   return parts.join(' · ');

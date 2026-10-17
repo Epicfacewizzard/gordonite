@@ -324,13 +324,13 @@ describe('dashboard widgets', () => {
 describe('the bottom tab bar', () => {
   const current = (page) => page.locator('[data-testid="tabbar"] a[aria-current="page"]').allInnerTexts();
 
-  test('Today, Tasks, People and Notes are one tap away; tags belong to Notes; the bar steps aside while writing', () =>
+  test('Today, Tasks, People, Projects and Notes are one tap away; tags belong to Notes; the bar steps aside while writing', () =>
     withPhone(browser, async ({ page, app }) => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('tabbar').waitFor();
       assert.deepEqual(await current(page), ['Dashboard']);
 
-      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['people', '#/people', 'People'], ['notes', '#/notes', 'Notes'], ['today', '#/', 'Dashboard']]) {
+      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['people', '#/people', 'People'], ['projects', '#/projects', 'Projects'], ['notes', '#/notes', 'Notes'], ['today', '#/', 'Dashboard']]) {
         await page.getByTestId(`tab-${tab}`).tap();
         await page.waitForFunction((h) => location.hash === h || (h === '#/' && (location.hash === '' || location.hash === '#/')), hash);
         await page.waitForFunction((l) => document.querySelector('[data-testid="tabbar"] a[aria-current="page"]')?.innerText === l, label);

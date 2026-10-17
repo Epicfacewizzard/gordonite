@@ -1,5 +1,29 @@
 # Release notes
 
+## 0.15.0 — 2026-10-16 — Projects and Waiting on
+
+Version **0.15.0** (new feature). **Schema v11** (a `projects` table), so going back below 0.15.0 needs the pre-update
+backup; the previous app refuses a v11 database. Details: [PROJECTS.md](PROJECTS.md).
+
+**Added**
+
+- **Projects** in three areas (Personal, School, Club): a record with a status, a tag (its notes and the tags under it
+  are in the project) and an optional overview note. Projects tab, project page (Waiting on, open tasks, notes, Add
+  notes), status/area/remove.
+- **Waiting on:** a task can be linked to a person (People note) and marked waiting since a day. New **Waiting on**
+  section on the Tasks screen, chips (waiting N days, @Person, project) on task rows, Project / With / Waiting fields
+  with **Got a reply** in task details and the editor's task sheet, and **Tasks with them** on a person's page.
+- Three optional task attributes (`project`, `person`, `waitingSince`); no document format change.
+- JSON export/import carry projects; the area folders are a setting.
+- **Agents:** `list_projects`, `get_project`, `create_project`, `update_project`, `add_notes_to_project`,
+  `list_waiting`; `update_task` takes `project`, `person`, `waiting`, `waitingSince`; `get_person` lists their tasks
+  (55 tools). Update the checkout that runs `mcp/server.js` after deploying.
+
+**Tests:** `npm test` 347/347; browser: `tests/e2e/projects.test.js` and the tab-bar test in `today.test.js`.
+
+**Known limits:** creating or editing a project needs a connection; no screen yet for the area folders or for restoring a
+removed project.
+
 ## 0.14.0 — 2026-10-16 — Recurring tasks
 
 Version **0.14.0** (new feature). A task can repeat, keeps a history of every time it was done, and counts its next date

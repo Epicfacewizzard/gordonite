@@ -7,6 +7,8 @@ import { dateInTz, addDays } from '../../shared/dates.js';
 import { normalizeTag } from '../../shared/tags.js';
 import { addMood, listMoods, updateMood, deleteMood, restoreMood } from '../moods.js';
 import { AssistantRecords } from '../assistant-records.js';
+import { areaFolders } from '../settings.js';
+import { addNotesToProject, createProject, listProjects, projectDetails, setProjectRemoved, updateProject, waitingTasks } from '../projects.js';
 
 export function registerAssistantRoutes({ route, assistant, db, config, files, store, appVersion }) {
   const records = new AssistantRecords(store);
@@ -114,7 +116,26 @@ export function registerAssistantRoutes({ route, assistant, db, config, files, s
   route('DELETE', '/api/assistant/skin/:id', async ({ res, params }) => sendJson(res, 200, records.deleteSkin(params.id)));
   // People.
   route('GET', '/api/assistant/people', async ({ res }) => sendJson(res, 200, records.people()));
-  route('GET', '/api/assistant/people/:noteId', async ({ res, params }) => sendJson(res, 200, records.person(params.noteId)));
+  route('GET', '/api/assistant/people/:noteId', async ({ res, params }) => {
+    // With the open tasks that are with this person (docs/PROJECTS.md), waiting ones first.
+    const tasks = store.listTasks().filter((t) => t.person === params.noteId && !t.checked && !t.dismissedAt);
+    sendJson(res, 200, { ...records.person(params.noteId), tasks: [...tasks.filter((t) => t.waitingSince), ...tasks.filter((t) => !t.waitingSince)] });
+  });
   route('PUT', '/api/assistant/people/:noteId', async ({ res, params, body }) => sendJson(res, 200, records.editPerson(params.noteId, body.profile)));
   route('POST', '/api/assistant/people/:noteId/log', async ({ res, params, body }) => sendJson(res, 200, records.logPerson(params.noteId, body)));
+  // Projects and Waiting on (0.15.0, docs/PROJECTS.md). A task's project, person and waiting are set with update_task.
+  route('GET', '/api/assistant/projects', async ({ res, query }) => sendJson(res, 200, { projects: listProjects(db, { removed: query.get('removed') === '1' }), areaFolders: areaFolders(db) }));
+  route('POST', '/api/assistant/projects', async ({ res, body }) => sendJson(res, 200, { project: createProject(db, body) }));
+  route('GET', '/api/assistant/projects/:id', async ({ res, params }) => sendJson(res, 200, projectDetails(db, store, params.id)));
+  route('PUT', '/api/assistant/projects/:id', async ({ res, params, body }) => {
+    const { removed, ...rest } = body ?? {};
+    if (removed !== undefined && typeof removed !== 'boolean') throw new HttpError(400, 'bad_project', '"removed" must be true or false');
+    if (removed === false) setProjectRemoved(db, params.id, false);
+    let project = Object.keys(rest).length ? updateProject(db, params.id, rest) : null;
+    if (removed === true) project = setProjectRemoved(db, params.id, true);
+    if (!project && removed === undefined) throw new HttpError(400, 'bad_project', 'Nothing to change');
+    sendJson(res, 200, { project: project ?? projectDetails(db, store, params.id).project });
+  });
+  route('POST', '/api/assistant/projects/:id/notes', async ({ res, params, body }) => sendJson(res, 200, addNotesToProject(db, store, params.id, body?.noteIds)));
+  route('GET', '/api/assistant/waiting', async ({ res, query }) => sendJson(res, 200, { tasks: waitingTasks(db, store, { person: query.get('person'), project: query.get('project') }) }));
 }
