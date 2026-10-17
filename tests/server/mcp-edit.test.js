@@ -250,6 +250,35 @@ test('habits: get, add, edit, tick, delete and bring back', async () => {
   assert.ok(list.checks.some((x) => x.habitId === habit.id), 'its ticks come back with it');
 });
 
+test('habit options (0.11.0) can be set and changed by an agent; an edit keeps the courses the skin log started', async () => {
+  const { habit } = await call('add_habit', { name: 'Water', kind: 'number', target: 8, unit: 'glasses', freq: { type: 'week', times: 5 }, color: 'blue', question: 'How many glasses?', reminder: '21:00' });
+  assert.equal(habit.kind, 'number');
+  assert.equal(habit.target, 8);
+  assert.equal(habit.unit, 'glasses');
+  assert.deepEqual(habit.freq, { type: 'week', times: 5 });
+  assert.equal(habit.color, 'blue');
+  assert.equal(habit.reminder, '21:00');
+  await refused('add_habit', { name: 'No target', kind: 'number' }, /target/);
+
+  const ticked = await call('tick_habit', { habitId: habit.id, done: true, value: 6 });
+  assert.equal(ticked.value, 6);
+  let check = (await call('get_habits')).checks.find((x) => x.habitId === habit.id);
+  assert.equal(check.value, 6);
+  await call('tick_habit', { habitId: habit.id, done: true, skip: true });
+  check = (await call('get_habits')).checks.find((x) => x.habitId === habit.id);
+  assert.equal(check.skip, true);
+
+  // courses as the skin log leaves them on a habit
+  const courses = [{ from: '2026-10-01', to: '2026-10-07' }];
+  app.db.prepare('UPDATE habits SET courses = ? WHERE id = ?').run(JSON.stringify(courses), habit.id);
+  const edited = await call('edit_habit', { habitId: habit.id, archived: true, color: null });
+  assert.equal(edited.habit.archived, true);
+  assert.equal(edited.habit.color, null);
+  assert.equal(edited.habit.target, 8, 'options left out stay');
+  assert.equal(edited.previous.color, 'blue', 'the answer says what it was');
+  assert.deepEqual(edited.habit.courses, courses, 'courses are not cleared by an edit');
+});
+
 test('skin log: log, edit (line rewritten in the month note), delete (line removed)', async () => {
   const date = today;
   const logged = await call('log_skin', { date, time: '2100', data: { symptoms: ['Itch'], areas: ['Legs'], where: { Legs: { side: 'left', aspect: 'posterior' } }, products: ['Betaderm'] } });

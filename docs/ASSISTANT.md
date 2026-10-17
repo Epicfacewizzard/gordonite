@@ -54,9 +54,9 @@ records (moods, habits, skin entries, people details) use the same functions as 
 | `PUT /api/assistant/tags/flags` `{ tag, favorite?, daily? }` | Star a tag, turn its daily entry on or off |
 | `PUT /api/assistant/settings` `{ dailyTag }` | The tag Today / the Dashboard writes in |
 | `PUT /api/assistant/moods/:id` `{ score?, note?, at? }`, `DELETE .../moods/:id`, `POST .../moods/:id/restore` | Change, delete (soft) or bring back a mood entry; a change returns the entry as it was |
-| `GET /api/assistant/habits?from=&to=`, `POST /api/assistant/habits` `{ name, detail?, days? }` | Habits with their ticks; add one (`days` 0 = Sunday … 6, every day if left out) |
-| `PUT /api/assistant/habits/:id` `{ name?, detail?, days?, sort? }`, `DELETE .../habits/:id` | Change some fields (a deleted habit comes back); delete (soft, ticks kept) |
-| `POST /api/assistant/habits/:id/checks` `{ done, date? }` | Tick or untick a day (today if left out; not the future) |
+| `GET /api/assistant/habits?from=&to=`, `POST /api/assistant/habits` `{ name, detail?, days?, …options }` | Habits with their ticks; add one (`days` 0 = Sunday … 6, every day if left out). Options as in the app (docs/HABITS.md): `freq`, `kind`, `target`, `unit`, `targetType`, `color`, `question`, `reminder`, `archived` |
+| `PUT /api/assistant/habits/:id` `{ name?, detail?, days?, sort?, …options? }`, `DELETE .../habits/:id` | Change some fields (a deleted habit comes back); delete (soft, ticks kept) |
+| `POST /api/assistant/habits/:id/checks` `{ done, date?, value?, skip? }` | Tick or untick a day (today if left out; not the future); `value` is the number for a number habit, `skip` marks the day skipped |
 | `GET /api/assistant/skin?from=&to=`, `POST /api/assistant/skin` `{ date?, time?, data }` | Skin log entries; add one: the line is written into that month's skin log note, as the Skin screen does |
 | `PUT /api/assistant/skin/:id` `{ date?, time?, data? }`, `DELETE .../skin/:id` | Change picks (each field given replaces that pick) and rewrite the line; delete the entry and its line |
 | `GET /api/assistant/people`, `GET .../people/:noteId` | People (no note text in the list) and one person's details |

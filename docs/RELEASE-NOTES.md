@@ -2,8 +2,10 @@
 
 ## 0.12.0 — 2026-10-16 — Agents can edit everything they can read, habit options included
 
-Version **0.11.0** (new feature). Server and MCP bridge only; no client or schema change, so going back to 0.10.x is
-the image swap only. (0.10.2 is taken by the habits fix on `feature/habit-customization`.)
+Version **0.12.0** (new feature). Server and MCP bridge only, built on 0.11.0 (habit options, schema v10). No schema
+change of its own, so going back to 0.11.0 is the image swap only; going below 0.11.0 needs the pre-update backup.
+Shipped in one deployment with 0.10.1, 0.10.2 and 0.11.0 (it was developed as "0.11.0" beside the habits work and
+renumbered when the two were combined).
 
 **Added** (assistant door and MCP bridge; see [ASSISTANT.md](ASSISTANT.md), [MCP.md](MCP.md))
 
@@ -18,6 +20,10 @@ the image swap only. (0.10.2 is taken by the habits fix on `feature/habit-custom
   `delete_habit`, `tick_habit`; `get_skin_log`, `log_skin`, `edit_skin_entry`, `delete_skin_entry` (the line in the
   month note is written, moved or removed as the Skin screen does); `list_people`, `get_person`, `update_person`,
   `log_conversation`.
+- **Habit options (0.11.0) for agents:** `add_habit` and `edit_habit` take `freq`, `kind`, `target`, `unit`,
+  `targetType`, `color`, `question`, `reminder` and `archived` (left out = unchanged); `tick_habit` takes `value` (a
+  number habit's amount) and `skip`. `edit_habit` returns the old options in `previous`. Test: "habit options (0.11.0)
+  can be set and changed by an agent" in `tests/server/mcp-edit.test.js`.
 - `ping` returns the server version and the daily tag.
 
 **Fixed** (why agents' edits failed)

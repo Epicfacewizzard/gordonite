@@ -7,11 +7,13 @@ import { DOC_FORMAT } from '../shared/doc.js';
 import { dateInTz, isValidDateString } from '../shared/dates.js';
 import { monthTitle, entryText, entryIsEmpty, addEntry, removeEntry } from '../shared/skin.js';
 import { PEOPLE_TAG, isPersonTags, addLogLine } from '../shared/people.js';
-import { listHabits, saveHabit, deleteHabit, setCheck } from './habits.js';
+import { listHabits, saveHabit, deleteHabit, setCheck, OPTION_DEFAULTS } from './habits.js';
 import { listSkinEntries, saveSkinEntry, deleteSkinEntry, cleanSkinEntry } from './skin.js';
 import { listPeople, getPerson, savePerson } from './people.js';
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
+
+const pickOptions = (body) => Object.fromEntries(Object.keys(OPTION_DEFAULTS).filter((k) => body?.[k] !== undefined).map((k) => [k, body[k]]));
 
 const SKIN_TAG = 'skin'; // client/src/skin-log.js
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -41,18 +43,19 @@ export class AssistantRecords {
     return listHabits(this.db, this.cfg, { from, to });
   }
 
-  // A new habit: a name, and the days of the week it is for (0 = Sunday … 6 = Saturday; every day if left out).
+  // A new habit: a name, and the days of the week it is for (0 = Sunday … 6 = Saturday; every day if left out), plus
+  // any of the habit options (OPTION_DEFAULTS in habits.js: frequency, yes-no or a number, colour, reminder …).
   addHabit(body) {
     const id = uuid();
-    const { habit } = saveHabit(this.db, id, { name: body.name, detail: body.detail ?? '', days: body.days ?? ALL_DAYS, created: body.created ?? this.#today(), sort: body.sort });
+    const { habit } = saveHabit(this.db, id, { ...pickOptions(body), name: body.name, detail: body.detail ?? '', days: body.days ?? ALL_DAYS, created: body.created ?? this.#today(), sort: body.sort });
     return { habit, created: true };
   }
 
   // Change some of a habit's fields. A deleted habit's id brings it back with its ticks.
   editHabit(id, patch) {
     const row = this.#habitRow(id);
-    const was = { name: row.name, detail: row.detail, days: JSON.parse(row.days), created: row.created, trigger: row.trigger ? JSON.parse(row.trigger) : null, sort: row.sort };
-    const next = { ...was };
+    const was = { name: row.name, detail: row.detail, days: JSON.parse(row.days), created: row.created, trigger: row.trigger ? JSON.parse(row.trigger) : null, sort: row.sort, ...OPTION_DEFAULTS, ...JSON.parse(row.options ?? '{}') };
+    const next = { ...was, ...pickOptions(patch) };
     for (const k of ['name', 'detail', 'days', 'created', 'sort']) if (patch[k] !== undefined) next[k] = patch[k];
     if (patch.trigger !== undefined) next.trigger = patch.trigger;
     const { habit } = saveHabit(this.db, row.id, next);
@@ -65,12 +68,14 @@ export class AssistantRecords {
     return { ok: true, habitId: row.id, undo: 'edit_habit with this habitId (any field, e.g. its name) brings it back with its ticks' };
   }
 
-  tickHabit(id, { date, done }) {
+  // value: the number entered for a number habit; skip: the day does not count against it (both only with done:true).
+  tickHabit(id, { date, done, value, skip }) {
     const row = this.#habitRow(id);
     if (row.deleted_at) throw new HttpError(404, 'habit_not_found', 'That habit is deleted');
     if (typeof done !== 'boolean') throw new HttpError(400, 'bad_done', '"done" must be true or false');
-    setCheck(this.db, this.cfg, row.id, date ?? this.#today(), done, 'assistant');
-    return { ok: true, habitId: row.id, date: date ?? this.#today(), done };
+    const entry = value !== undefined || skip !== undefined ? { value, skip } : null;
+    setCheck(this.db, this.cfg, row.id, date ?? this.#today(), done, 'assistant', entry);
+    return { ok: true, habitId: row.id, date: date ?? this.#today(), done, ...(entry ? { value: value ?? null, skip: skip === true } : {}) };
   }
 
   // ----- skin log (docs/SKIN-LOG.md) -----
