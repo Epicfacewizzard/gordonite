@@ -1,6 +1,6 @@
 # Gordonite handover
 
-Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language summary of the whole OneDrive (what is where, how to get things back, open decisions) is the note `Gordonite - Handover 2026-10-13.md` in the OneDrive root, next to this repository's folder. This is the current handover; `docs/HANDOVER.md` is an older historical snapshot and contains superseded deployment and feature information. The exact per-release record is `docs/RELEASE-NOTES.md`.
+Updated **2026-10-16**, home timezone **America/Edmonton**. Read [the workspace guide](docs/WORKSPACE.md) for the current two local branches, archives and recovery instructions. The older deployment sections below are historical; see `docs/RELEASE-NOTES.md` for per-release details.
 
 ## Read first
 
@@ -17,9 +17,9 @@ Updated **2026-10-13**, home timezone **America/Edmonton**. A plain-language sum
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
 | Version on `origin/main` | **0.12.0** (pushed 2026-10-16) |
-| Waiting to be deployed | **0.10.1–0.12.0**, all on `main`: 0.10.1 (the dashboard note keeps a tag picked offline), 0.10.2 (a new habit no longer vanishes after Save on a slow connection), 0.11.0 (habit options: frequency, number habits, colour, question, reminder time, archive, reorder, skip, a page per habit; **schema v10**, so a rollback needs the pre-update backup; [docs/HABITS.md](docs/HABITS.md)) and 0.12.0 (agents can edit notes, tasks, tags, moods, habits, skin log and People; [docs/MCP.md](docs/MCP.md)). After deploying, update the OneDrive checkout so the assistant bridge gets the new tools |
-| Version running on the server | **0.10.0** (`c6ba5bf`, deployed 2026-10-15; `/api/health` reported `0.10.0`): People profile pages (0.10.0), skin log and habits (0.9.0), offline use and the installable app (0.7.0–0.8.1). Database schema **v9**. Installed on the S24 by the owner |
-| Habit tracker beta | Branch `codex/habit-tracker-beta-test` (another agent, browser-only habits, preview 0.8.2-habits-preview.1) was used as the reference for 0.9.0's habits; it is not merged and can be deleted once 0.9.0 is accepted |
+| Waiting to be deployed | No pending web release identified. Android remains separate unfinished work on local `codex/android-shell` in `data/development/android` |
+| Version running on the server | **0.12.0**, confirmed through the connected assistant ping on 2026-10-16. Root checkout also uses 0.12.0 (schema v10). This cleanup did not deploy anything |
+| Habit tracker beta | Archived locally with the CRM preview and old Android jot experiment; see [docs/WORKSPACE.md](docs/WORKSPACE.md). Remote cleanup needs explicit approval |
 | HTTPS address | `https://gordonite.duckdns.org` (2026-10-15): DuckDNS name → `192.168.1.50`, Nginx Proxy Manager on the server (admin `http://192.168.1.50:81`) with a Let's Encrypt certificate by DNS challenge; reachable only on the LAN or WireGuard. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain). `http://192.168.1.50:8082` still works |
 
 Raise the version (`APP_VERSION` in `server/app.js`, `package.json`, `package-lock.json`) with every code change, and add a `docs/RELEASE-NOTES.md` entry; the number is shown at the bottom of Settings and in `/api/health`.

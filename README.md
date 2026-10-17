@@ -5,10 +5,11 @@ stream, write in today's note, turn a line into a task without leaving the keybo
 Everything is saved to SQLite on your server, and anything not yet confirmed by the server is held durably
 on the phone.
 
-This is the first usable version: notes, tags, daily streams, inline tasks, versions, trash, backups,
-export/import, a combined task list with due/start dates, and cards for people notes. Dashboard, calendar,
-structured contact profiles, links/backlinks and AI are
-deliberately not built.
+The current release is **0.12.0**: notes, tags, daily streams, inline tasks, versions, trash, backups,
+export/import, a customizable Dashboard, offline use, People profiles, mood and skin logs, flexible habits,
+basic note links, and assistant tools. Backlinks and Projects remain future work.
+See [Workspace and archived experiments](docs/WORKSPACE.md) for the current branches, the separate unfinished
+Android project, and recovery instructions for retired experiments.
 
 | | |
 |---|---|

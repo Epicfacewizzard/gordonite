@@ -9,6 +9,15 @@
         "dev"
       ],
       "port": 5173
+    },
+    {
+      "name": "local-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "preview:local"
+      ],
+      "port": 8091
     }
   ]
 }

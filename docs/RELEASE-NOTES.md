@@ -1,5 +1,9 @@
 # Release notes
 
+Workspace maintenance, 2026-10-16: the main folder now uses the already deployed **0.12.0** release.
+Redundant local branches and working copies were archived and retired; unfinished Android work remains
+separate. See [WORKSPACE.md](WORKSPACE.md) for recovery and verification. No application code change or new release.
+
 ## 0.12.0 — 2026-10-16 — Agents can edit everything they can read, habit options included
 
 Version **0.12.0** (new feature). Server and MCP bridge only, built on 0.11.0 (habit options, schema v10). No schema
