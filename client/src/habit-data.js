@@ -8,6 +8,9 @@ import { uuid } from '../../shared/ids.js';
 
 const HISTORY_DAYS = 399; // the server lists at most 400 days at a time; enough for a habit's year of history
 
+/** The oldest day the app has loaded, so the oldest day it lets you log or change. */
+export const earliestDay = (today) => addDays(today, -HISTORY_DAYS);
+
 let sent = false; // something reached the server since it was last asked
 // Changes the server has taken but has not listed back yet. They stay on screen until a list asked for after they were
 // sent comes from the server itself: a slow list is answered from the phone copy, which was kept before them.
@@ -94,14 +97,23 @@ export function subscribeHabits(fn) {
   return () => listeners.delete(fn);
 }
 
+// A day logged before the habit's start was done after all: the habit started then, so its start moves back to it.
+function startBy(habitId, date) {
+  const { habits, archived } = habitState();
+  const habit = [...habits, ...archived].find((h) => h.id === habitId);
+  if (habit && date < habit.created) saveHabit({ ...habit, created: date });
+}
+
 /** Tick a day, or clear it if it has any check-in (a tick, a number, a skip). */
 export function toggleHabit(habitId, date) {
   const had = !!habitState().entry(habitId, date);
+  if (!had) startBy(habitId, date);
   habitQueue.add({ key: `check:${habitId}:${date}`, kind: 'check', habitId, date, done: !had, ...(had ? {} : { value: null, skip: false }) });
 }
 
 /** Set a day's check-in: a number (`value`), a plain tick (value null), or a skipped day (skip true). */
 export function setHabitEntry(habitId, date, { value = null, skip = false }) {
+  startBy(habitId, date);
   habitQueue.add({ key: `check:${habitId}:${date}`, kind: 'check', habitId, date, done: true, value, skip });
 }
 

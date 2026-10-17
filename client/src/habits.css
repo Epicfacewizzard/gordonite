@@ -87,3 +87,10 @@
   .habit-summary-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .habit-month { gap: 3px; }
 }
+/* Backdating (0.13.0): the Dashboard's ‹ day › stepper, and squares before a habit's start. */
+.habit-day-stepper { display: flex; align-items: center; gap: 4px; margin: 0 0 4px; }
+.habit-day-pick { position: relative; display: flex; align-items: center; min-height: 36px; padding: 0 8px; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; }
+.habit-day-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.habit-day-stepper .btn { margin-left: auto; }
+.habit-check.habit-early { border-style: dotted; opacity: .7; }
+.habit-dialog input[type=date] { font: inherit; }

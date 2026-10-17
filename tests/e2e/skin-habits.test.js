@@ -229,3 +229,93 @@ describe('habit options', () => {
       assert.equal((await habits(app)).habits.find((h) => h.id === a).archived, false);
     }));
 });
+
+describe('backdating habits', () => {
+  const habits = async (app) => (await app.api('GET', '/api/habits')).json;
+  const checkOn = async (app, date) => (await habits(app)).checks.find((c) => c.date === date);
+
+  test('the Dashboard steps back a day to tick it, a habit made later moves its start back, and the streak counts it', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const id = newId();
+      await app.api('PUT', `/api/habits/${id}`, { name: 'Walk', days: [0, 1, 2, 3, 4, 5, 6], created: today() });
+      await page.goto(`${app.url}/#/`);
+      const widget = page.getByTestId('widget-habits');
+      await widget.getByTestId('habit-today').filter({ hasText: 'Walk' }).waitFor();
+      assert.equal(await widget.getByTestId('habit-day-next').isDisabled(), true, 'no stepping into tomorrow');
+
+      await widget.getByTestId('habit-day-prev').tap();
+      assert.match(await widget.getByRole('group', { name: 'Day to log' }).textContent(), /Yesterday/);
+      const row = widget.getByTestId('habit-today').filter({ hasText: 'Walk' });
+      assert.match(await row.textContent(), /before its start/);
+      await row.locator('input[type=checkbox]').check();
+      await until(() => checkOn(app, addDays(today(), -1)), 'yesterday’s tick on the server');
+      await until(async () => (await habits(app)).habits[0].created === addDays(today(), -1), 'the start moved back');
+      assert.match(await widget.getByTestId('habit-day-count').textContent(), /1 of 1 yesterday/);
+
+      // a day picked in the calendar; a future day is refused
+      await widget.getByTestId('habit-day-pick').fill(addDays(today(), 1));
+      assert.match(await widget.getByRole('group', { name: 'Day to log' }).textContent(), /Yesterday/, 'tomorrow is not taken');
+      await widget.getByTestId('habit-day-pick').fill(addDays(today(), -3));
+      await widget.getByTestId('habit-today').filter({ hasText: 'Walk' }).locator('input[type=checkbox]').check();
+      await until(() => checkOn(app, addDays(today(), -3)), 'the tick three days ago');
+
+      await widget.getByTestId('habit-day-today').tap();
+      await widget.getByTestId('habit-today').filter({ hasText: 'Walk' }).locator('input[type=checkbox]').check();
+      await until(() => checkOn(app, today()), 'today’s tick');
+      const res = await app.api('PUT', `/api/habits/${id}/checks/${addDays(today(), 1)}`);
+      assert.equal(res.status, 400, 'the server still refuses a future day');
+
+      await page.goto(`${app.url}/#/habits/${id}`);
+      await page.getByTestId('habit-detail').waitFor();
+      assert.equal(await page.getByTestId('habit-current-streak').textContent(), '2', 'yesterday and today');
+      assert.equal(await page.getByTestId('habit-best-streak').textContent(), '2');
+      assert.equal(await page.getByTestId('habit-total').textContent(), '3');
+    }));
+
+  test('a day before the start on the habit’s page opens the day: a number, skip or tick, and the start moves back', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const id = newId();
+      await app.api('PUT', `/api/habits/${id}`, { name: 'Water', days: [0, 1, 2, 3, 4, 5, 6], created: today(), kind: 'number', target: 8, unit: 'glasses' });
+      await page.goto(`${app.url}/#/habits/${id}`);
+      await page.getByTestId('habit-detail').waitFor();
+      const twoAgo = addDays(today(), -2);
+      // the calendar shows this month; two days ago may be last month
+      if (twoAgo.slice(0, 7) !== today().slice(0, 7)) await page.getByRole('button', { name: 'Previous month' }).tap();
+      await page.getByRole('button', { name: `Water, ${twoAgo}: before the start` }).tap();
+      await page.getByTestId('habit-entry-early').waitFor();
+      await page.getByTestId('habit-entry-value').fill('9');
+      await page.getByTestId('habit-entry-save').tap();
+      await until(async () => (await checkOn(app, twoAgo))?.value === 9, 'the number two days ago');
+      await until(async () => (await habits(app)).habits[0].created === twoAgo, 'the start moved back');
+      await page.getByRole('button', { name: `Water, ${twoAgo}: 9, target met` }).waitFor();
+      assert.equal(await page.getByTestId('habit-best-streak').textContent(), '1');
+      assert.equal(await page.getByTestId('habit-total').textContent(), '1');
+      // the day after is now a missed day, not "before the start"
+      const oneAgo = addDays(today(), -1);
+      if (oneAgo.slice(0, 7) === twoAgo.slice(0, 7)) await page.getByRole('button', { name: `Water, ${oneAgo}: not done` }).waitFor();
+    }));
+
+  test('a past day logged offline waits on the phone and is sent when the connection is back', () =>
+    withPhone(browser, async ({ page, app }) => {
+      const id = newId();
+      await app.api('PUT', `/api/habits/${id}`, { name: 'Read', days: [0, 1, 2, 3, 4, 5, 6], created: addDays(today(), -10), freq: { type: 'week', times: 3 } });
+      await page.goto(`${app.url}/#/`);
+      const widget = page.getByTestId('widget-habits');
+      await widget.getByTestId('habit-today').filter({ hasText: 'Read' }).waitFor();
+      await page.context().setOffline(true);
+      await widget.getByTestId('habit-day-prev').tap();
+      await widget.getByTestId('habit-day-prev').tap();
+      const row = widget.getByTestId('habit-today').filter({ hasText: 'Read' });
+      await row.locator('input[type=checkbox]').check();
+      await until(async () => /1 of 3 this week/.test(await row.textContent()), 'the week’s count on the phone');
+      assert.match(await widget.getByTestId('habit-day-count').textContent(), /waiting to be sent/);
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('hq-habit-pending')).length), 1, 'kept on the phone');
+      assert.equal(await checkOn(app, addDays(today(), -2)), undefined, 'the server has not seen it');
+
+      await page.context().setOffline(false);
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      await until(() => checkOn(app, addDays(today(), -2)), 'the tick sent');
+      await until(async () => page.evaluate(() => JSON.parse(localStorage.getItem('hq-habit-pending') ?? '[]').length === 0), 'the queue empty');
+      assert.equal((await habits(app)).habits[0].created, addDays(today(), -10), 'a day after the start leaves the start alone');
+    }));
+});

@@ -19,7 +19,7 @@ import {
   streakUnit,
   met,
 } from '../../../shared/habits.js';
-import { loadHabits, habitState, subscribeHabits, toggleHabit, setHabitEntry, clearHabitEntry, saveHabit, moveHabit, deleteHabit, habitQueue } from '../habit-data.js';
+import { loadHabits, habitState, subscribeHabits, toggleHabit, setHabitEntry, clearHabitEntry, saveHabit, moveHabit, deleteHabit, habitQueue, earliestDay } from '../habit-data.js';
 import { getLists } from '../skin-log.js';
 
 // Habits (see docs/HABITS.md): a Dashboard widget with today's habits, #/habits with each habit's week, streaks,
@@ -34,6 +34,9 @@ const timeLabel = (hhmm) => new Date(`2000-01-01T${hhmm}:00Z`).toLocaleTimeStrin
 const habitStyle = (habit) => (habit.color && COLORS[habit.color] ? { '--habit': COLORS[habit.color] } : undefined);
 const numberText = (v) => (Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100));
 const PERIOD_WORD = { week: 'this week', month: 'this month', every: 'in these days' };
+// The habit as it would be if logging `date` moved its start back to that day (habit-data.js does so when it is logged).
+const startingBy = (habit, date) => (date < habit.created ? { ...habit, created: date } : habit);
+const dayName = (date, today) => (date === today ? 'Today' : date === addDays(today, -1) ? 'Yesterday' : dateLabel(date, { weekday: 'short', month: 'short', day: 'numeric' }));
 
 function useHabits(today) {
   const [, rerender] = useState(0);
@@ -129,6 +132,11 @@ function EntryDialog({ habit, date, entry, onClose }) {
           </button>
         </div>
         {habit.question && <p>{habit.question}</p>}
+        {date < habit.created && (
+          <p class="muted small" data-testid="habit-entry-early">
+            This is before the habit’s start ({dateLabel(habit.created)}). Logging it moves the start back to this day.
+          </p>
+        )}
         {number && (
           <>
             <label class="habit-field" for="habit-entry-value">
@@ -175,36 +183,87 @@ function EntryDialog({ habit, date, entry, onClose }) {
   );
 }
 
-/** One day's square: tap to tick (yes-or-no) or to enter the number; `detailed` opens the day for every habit. */
+/**
+ * One day's square: tap to tick (yes-or-no) or to enter the number; `detailed` opens the day for every habit. Any past
+ * day the app has loaded can be logged; a day before the habit's start opens the day, which says the start moves back.
+ */
 function DayCell({ habit, date, today, state, onOpen, detailed = false }) {
-  const isDue = scheduled(habit, date);
+  const isDue = scheduled(startingBy(habit, date), date);
   const future = date > today;
+  const early = date < habit.created;
+  const tooOld = date < earliestDay(today);
   const e = isDue ? state.entry(habit.id, date) : null;
   const isMet = met(habit, e);
   const number = habit.kind === 'number';
   const text = !isDue ? '—' : future ? '·' : e?.skip ? '↷' : number && e?.value != null ? numberText(e.value) : isMet ? '✓' : '';
-  const status = !isDue ? 'not due' : future ? 'future' : e?.skip ? 'skipped' : number && e?.value != null ? `${numberText(e.value)}${isMet ? ', target met' : ''}` : isMet ? 'done' : 'not done';
-  const cls = `habit-check${isMet ? ' habit-done' : ''}${e?.skip ? ' habit-skipped' : ''}${number && e?.value != null && !isMet ? ' habit-partial' : ''}`;
+  const status = !isDue ? 'not due' : future ? 'future' : tooOld ? 'not loaded' : e?.skip ? 'skipped' : number && e?.value != null ? `${numberText(e.value)}${isMet ? ', target met' : ''}` : isMet ? 'done' : early ? 'before the start' : 'not done';
+  const cls = `habit-check${isMet ? ' habit-done' : ''}${e?.skip ? ' habit-skipped' : ''}${number && e?.value != null && !isMet ? ' habit-partial' : ''}${early && !e ? ' habit-early' : ''}`;
   return (
     <button
       type="button"
       class={cls}
       aria-label={`${habit.name}, ${date}: ${status}`}
       aria-pressed={isMet}
-      disabled={!isDue || future}
-      onClick={() => (number || detailed ? onOpen(habit, date) : toggleHabit(habit.id, date))}
+      disabled={!isDue || future || tooOld}
+      onClick={() => (number || detailed || early ? onOpen(habit, date) : toggleHabit(habit.id, date))}
     >
       {text}
     </button>
   );
 }
 
+/** ‹ day › for the Dashboard's habits: step back to log a past day; never past today or the loaded history. */
+function DayStepper({ day, today, onDay }) {
+  const earliest = earliestDay(today);
+  return (
+    <div class="habit-day-stepper" role="group" aria-label="Day to log">
+      <button type="button" class="icon-btn" aria-label="Previous day" disabled={day <= earliest} onClick={() => onDay(addDays(day, -1))} data-testid="habit-day-prev">
+        ‹
+      </button>
+      <label class="habit-day-pick">
+        <span>{dayName(day, today)}</span>
+        <input
+          type="date"
+          value={day}
+          min={earliest}
+          max={today}
+          aria-label="Choose a day"
+          onClick={(e) => {
+            try {
+              e.currentTarget.showPicker?.();
+            } catch {
+              // a browser without showPicker opens its own picker
+            }
+          }}
+          onChange={(e) => {
+            const v = e.currentTarget.value;
+            if (v && v >= earliest && v <= today) onDay(v);
+          }}
+          data-testid="habit-day-pick"
+        />
+      </label>
+      <button type="button" class="icon-btn" aria-label="Next day" disabled={day >= today} onClick={() => onDay(addDays(day, 1))} data-testid="habit-day-next">
+        ›
+      </button>
+      {day !== today && (
+        <button type="button" class="btn ghost" onClick={() => onDay(today)} data-testid="habit-day-today">
+          Today
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function HabitsWidget({ today }) {
   const state = useHabits(today);
+  const [day, setDay] = useState(today); // the day being logged: today, or a past day stepped back to
   const [entering, setEntering] = useState(null); // { habit, date }
+  useEffect(() => setDay(today), [today]);
   const order = (h) => h.reminder ?? '99';
-  const due = state.habits.filter((h) => dueToday(h, today, state.entry)).sort((a, b) => order(a).localeCompare(order(b)));
-  const done = due.filter((h) => met(h, state.entry(h.id, today))).length;
+  // On a past day, a habit made later is listed too: logging that day moves its start back (see habit-data.js).
+  const due = state.habits.filter((h) => dueToday(startingBy(h, day), day, state.entry)).sort((a, b) => order(a).localeCompare(order(b)));
+  const done = due.filter((h) => met(h, state.entry(h.id, day))).length;
+  const when = day === today ? 'today' : day === addDays(today, -1) ? 'yesterday' : `on ${dateLabel(day, { weekday: 'short', month: 'short', day: 'numeric' })}`;
   return (
     <section class="widget" data-testid="widget-habits">
       <div class="habit-heading">
@@ -214,19 +273,22 @@ export function HabitsWidget({ today }) {
         </a>
       </div>
       <Problems state={state} />
+      <DayStepper day={day} today={today} onDay={setDay} />
       {due.length > 0 && (
-        <p class="muted small">
-          {done} of {due.length} today{state.waiting ? ' · waiting to be sent' : ''}
+        <p class="muted small" data-testid="habit-day-count">
+          {done} of {due.length} {when}
+          {state.waiting ? ' · waiting to be sent' : ''}
         </p>
       )}
       <div class="habit-today-list">
         {due.map((h) => {
-          const e = state.entry(h.id, today);
-          const detail = [h.question || courseNote(h, today) || h.detail, periodNote(h, today, state.entry), h.reminder && timeLabel(h.reminder)].filter(Boolean).join(' · ');
+          const e = state.entry(h.id, day);
+          const early = day < h.created && `before its start (${dateLabel(h.created)}); logging moves the start back`;
+          const detail = [early, h.question || courseNote(h, day) || h.detail, periodNote(startingBy(h, day), day, state.entry), h.reminder && timeLabel(h.reminder)].filter(Boolean).join(' · ');
           const name = <span class={met(h, e) || e?.skip ? 'muted' : ''}>{h.name}{e?.skip ? ' (skipped)' : ''}</span>;
           return h.kind === 'number' ? (
             <div class="habit-today-row" key={h.id} data-testid="habit-today" style={habitStyle(h)}>
-              <button type="button" class={`habit-amount${met(h, e) ? ' habit-done' : ''}`} onClick={() => setEntering({ habit: h, date: today })} aria-label={`Enter ${h.name} for today`} data-testid="habit-today-amount">
+              <button type="button" class={`habit-amount${met(h, e) ? ' habit-done' : ''}`} onClick={() => setEntering({ habit: h, date: day })} aria-label={`Enter ${h.name} for ${when}`} data-testid="habit-today-amount">
                 {e?.value != null ? numberText(e.value) : '+'}
               </button>
               <span>
@@ -236,7 +298,7 @@ export function HabitsWidget({ today }) {
             </div>
           ) : (
             <label class="habit-today-row" key={h.id} data-testid="habit-today" style={habitStyle(h)}>
-              <input type="checkbox" checked={met(h, e)} onChange={() => toggleHabit(h.id, today)} />
+              <input type="checkbox" checked={met(h, e)} onChange={() => toggleHabit(h.id, day)} />
               <span>
                 {name}
                 {detail && <span class="habit-detail">{detail}</span>}
@@ -247,7 +309,7 @@ export function HabitsWidget({ today }) {
       </div>
       {!due.length && (
         <p class="muted small">
-          Nothing due today. <a href="#/habits">Add a habit</a>.
+          Nothing due {when}. <a href="#/habits">Add a habit</a>.
         </p>
       )}
       {entering && <EntryDialog habit={entering.habit} date={entering.date} entry={state.entry(entering.habit.id, entering.date)} onClose={() => setEntering(null)} />}
@@ -273,6 +335,7 @@ function HabitEditor({ habit, today, nextSort = 0, onClose }) {
   const [linked, setLinked] = useState(!!habit?.trigger);
   const [product, setProduct] = useState(habit?.trigger?.product ?? '');
   const [courseDays, setCourseDays] = useState(habit?.trigger?.days ?? 7);
+  const [created, setCreated] = useState(habit?.created ?? today);
   const [error, setError] = useState('');
   const products = [...getLists().products.common, ...getLists().products.more];
   const save = (event) => {
@@ -287,6 +350,7 @@ function HabitEditor({ habit, today, nextSort = 0, onClose }) {
     if (kind === 'number' && (target.trim() === '' || !Number.isFinite(t) || t < 0)) return setError('Give the number habit a target of 0 or more.');
     const c = Number(courseDays);
     if (linked && (!product.trim() || !Number.isInteger(c) || c < 1 || c > 365)) return setError('Choose the product, and a course of 1 to 365 days.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(created) || created > today) return setError('The start must be a day up to today.');
     const freq = type === 'days' ? { type } : type === 'every' ? { type, n } : { type, times: n };
     try {
       saveHabit({
@@ -304,7 +368,7 @@ function HabitEditor({ habit, today, nextSort = 0, onClose }) {
         color,
         reminder: reminder || null,
         archived: habit?.archived ?? false,
-        created: habit?.created ?? today,
+        created,
         trigger: linked ? { product: product.trim(), days: c } : null,
         sort: habit?.sort ?? nextSort,
       });
@@ -427,6 +491,12 @@ function HabitEditor({ habit, today, nextSort = 0, onClose }) {
         </label>
         <input type="time" id="habit-reminder" value={reminder} onInput={(e) => setReminder(e.currentTarget.value)} data-testid="habit-reminder" />
         <p class="muted small">Shown on the Dashboard, which lists habits by this time. The phone does not notify you yet.</p>
+
+        <label class="habit-field" for="habit-created">
+          Started on
+        </label>
+        <input type="date" id="habit-created" value={created} max={today} onInput={(e) => setCreated(e.currentTarget.value)} data-testid="habit-created" />
+        <p class="muted small">Streaks and the score count from this day. Logging a day before it moves it back.</p>
 
         <div class="habit-course" data-testid="habit-course">
           <label>
@@ -581,7 +651,7 @@ function HabitDetail({ habit, today, state, onEdit, onOpen }) {
       </div>
       <p class="muted small">The score grows with each day done and shrinks slowly with each one missed, so one bad day does not undo a long run. Streaks and totals cover the last 400 days.</p>
       <div class="habit-week-nav">
-        <button type="button" class="icon-btn" aria-label="Previous month" onClick={() => shift(-1)}>
+        <button type="button" class="icon-btn" aria-label="Previous month" disabled={month <= earliestDay(today).slice(0, 7)} onClick={() => shift(-1)}>
           ‹
         </button>
         <strong>{dateLabel(`${month}-15`, { month: 'long', year: 'numeric' })}</strong>
@@ -605,7 +675,7 @@ function HabitDetail({ habit, today, state, onEdit, onOpen }) {
           </div>
         ))}
       </div>
-      <p class="muted small">Tap a day to tick it, enter a number, skip it or clear it. ↷ Skipped · — Not due · · Future day.</p>
+      <p class="muted small">Tap any past day to tick it, enter a number, skip it or clear it (a day before the habit’s start moves the start back). ↷ Skipped · — Not due · · Future day.</p>
     </div>
   );
 }
@@ -668,7 +738,7 @@ export function HabitsView({ config, open = null }) {
         </div>
       </div>
       <div class="habit-week-nav">
-        <button type="button" class="icon-btn" aria-label="Previous week" onClick={() => setWeek(addDays(week, -7))}>
+        <button type="button" class="icon-btn" aria-label="Previous week" disabled={week <= earliestDay(today)} onClick={() => setWeek(addDays(week, -7))}>
           ‹
         </button>
         <strong>
@@ -681,7 +751,7 @@ export function HabitsView({ config, open = null }) {
           Today
         </button>
       </div>
-      <p class="muted small">Tap a square to tick or untick, or to enter a number. Past days can be filled in. Open a habit for its months, best streak and score, and to skip a day.</p>
+      <p class="muted small">Tap a square to tick or untick, or to enter a number. Past days can be filled in, also before a habit’s start (which then moves back). Open a habit for its months, best streak and score, and to skip a day; on the Dashboard, ‹ steps back a day.</p>
       <div class="habit-cards">
         {habits.map((habit, i) => (
           <HabitCard key={habit.id} habit={habit} index={i} count={habits.length} list={habits} dates={dates} today={today} state={state} onEdit={setEditing} onOpen={openEntry} />

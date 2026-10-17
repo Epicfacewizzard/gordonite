@@ -1,5 +1,27 @@
 # Release notes
 
+## 0.13.0 — 2026-10-16 — Backdate habit check-ins
+
+Version **0.13.0** (new feature). Client only, built on 0.12.0; no schema or API change, so going back to 0.12.0 is the
+image swap only. See [HABITS.md](HABITS.md) → *Backdating*.
+
+**Added**
+
+- **Dashboard → Habits: ‹ day ›.** Step back a day (or tap the day for a calendar) to tick, enter a number for, or
+  untick a past day; **Today** comes back. Never past today, nor past the 400 days the app loads.
+- **Days before a habit's start can be logged** (dotted squares on `#/habits` and the habit's page; "before its
+  start" on the Dashboard). Logging one moves the habit's start back to that day, so streaks and the score count it.
+- **Started on** in the habit editor sets the start directly (any day up to today).
+
+**Changed**
+
+- The week and month arrows stop at the oldest loaded day, and squares older than that are disabled (the app has not
+  loaded their check-ins, so a tap there could not show what was already logged).
+
+**Checks:** `npm test` (340 pass); browser `tests/e2e/skin-habits.test.js` (11 pass, 3 new in "backdating habits":
+the Dashboard's ‹ day › with the start moved back and the streak recomputed, a number logged before the start on the
+habit's page, a past day logged offline and sent when back online) and `tests/e2e/today.test.js` (14 pass).
+
 ## 0.12.0 — 2026-10-16 — Agents can edit everything they can read, habit options included
 
 Version **0.12.0** (new feature). Server and MCP bridge only, built on 0.11.0 (habit options, schema v10). No schema
