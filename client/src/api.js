@@ -149,6 +149,8 @@ export const api = {
   passwordOff: (current) => request('POST', '/api/auth/off', { current }),
   config: () => request('GET', '/api/config'),
   resolveLink: (target) => request('GET', `/api/note-links?target=${enc(target)}`),
+  noteNames: () => request('GET', '/api/note-names'),
+  backlinks: (id) => request('GET', `/api/notes/${enc(id)}/backlinks`),
   tags: () => request('GET', '/api/tags'),
   createTag: (path) => request('POST', '/api/tags', { path }),
   setDaily: (tagId, daily) => request('PUT', `/api/tags/${enc(tagId)}/daily`, { daily }),

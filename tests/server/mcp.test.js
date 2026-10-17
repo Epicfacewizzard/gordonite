@@ -17,7 +17,7 @@ test('MCP stdio handshake, tool discovery, authenticated writes/readback, histor
   try {
     c = await connect(token);
     const tools = (await c.listTools()).tools;
-    assert.equal(tools.length, 55);
+    assert.equal(tools.length, 57);
     assert.ok(!tools.some(t => /purge|empty_trash/.test(t.name)), 'no permanent delete or purge tool');
     for (const t of tools.filter(t => /^delete_/.test(t.name))) assert.match(t.description, /History|restore_|brings it back|logged again/, `${t.name} says how to undo it`);
     const call = async (name, args = {}) => {
@@ -37,6 +37,10 @@ test('MCP stdio handshake, tool discovery, authenticated writes/readback, histor
     assert.ok(noteId, JSON.stringify(made));
     const note = await call('get_note', { noteId });
     assert.match(JSON.stringify(note), /Keep/);
+    const linking = await call('create_note', { title: 'Links to it', markdown: 'See [[MCP test]] for more', tags: ['mcp-test'] });
+    const back = await call('get_backlinks', { noteId });
+    assert.deepEqual(back.backlinks.map((b) => [b.id, b.lines]), [[linking.note?.id ?? linking.id, ['See [[MCP test]] for more']]]);
+    assert.deepEqual((await call('resolve_link', { target: 'mcp test' })).notes.map((n) => n.id), [noteId]);
     await call('append_note', { noteId, markdown: 'Appended through MCP' });
     assert.match(JSON.stringify(await call('get_note', { noteId })), /Appended through MCP/);
     assert.ok(app.db.prepare('SELECT COUNT(*) n FROM note_versions WHERE note_id=?').get(noteId).n > 0);

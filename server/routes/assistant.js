@@ -10,7 +10,7 @@ import { AssistantRecords } from '../assistant-records.js';
 import { areaFolders } from '../settings.js';
 import { addNotesToProject, createProject, listProjects, projectDetails, setProjectRemoved, updateProject, waitingTasks } from '../projects.js';
 
-export function registerAssistantRoutes({ route, assistant, db, config, files, store, appVersion }) {
+export function registerAssistantRoutes({ route, assistant, links, db, config, files, store, appVersion }) {
   const records = new AssistantRecords(store);
   // ----- assistant (needs the ASSISTANT_TOKEN key; see docs/ASSISTANT.md) -----
   route('GET', '/api/assistant/ping', async ({ res }) => sendJson(res, 200, { ok: true, today: dateInTz(new Date(), config.tz), tz: config.tz, dailyTag: store.getSettings().dailyTag, version: appVersion }));
@@ -26,6 +26,8 @@ export function registerAssistantRoutes({ route, assistant, db, config, files, s
     sendJson(res, 200, store.listNotes({ tag: query.get('tag'), sub: query.get('sub') === '1', untagged: query.get('untagged') === '1', q: query.get('q') ?? '', limit: query.get('limit'), offset: query.get('offset'), sort: query.get('sort') }));
   });
   route('GET', '/api/assistant/notes/:id', async ({ res, params }) => sendJson(res, 200, assistant.getNote(params.id)));
+  route('GET', '/api/assistant/notes/:id/backlinks', async ({ res, params }) => sendJson(res, 200, links.backlinks(params.id)));
+  route('GET', '/api/assistant/note-links', async ({ res, query }) => sendJson(res, 200, links.resolve((query.get('target') ?? '').trim())));
   route('POST', '/api/assistant/notes/:id/trash', async ({ res, params, body }) => {
     if (body.confirmed !== true) throw new HttpError(400, 'confirmation_required', 'Ask the user to confirm this specific note before moving it to Trash');
     const note = assistant.getNote(checkId(params.id));

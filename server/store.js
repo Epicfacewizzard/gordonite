@@ -4,6 +4,7 @@ import { normalizeTag } from '../shared/tags.js';
 import { dateInTz, isValidDateString } from '../shared/dates.js';
 import { DOC_FORMAT, attachmentsIn, hasOnlyStructureProblems, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
 import { extractTasks, taskRecords } from '../shared/tasks.js';
+import { linkableTitle, rewriteLinks } from '../shared/wiki-links.js';
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
 import { dailyTag, readTagOrder, savedTimeZone, setDailyTag, setTimeZone } from './settings.js';
@@ -80,9 +81,9 @@ export class Store {
   #pruneVersions(noteId) {
     this.db
       .prepare(
-        `DELETE FROM note_versions WHERE note_id = ? AND kind IN ('auto','guard','restore')
+        `DELETE FROM note_versions WHERE note_id = ? AND kind IN ('auto','guard','restore','link')
          AND id NOT IN (
-           SELECT id FROM note_versions WHERE note_id = ? AND kind IN ('auto','guard','restore')
+           SELECT id FROM note_versions WHERE note_id = ? AND kind IN ('auto','guard','restore','link')
            ORDER BY created_at DESC, rowid DESC LIMIT ?)`,
       )
       .run(noteId, noteId, this.cfg.versionKeep);
@@ -360,8 +361,34 @@ export class Store {
         .run(docStr, DOC_FORMAT, revision, opId, now, snapKind ? now : note.last_snapshot_at, nextTitle, id);
       if (snapKind) this.#pruneVersions(id);
       this.#claimFiles(id, body.doc);
-      return { status: 'ok', revision, updatedAt: now };
+      const relinked = note.title && nextTitle && nextTitle !== note.title ? this.#relink(id, note.title, nextTitle, now) : [];
+      return { status: 'ok', revision, updatedAt: now, ...(relinked.length ? { relinked } : {}) };
     });
+  }
+
+  // A free note was renamed: the notes linking to it by its old name are changed to link by the new one, each saved like
+  // an edit (revision + 1) with its previous text kept in History. Left alone when another live note also has the old
+  // name (the links may mean that one) or the new name cannot be written as a link. Returns the changed notes' ids.
+  #relink(id, oldTitle, newTitle, now) {
+    if (!linkableTitle(newTitle)) return [];
+    const twin = this.db.prepare('SELECT 1 FROM notes WHERE deleted_at IS NULL AND id != ? AND title = ? COLLATE NOCASE').get(id, oldTitle);
+    if (twin) return [];
+    const needle = JSON.stringify(oldTitle).slice(1, -1); // how the name appears inside the stored JSON
+    const rows = this.db.prepare('SELECT * FROM notes WHERE deleted_at IS NULL AND id != ? AND instr(lower(doc), lower(?)) > 0').all(id, needle);
+    const changed = [];
+    for (const row of rows) {
+      let doc = JSON.parse(row.doc);
+      if (row.doc_format !== DOC_FORMAT) doc = migrateDoc(doc, row.doc_format);
+      const next = rewriteLinks(doc, oldTitle, newTitle);
+      if (!next) continue;
+      this.#addVersion(row.id, row.revision, row.doc, 'link', row.doc_format);
+      this.db
+        .prepare('UPDATE notes SET doc = ?, doc_format = ?, revision = ?, last_op_id = NULL, updated_at = ?, last_snapshot_at = ? WHERE id = ?')
+        .run(JSON.stringify(next), DOC_FORMAT, row.revision + 1, now, now, row.id);
+      this.#pruneVersions(row.id);
+      changed.push(row.id);
+    }
+    return changed;
   }
 
   #createNote(id, body, docStr, opId, title) {

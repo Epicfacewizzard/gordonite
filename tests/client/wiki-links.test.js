@@ -17,3 +17,18 @@ test('read-only links span formatting runs and escape all imported markup', () =
   assert.ok(!html.includes('<img'));
   assert.ok(!html.includes('<script>'));
 });
+test('"[[" suggestions: names starting with what is typed first, people by their other names too', async () => {
+  const { suggestLinks } = await import('../../client/src/editor/link-suggest.js');
+  const data = {
+    notes: [
+      { id: '1', title: 'Budget 2026', person: false },
+      { id: '2', title: 'Samantha Lee', person: true },
+      { id: '3', title: 'Old budget', person: false },
+      { id: '4', title: 'A/B tests', person: false },
+    ],
+    aliases: [{ id: '2', name: 'Sammy', title: 'Samantha Lee' }],
+  };
+  assert.deepEqual(suggestLinks(data, 'bud').map((s) => s.insert), ['Budget 2026', 'Old budget']);
+  assert.deepEqual(suggestLinks(data, 'sam').map((s) => s.insert), ['Samantha Lee', 'Samantha Lee|Sammy']);
+  assert.deepEqual(suggestLinks(data, '').map((s) => s.title), ['Budget 2026', 'Samantha Lee', 'Old budget'], 'nothing typed: recent notes, no other names, nothing a link cannot name');
+});

@@ -350,3 +350,30 @@ describe('conflicts', () => {
     assert.deepEqual(texts, ['theirs', 'Merged from the other version of this note:', 'mine']);
   });
 });
+
+describe('links after a rename (docs/LINKS.md)', () => {
+  test('notes the server relinked are refreshed on this phone unless they hold unsent text', async () => {
+    const env = await setup();
+    const note = (id, text, revision = 3) => ({ id, tags: [{ path: 'journal' }], date: '2026-10-05', revision, doc: doc(text), kind: 'note', title: null });
+    const renamed = env.sync.adopt({ ...note('a', 'trip'), title: 'Trip ideas' });
+    const linking = env.sync.adopt(note('b', 'see [[Trip ideas]]'));
+    const busy = env.sync.adopt(note('c', 'also [[Trip ideas]]'));
+    const fetched = [];
+    env.api.getNote = async (id) => (fetched.push(id), { note: note(id, `see [[Trip plan]] ${id}`, 4) });
+    const typing = typeInto(busy, { doc: doc('also [[Trip ideas]]') });
+    typing.set(doc('also [[Trip ideas]] and more'));
+    const generation = linking.generation;
+
+    renamed.editTitle('Trip plan');
+    await env.clock.advance(1000);
+    const save = env.api.calls.find((c) => c.id === 'a');
+    save.resolve({ status: 'ok', revision: 4, relinked: ['b', 'c'] });
+    await settle();
+
+    assert.deepEqual(fetched, ['b'], 'the note with unsent text is left to meet a visible conflict');
+    assert.equal(linking.revision, 4);
+    assert.equal(linking.serverDoc.content[0].content[0].text, 'see [[Trip plan]] b');
+    assert.ok(linking.generation > generation, 'an open editor is remounted with the new text');
+    assert.equal(busy.revision, 3);
+  });
+});

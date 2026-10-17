@@ -62,6 +62,10 @@ phone (`hq-people-pending`, the newest change per person) and are sent when the 
 "Details waiting to be sent". A change the server refuses is shown with **Try again** and **Discard**. A person written
 offline shows on their page at once and joins the list once their note reaches the server.
 
+## Mentions
+
+A person's page ends with **Mentioned in**: the notes that link them with `[[Name]]` or an Also called name. See [LINKS.md](LINKS.md).
+
 ## Export, import, backups
 
 The JSON export has a `people` list (`noteId`, `profile`). **Merge** import adds details for people who have none here

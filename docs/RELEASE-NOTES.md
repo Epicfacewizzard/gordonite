@@ -1,5 +1,25 @@
 # Release notes
 
+## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
+
+Version **0.16.0** (new feature). No schema
+change, so going back to 0.15.0 is the image swap only. Details: [LINKS.md](LINKS.md).
+
+**Added**
+
+- **Linked from** on a note's page and **Mentioned in** on a person's page: the notes that link with `[[title]]`
+  (a person also by an "Also called" name), newest first, with the linking lines.
+- **Renaming a note rewrites the links to it** in other notes through the normal save path; the old text is kept in
+  History ("Before a linked note was renamed"). Phones with those notes open refresh them.
+- **Typing `[[`** suggests notes and people (and a person's other names).
+- `[[Sammy]]` opens a person by an "Also called" name.
+- MCP: `get_backlinks`, `resolve_link` (51 tools). Assistant routes `/api/assistant/notes/:id/backlinks` and
+  `/api/assistant/note-links`.
+
+**Changed:** `/api/note-links` moved to `server/routes/links.js` (same answer, plus `alias`).
+
+**Checked:** `npm test` 347/347; the whole browser suite 161/162 on the first run (the one failure, the attachments image-load test, passed on rerun); `tests/e2e/links.test.js` passes.
+
 ## 0.15.0 — 2026-10-16 — Projects and Waiting on
 
 Version **0.15.0** (new feature). **Schema v11** (a `projects` table), so going back below 0.15.0 needs the pre-update

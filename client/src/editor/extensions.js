@@ -6,6 +6,7 @@ import { describeTask, dueBar, taskMetaLabel } from '../../../shared/tasks.js';
 import { taskButtons } from './taskIcons.js';
 import { TaskHistory } from './task-history.js';
 import { WikiLinks } from './wiki-links.js';
+import { LinkSuggest } from './link-suggest.js';
 import { TaskVisibility } from './task-visibility.js';
 import { Attachment } from './attachments.js';
 import { moveTask } from './task-move.js';
@@ -255,6 +256,7 @@ export function createExtensions({ getNoteId = null, ...taskContext } = {}) {
     TaskList,
     TaskHistory.configure({ getNoteDate: taskContext.getNoteDate ?? null }),
     WikiLinks,
+    LinkSuggest,
     TaskVisibility,
     Attachment.configure({ getNoteId }),
     TaskItemWithDates.configure({ nested: true, ...taskContext }),

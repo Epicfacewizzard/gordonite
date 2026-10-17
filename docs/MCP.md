@@ -77,6 +77,7 @@ Editing (0.11.0; the server must be 0.11.0 or later, or these say the server is 
 | Moods | `edit_mood`, `delete_mood`, `restore_mood` |
 | Habits | `get_habits`, `add_habit`, `edit_habit`, `delete_habit`, `tick_habit` |
 | Skin log | `get_skin_log`, `log_skin`, `edit_skin_entry`, `delete_skin_entry` (each also writes or removes the line in the month's note) |
+| Links | `get_backlinks` (notes linking to a note or person), `resolve_link` |
 | People | `list_people`, `get_person`, `update_person` (details), `log_conversation` |
 
 What each one sends and what the server does is in [ASSISTANT.md](ASSISTANT.md). Deletes are soft and each tool's

@@ -25,3 +25,5 @@ Before-update backup: `/DATA/AppData/gordonite/data/backups/hq-manual-20261006-1
 After-update backup: `/DATA/AppData/gordonite/data/backups/hq-manual-20261006-164835.sqlite`.
 
 Both verified backups contain 111 notes, 26 tags, two versions, and no trash (schema v4). The container reports healthy; MCP ping succeeds. A read-only live browser check opened a linked note and confirmed the header Back button returned to the original source note without revisiting the resolver. No note content was changed for this check.
+
+Since 0.16.0 links also show where they are used and survive renames: see [LINKS.md](LINKS.md).

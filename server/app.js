@@ -15,16 +15,19 @@ import { registerSkinRoutes } from './routes/skin.js';
 import { registerHabitRoutes } from './routes/habits.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerProjectRoutes } from './routes/projects.js';
+import { registerLinkRoutes } from './routes/links.js';
+import { LinkIndex } from './links.js';
 import { registerTagRoutes } from './routes/tags.js';
 import { registerNoteRoutes } from './routes/notes.js';
 import { registerFileRoutes } from './routes/files.js';
 import { registerPortabilityRoutes } from './routes/portability.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.15.0';
+export const APP_VERSION = '0.16.0';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);
+  const links = new LinkIndex(db);
   const assistant = new AssistantNotes(store);
   const files = new FileStore(db, config, convertHeic ? { convertHeic } : {});
   const auth = createAuth(db);
@@ -45,7 +48,7 @@ export function createApp({ config, db, log = console, convertHeic }) {
   }
 
   // Routes are matched in the order they are registered.
-  const context = { route, db, config, store, assistant, files, auth, log, appVersion: APP_VERSION };
+  const context = { route, db, config, store, assistant, links, files, auth, log, appVersion: APP_VERSION };
   registerHealthRoutes(context);
   registerAuthRoutes(context);
   registerSettingsRoutes(context);
@@ -55,6 +58,7 @@ export function createApp({ config, db, log = console, convertHeic }) {
   registerHabitRoutes(context);
   registerPeopleRoutes(context);
   registerProjectRoutes(context);
+  registerLinkRoutes(context);
   registerTagRoutes(context);
   registerNoteRoutes(context);
   registerFileRoutes(context);

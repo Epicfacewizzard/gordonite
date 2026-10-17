@@ -273,6 +273,7 @@ export class Session extends Emitter {
       this.error = null;
       this.retryCount = 0;
       this.serverDoc = snap.doc;
+      if (res.relinked?.length) this.sync.relinked(res.relinked);
       if (this.pending?.seq === snap.seq) {
         this.pending = null;
         this.#forgetLocal(snap.seq);
@@ -562,6 +563,23 @@ export class SyncManager extends Emitter {
 
   get(id) {
     return this.sessions.get(id);
+  }
+
+  /**
+   * The server changed these notes' links after a rename (docs/LINKS.md). Each one open on this phone with nothing
+   * unsent is shown as the server has it now; one with unsent text keeps it and meets a visible conflict instead.
+   */
+  async relinked(ids) {
+    for (const id of ids) {
+      const s = this.sessions.get(id);
+      if (!s || s.hasUnsaved || s.conflict || s.inFlight) continue;
+      try {
+        const { note } = await this.api.getNote(id);
+        if (!s.hasUnsaved && !s.conflict && !s.inFlight && note.revision > s.revision) s.applyServerNote(note);
+      } catch {
+        /* out of reach: it is refreshed the next time it is opened */
+      }
+    }
   }
 
   forget(session) {

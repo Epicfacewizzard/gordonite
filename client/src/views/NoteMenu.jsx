@@ -11,6 +11,7 @@ const KIND_LABEL = {
   conflict: 'Conflicting version kept',
   import: 'From an import',
   restore: 'Before a restore',
+  link: 'Before a linked note was renamed',
 };
 
 const when = (iso) => new Date(iso).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' });
