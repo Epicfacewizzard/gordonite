@@ -7,6 +7,7 @@
 // A weekday means its next occurrence after the note date ("due fri" written on a Friday is the
 // following Friday; write "due today" for the same day).
 import { addDays, isValidDateString } from './dates.js';
+import { findRepeatPhrase } from './repeat.js';
 
 const WEEKDAYS = {
   sunday: 0, sun: 0,
@@ -105,6 +106,9 @@ function findCalendarPhrases(text, noteDate) {
 const TIME = /(?<![\w:])(?:(?<kw>due|starts?|starting)\s+)?(?:at\s+)?(?:(?<h>\d{1,2})(?::(?<m>\d{2}))?\s*(?<mer>am|pm)|(?<h24>\d{1,2}):(?<m24>\d{2})|(?<named>noon|midnight))(?![\w:])/gi;
 export function findDatePhrases(text, noteDate) {
   if (typeof text !== 'string' || !isValidDateString(noteDate)) return [];
+  // A repeat phrase ("every mon", "every 2 weeks") is not a date: blank it out first (same length, so indexes hold).
+  const repeat = findRepeatPhrase(text);
+  if (repeat) text = text.slice(0, repeat.index) + ' '.repeat(repeat.length) + text.slice(repeat.index + repeat.length);
   const times = [];
   let masked = text;
   for (const match of text.matchAll(TIME)) {

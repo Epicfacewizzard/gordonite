@@ -18,7 +18,7 @@ For a note dated **Monday, October 5, 2026**:
 | Essay due oct 12, 2027 | October 12, 2027 | — |
 | Pay rent due in 3 days | October 8 | — |
 
-Times use the **home timezone in Settings**, initially America/Edmonton. Optional HH:mm attributes are stored alongside calendar dates in the original task node. Changing the home timezone retains that date and wall-clock time, interpreted in the new zone. Completion/dismissal timestamps remain UTC instants. During daylight-saving clock repetition the task view follows the current wall clock, so a local time can occur twice. There are no reminders, notifications, alarms, recurrence or automatic emails.
+Times use the **home timezone in Settings**, initially America/Edmonton. Optional HH:mm attributes are stored alongside calendar dates in the original task node. Changing the home timezone retains that date and wall-clock time, interpreted in the new zone. Completion/dismissal timestamps remain UTC instants. During daylight-saving clock repetition the task view follows the current wall clock, so a local time can occur twice. There are no reminders, notifications, alarms or automatic emails. Repeat phrases ("every 2 weeks", "every mon and thu", "monthly") make a task recurring; see [RECURRING-TASKS.md](RECURRING-TASKS.md).
 
 ## Supported patterns
 

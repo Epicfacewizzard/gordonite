@@ -32,6 +32,14 @@ const dateAttr = (name) => ({
   renderHTML: (attrs) => (attrs[name] ? { [`data-${name}`]: attrs[name] } : {}),
 });
 
+const jsonAttr = (name) => ({
+  default: null,
+  parseHTML: (el) => {
+    try { return JSON.parse(el.getAttribute(`data-${name}`)) ?? null; } catch { return null; }
+  },
+  renderHTML: (attrs) => (attrs[name] ? { [`data-${name}`]: JSON.stringify(attrs[name]) } : {}),
+});
+
 // A task in the editor is the stock task (checkbox + text) plus, after the text, the same three round buttons the
 // Tasks page has (hide, due, priority), and a strip colour set from how soon it is due. The buttons live outside
 // the editable text (contenteditable=false) and ProseMirror is told to ignore them, so typing, Enter, Backspace
@@ -207,6 +215,10 @@ const TaskItemWithDates = TaskItem.extend({
         parseHTML: (el) => el.getAttribute('data-priority') || null,
         renderHTML: (attrs) => (attrs.priority ? { 'data-priority': attrs.priority } : {}),
       },
+      // A repeating task's rule and its completion history (shared/repeat.js), as JSON. A copy made by splitting the
+      // task does not take the history with it.
+      repeat: jsonAttr('repeat'),
+      completions: { ...jsonAttr('completions'), keepOnSplit: false },
       hidden: {
         default: false,
         parseHTML: (el) => el.getAttribute('data-hidden') === 'true',
@@ -237,7 +249,7 @@ export function createExtensions({ getNoteId = null, ...taskContext } = {}) {
       trailingNode: false,
     }),
     TaskList,
-    TaskHistory,
+    TaskHistory.configure({ getNoteDate: taskContext.getNoteDate ?? null }),
     WikiLinks,
     TaskVisibility,
     Attachment.configure({ getNoteId }),

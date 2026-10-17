@@ -6,6 +6,7 @@ import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
 import { dateInTz, isValidDateString, isValidTime, timeInTz, hasStarted, isOverdue } from '../shared/dates.js';
 import { DOC_FORMAT, attachmentsIn, plainText } from '../shared/doc.js';
+import { isValidRepeat } from '../shared/repeat.js';
 import { extractTasks, updateTask, removeTask, findTask, taskText, patchedTaskAttrs } from '../shared/tasks.js';
 import { markdownToDoc, inlineToNodes } from '../shared/markdown-import.js';
 import { docToMarkdown } from './markdown.js';
@@ -275,14 +276,22 @@ export class AssistantNotes {
       } else if (k === 'due' || k === 'start' || k === 'hideUntil') {
         if (v !== null && !isValidDateString(v)) throw new HttpError(400, 'bad_task', `"${k}" must be YYYY-MM-DD or null`);
         clean[k] = v;
+      } else if (k === 'repeat') {
+        // A repeat rule { every, unit: day|week|month|year, days? (week, 0 = Sunday), from: due|done }, or null to stop repeating.
+        if (v !== null && !isValidRepeat(v)) throw new HttpError(400, 'bad_task', '"repeat" must be null or { every: 1-365, unit: day|week|month|year, days?: [0-6] (weekly only), from?: due|done }');
+        clean[k] = v;
+      } else if (k === 'skip' || k === 'undoCompletion') {
+        if (v !== true) throw new HttpError(400, 'bad_task', `"${k}" must be true`);
+        clean[k] = v;
       } else if (k === 'text') {
         // The task's own words (bold/italic Markdown allowed); tasks nested under it stay.
         if (typeof v !== 'string' || !v.trim() || v.length > 5_000 || /\n/.test(v)) throw new HttpError(400, 'bad_task', '"text" must be one line of text');
         clean.content = [{ type: 'paragraph', content: inlineToNodes(v.trim()) }];
       }
     }
-    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use text, checked, due, start, dueTime, startTime, hidden, hideUntil or priority)');
-    const doc = updateTask(note.doc, taskId, clean);
+    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use text, checked, due, start, dueTime, startTime, hidden, hideUntil, priority, repeat, skip or undoCompletion)');
+    const doc = updateTask(note.doc, taskId, clean, { noteDate: note.date, tz: this.store.cfg.tz });
+    if (doc && (clean.skip || clean.undoCompletion) && JSON.stringify(doc) === JSON.stringify(note.doc)) throw new HttpError(400, 'bad_task', clean.skip ? 'Only a repeating task can be skipped' : 'There is no completion to undo on that task');
     if (!doc) throw new HttpError(404, 'task_not_found', 'No task with that id in that note. Read the note again with get_note: its "tasks" list has the ids');
     const res = this.store.saveNote(noteId, { baseRevision: note.revision, doc, docFormat: DOC_FORMAT, opId: uuid(), ...(clean.content ? { keepPrevious: true } : {}) });
     return { id: noteId, taskId, revision: res.revision };

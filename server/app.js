@@ -20,7 +20,7 @@ import { registerFileRoutes } from './routes/files.js';
 import { registerPortabilityRoutes } from './routes/portability.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.13.0';
+export const APP_VERSION = '0.14.0';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);

@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { Sheet } from './parts.jsx';
 import { addDays, formatDateShort } from '../../../shared/dates.js';
 import { PRIORITY_LABEL } from '../../../shared/tasks.js';
+import { repeatLabel } from '../../../shared/repeat.js';
 import { ICON_PATHS } from '../editor/taskIcons.js';
 
 // The small menus behind a task's round buttons: when it is due (or starts), how important it is, and
@@ -71,7 +72,7 @@ function ChooseDate({ onPick }) {
 }
 
 /** Due date. The footer switches the same menu to the start date ("Starts at"). */
-export function DateMenu({ today, due, start, onPick, onClose }) {
+export function DateMenu({ today, due, start, repeat = null, onPick, onClose, onRepeat = null }) {
   const [mode, setMode] = useState('due');
   const current = mode === 'due' ? due : start;
   const pick = (date) => {
@@ -87,6 +88,7 @@ export function DateMenu({ today, due, start, onPick, onClose }) {
         <ChooseDate key={mode} onPick={pick} />
         {current && <Row label={mode === 'due' ? 'Clear due date' : 'Clear start date'} onClick={() => pick(null)} testid="menu-clear" />}
         <Row label={mode === 'due' ? 'Add start date' : 'Back to due date'} onClick={() => setMode(mode === 'due' ? 'start' : 'due')} testid="menu-switch" />
+        {onRepeat && <Row label="Repeat…" hint={repeat ? repeatLabel(repeat) : 'Does not repeat'} onClick={onRepeat} testid="menu-repeat" />}
       </div>
     </Sheet>
   );

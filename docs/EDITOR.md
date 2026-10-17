@@ -119,3 +119,10 @@ Task history date correction operates on the original task node attributes. Its 
 Tasks can now be reordered within the same task list in an active note. Drag the left grip to the top or bottom half of another sibling task, or use Move up/down in Task details. Moving a parent carries its nested tasks. A single ProseMirror transaction moves existing nodes, preserving IDs, formatting, metadata and cursor offsets; an undo boundary separates the move from typing before and after it. The grip uses minimal pointer handling outside editable text, like the separate history grip. This does not implement text editing or change list nesting; use Indent/Outdent to change nesting. Moving between separate lists or notes is not implemented. Phone date/task controls are automated in mobile emulation; actual S24 keyboard and touch dragging still require verification.
 
 Today and Tasks text buttons activate a single Tiptap editor for the selected task's own content. Each edit writes through its original note save session; nested task lists and task metadata remain in the original node. Only the right-hand arrow opens details. Done editing closes the row editor and recalculates date grouping, so a newly typed date cannot move the row away mid-keystroke. Engine undo/redo works while that row editor is active; closing it ends its transient editor undo history. Actual S24 keyboard/composition still needs verification.
+
+## Repeating tasks in the editor
+
+A task may carry `repeat` (a rule) and `completions` (its history) as optional attributes (JSON in `data-repeat` /
+`data-completions`; no format bump). Ticking the checkbox of a repeating task is handled by `TaskHistory`
+(`client/src/editor/task-history.js`) in the same transaction as the tick, so one undo puts the due date and history back;
+the rules are `patchedTaskAttrs` in `shared/tasks.js`. See [RECURRING-TASKS.md](RECURRING-TASKS.md).

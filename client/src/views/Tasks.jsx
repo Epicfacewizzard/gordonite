@@ -1,8 +1,11 @@
 import { useState } from 'preact/hooks';
+import { shownPatch } from '../task-data.js';
+import { findRepeatPhrase, repeatLabel } from '../../../shared/repeat.js';
+import { RepeatMenu } from './TaskRepeat.jsx';
 import { taskCommands } from '../task-commands.js';
 import { useToday, useNowTime, useTaskData } from '../hooks.js';
 import { bucketOf, groupTasks, streamsOf, visibleSections, withinRange, isHiddenNow } from '../task-groups.js';
-import { addDays, formatDateShort, formatDateLabel, isOverdue } from '../../../shared/dates.js';
+import { addDays, dateInTz, formatDateShort, formatDateLabel, isOverdue } from '../../../shared/dates.js';
 import { findDatePhrases } from '../../../shared/taskdates.js';
 import { PRIORITY_LABEL, dueBar, taskKey as keyOf } from '../../../shared/tasks.js';
 import { TaskDetails } from './TaskSheet.jsx';
@@ -15,13 +18,20 @@ import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMen
 function TaskText({ text, date }) {
   const parts = [];
   let at = 0;
-  for (const p of findDatePhrases(text, date)) {
+  const repeat = findRepeatPhrase(text);
+  const phrases = [...findDatePhrases(text, date), ...(repeat ? [repeat] : [])].sort((a, b) => a.index - b.index);
+  for (const p of phrases) {
     if (p.index < at) continue;
     parts.push(text.slice(at, p.index), <span key={p.index} class="typed-date">{text.slice(p.index, p.index + p.length)}</span>);
     at = p.index + p.length;
   }
   parts.push(text.slice(at));
   return parts;
+}
+
+/** Every recorded completion of the repeating tasks, as Done-list entries (completedAt = when it was done). */
+export function completionRows(tasks) {
+  return (tasks ?? []).flatMap((t) => (t.dismissedAt ? [] : (t.completions ?? []).map((c) => ({ ...t, checked: true, completedAt: c.at, completion: c }))));
 }
 
 // Which section a task is in, how each is ordered and how much the dashboard's box shows are rules of their own
@@ -77,7 +87,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
   // conflict protection). Once it has been made the note's own copy shows it, so what was shown at once is let go; if it
   // could not be made, that is let go too and what is really there comes back, with the reason.
   const apply = async (task, patch) => {
-    const release = data.optimistic(task.noteId, task.taskId, patch);
+    const release = data.optimistic(task.noteId, task.taskId, patch && shownPatch(task, patch));
     try {
       const changed = patch === null ? await taskCommands.remove(task.noteId, task.taskId) : await taskCommands.update(task.noteId, task.taskId, patch);
       if (!changed) throw new Error('That task is no longer in its note.');
@@ -90,16 +100,40 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
     }
   };
 
+  // A repeating task is not completed by a tick: it moves on to its next date (the note keeps the completion), so it is
+  // not held in place struck through; a notice says where it went, with Undo.
+  const [repeated, setRepeated] = useState(null); // { key, text }
   const toggle = (task) => {
     if (task.dismissedAt) return;
+    if (task.repeat && !task.checked) {
+      setRepeated({ key: keyOf(task), text: task.text, noteId: task.noteId, taskId: task.taskId });
+      apply(task, { checked: true });
+      return;
+    }
     setTouched((s) => new Set(s).add(keyOf(task)));
     apply(task, { checked: !task.checked });
   };
+  const repeatedRow = repeated && tasks?.find((x) => keyOf(x) === repeated.key);
 
   const buckets = groupTasks(tasks, { today, now, touched, pinned: editing && editingBucket ? new Map([[editing, editingBucket]]) : null });
   const streams = streamsOf(buckets.anytime);
   const { showToday, showUpcoming, showUndated, upcomingShown, undatedShown, undatedMore, openCount, listed } = visibleSections(buckets, { level, compact, today });
   const EMPTY = { overdue: 'Nothing overdue.', today: 'Nothing overdue or due today.', week: 'Nothing overdue or coming up this week.' };
+  // One entry of a repeating task's history in the Done list: the task stays open in its note, so this is a record, not a
+  // row to tick. It links to the note.
+  const completionRow = (t) => (
+    <li key={`${keyOf(t)}@${t.completion.at}`} class="task-row done completion-row" data-testid="completion-row" data-skipped={t.completion.skipped ? 'true' : undefined}>
+      <span class="task-check" aria-hidden="true">↻</span>
+      <div class="task-body">
+        <span class="task-text">{t.text}</span>
+        <span class="task-meta">
+          <span class="task-chip">{t.completion.skipped ? 'skipped' : 'done'} · {formatDateShort(dateInTz(new Date(t.completion.at), config.tz))}{t.completion.due ? ` · for ${formatDateShort(t.completion.due)}` : ''}</span>
+          <a href={`#/n/${t.noteId}`}>{t.tags[0] ?? 'Open note'}</a>
+        </span>
+      </div>
+    </li>
+  );
+
   const row = (t) => {
     const overdue = !t.checked && isOverdue(t.due, t.dueTime, today, now);
     const hiddenNow = isHiddenNow(t, today);
@@ -118,6 +152,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
           <span class="task-meta">
             {t.dismissedAt && <span class="task-chip" data-testid="chip-dismissed">dismissed · {new Date(t.dismissedAt).toLocaleDateString('en-CA', { timeZone: config.tz })}</span>}
             {t.due && <span class={`task-chip${overdue ? ' overdue' : ''}`} data-testid="chip-due">due {formatDateLabel(t.due, today)}{t.dueTime && ` at ${t.dueTime}`}</span>}
+            {t.repeat && !t.dismissedAt && <span class="task-chip" data-testid="chip-repeat" title={`Repeats ${repeatLabel(t.repeat)}`}>↻ {repeatLabel(t.repeat, { withFrom: false })}</span>}
             {t.start && <span class="task-chip" data-testid="chip-start">starts {formatDateLabel(t.start, today)}{t.startTime && ` at ${t.startTime}`}</span>}
             {t.hidden && <span class="task-chip" data-testid="chip-hidden">hidden</span>}
             {!t.hidden && t.hideUntil && t.hideUntil > today && <span class="task-chip" data-testid="chip-hidden">hidden until {formatDateShort(t.hideUntil)}</span>}
@@ -156,7 +191,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
               noteId={t.noteId}
               where={`${t.tags[0] ?? 'No tag'} · ${formatDateShort(t.date)}`}
               today={today}
-              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt }}
+              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt, repeat: t.repeatFrom === 'set' ? t.repeat : null, completions: t.completions }}
               onChange={(patch) => apply(t, patch)}
               onDelete={() => apply(t, null)}
               onDone={() => toggleExpanded(t)}
@@ -192,7 +227,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
                 </span>
               )}
             </div>
-            {list.length > 0 ? <ul class="task-list">{list.map(row)}</ul> : <p class="muted">Nothing in this date range.</p>}
+            {list.length > 0 ? <ul class="task-list">{list.map((t) => (t.completion ? completionRow(t) : row(t)))}</ul> : <p class="muted">Nothing in this date range.</p>}
           </>
         )}
       </section>
@@ -254,6 +289,13 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
           {compact ? 'Nothing is due. Open All tasks to see everything.' : 'Nothing to do. Turn a line into a task with the toolbar’s task button while writing a note.'}
         </p>
       )}
+      {repeatedRow && (
+        <div class="banner" role="status" data-testid="repeat-notice">
+          <span>Done: {repeated.text}.{repeatedRow.due ? ` Next due ${formatDateLabel(repeatedRow.due, today)}.` : ''}</span>
+          <button type="button" class="btn" data-testid="repeat-undo" onClick={() => { apply(repeatedRow, { undoCompletion: true }); setRepeated(null); }}>Undo</button>
+          <button type="button" class="btn ghost" aria-label="Close" onClick={() => setRepeated(null)}>×</button>
+        </div>
+      )}
       {section('overdue', 'Overdue', buckets.overdue)}
       {showToday && section('today', 'Due today', buckets.today)}
       {showUpcoming && section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
@@ -277,14 +319,15 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
       )}
       {!compact && folded('later', 'Starts later', buckets.later)}
       {!compact && folded('hidden', 'Hidden', buckets.hidden)}
-      {!compact && archived('done', 'Done', buckets.done)}
+      {!compact && archived('done', 'Done', [...buckets.done, ...completionRows(tasks)])}
       {!compact && archived('dismissed', 'Dismissed', buckets.dismissed)}
       {menu && (() => {
         const t = tasks?.find((x) => keyOf(x) === menu.key);
         if (!t) return null;
         const close = () => setMenu(null);
         const onPick = (patch) => apply(t, patch);
-        if (menu.kind === 'date') return <DateMenu today={today} due={t.dueFrom === 'set' ? t.due : null} start={t.startFrom === 'set' ? t.start : null} onPick={onPick} onClose={close} />;
+        if (menu.kind === 'date') return <DateMenu today={today} due={t.dueFrom === 'set' ? t.due : null} start={t.startFrom === 'set' ? t.start : null} repeat={t.repeat} onPick={onPick} onClose={close} onRepeat={() => setMenu({ key: menu.key, kind: 'repeat' })} />;
+        if (menu.kind === 'repeat') return <RepeatMenu text={t.text} picked={t.repeatFrom === 'set' ? t.repeat : null} due={t.due} today={today} onChange={onPick} onClose={close} />;
         if (menu.kind === 'hide') return <HideMenu today={today} hidden={t.hidden} hideUntil={t.hideUntil} onPick={onPick} onClose={close} />;
         return <PriorityMenu value={t.priority} onPick={onPick} onClose={close} />;
       })()}

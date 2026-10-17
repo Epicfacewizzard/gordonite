@@ -16,10 +16,13 @@ export function TaskArchive({ doc, noteDate, today, tz, onReactivate, onPatch })
   const [editing, setEditing] = useState(null);
   const [pickedDay, setPickedDay] = useState(today);
   const gesture = useRef(null);
-  const tasks = extractTasks(doc, noteDate).filter((t) => t.checked || t.dismissedAt).map((t) => {
+  const all = extractTasks(doc, noteDate);
+  // A repeating task stays open in the note; each recorded completion is listed here as its own read-only entry.
+  const completions = all.filter((t) => !t.dismissedAt).flatMap((t) => t.completions.map((c) => ({ ...t, id: `${t.id}@${c.at}`, completion: c, day: dateInTz(new Date(c.at), tz), state: 'completed' })));
+  const tasks = [...all.filter((t) => t.checked || t.dismissedAt).map((t) => {
     const timestamp = t.dismissedAt || t.completedAt;
     return { ...t, day: timestamp ? dateInTz(new Date(timestamp), tz) : null, state: t.dismissedAt ? 'dismissed' : 'completed' };
-  }).sort((a, b) => (b.day || '').localeCompare(a.day || ''));
+  }), ...completions].sort((a, b) => (b.day || '').localeCompare(a.day || ''));
   if (!tasks.length) return null;
   const valid = !from || !to || from <= to;
   const shown = tasks.filter((t) => (kind === 'all' || t.state === kind) && (!t.day || (valid && (!from || t.day >= from) && (!to || t.day <= to))));
@@ -50,7 +53,7 @@ export function TaskArchive({ doc, noteDate, today, tz, onReactivate, onPatch })
     {error && <p class="error" role="alert">{error}</p>}
     {!shown.length && <p class="muted">No tasks in this date range.</p>}
     {dragging && <p class="small muted" role="status">Drop on a day to change the recorded date. Tap the grip to choose any older date.</p>}
-    {[...groups].sort(([a], [b]) => b.localeCompare(a)).map(([day, items]) => <section key={day} class={`archive-day${dragging ? ' drop-zone' : ''}${dropDay === day ? ' drop-active' : ''}`} data-history-day={day} onDragOver={(e) => { if (dragging && day !== 'unknown' && day <= today) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropDay(day); } }} onDrop={(e) => { if (dragging && day !== 'unknown') { e.preventDefault(); changeDay(dragging, day); setDragId(null); setDropDay(null); } }}><h3 class="section">{day === 'unknown' ? 'Date not recorded' : formatDateShort(day)}</h3><ul class="archive-list">{items.map((task) => <li key={task.id} data-testid="archive-task" data-state={task.state}>
+    {[...groups].sort(([a], [b]) => b.localeCompare(a)).map(([day, items]) => <section key={day} class={`archive-day${dragging ? ' drop-zone' : ''}${dropDay === day ? ' drop-active' : ''}`} data-history-day={day} onDragOver={(e) => { if (dragging && day !== 'unknown' && day <= today) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropDay(day); } }} onDrop={(e) => { if (dragging && day !== 'unknown') { e.preventDefault(); changeDay(dragging, day); setDragId(null); setDropDay(null); } }}><h3 class="section">{day === 'unknown' ? 'Date not recorded' : formatDateShort(day)}</h3><ul class="archive-list">{items.map((task) => task.completion ? <li key={task.id} data-testid="archive-task" data-state="repeat"><span class="archive-grip" aria-hidden="true" /><span class="archive-restore" role="img" aria-label="Repeating task">↻</span><span class="archive-task-text">{task.text} <span class="muted small">{task.completion.skipped ? 'skipped' : 'done'}{task.completion.due ? ` · for ${formatDateShort(task.completion.due)}` : ''}</span></span></li> : <li key={task.id} data-testid="archive-task" data-state={task.state}>
       <button type="button" class="archive-grip" aria-label={`Change recorded date for ${task.text}`} title="Drag to another day, or tap to choose a date"
         onPointerDown={(e) => { if (e.button !== 0 || !onPatch) return; gesture.current = { x: e.clientX, y: e.clientY, moved: false, active: true }; e.currentTarget.setPointerCapture(e.pointerId); }}
         onPointerMove={(e) => {

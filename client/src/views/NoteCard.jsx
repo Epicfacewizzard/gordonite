@@ -10,6 +10,7 @@ import { ConflictPanel } from './parts.jsx';
 import { NoteMenu } from './NoteMenu.jsx';
 import { TagEditor } from './TagEditor.jsx';
 import { DateMenu, HideMenu, PriorityMenu } from './TaskMenus.jsx';
+import { RepeatMenu } from './TaskRepeat.jsx';
 import { extractTasks } from '../../../shared/tasks.js';
 import { TaskArchive } from './TaskArchive.jsx';
 import { getShiftDismiss } from '../prefs.js';
@@ -162,7 +163,8 @@ export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active,
         if (!t) return null;
         const close = () => setTaskMenu(null);
         const pick = (patch) => session.applyTaskPatch(t.id, patch);
-        if (taskMenu.kind === 'date') return <DateMenu today={today} due={t.dueFrom === 'set' ? t.due : null} start={t.startFrom === 'set' ? t.start : null} onPick={pick} onClose={close} />;
+        if (taskMenu.kind === 'date') return <DateMenu today={today} due={t.dueFrom === 'set' ? t.due : null} start={t.startFrom === 'set' ? t.start : null} repeat={t.repeat} onPick={pick} onClose={close} onRepeat={() => setTaskMenu({ ...taskMenu, kind: 'repeat' })} />;
+        if (taskMenu.kind === 'repeat') return <RepeatMenu text={t.text} picked={t.repeatFrom === 'set' ? t.repeat : null} due={t.due} today={today} onChange={pick} onClose={close} />;
         if (taskMenu.kind === 'hide') return <HideMenu today={today} hidden={t.hidden} hideUntil={t.hideUntil} onPick={pick} onClose={close} />;
         return <PriorityMenu value={t.priority} onPick={pick} onClose={close} />;
       })()}

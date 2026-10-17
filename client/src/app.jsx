@@ -24,6 +24,7 @@ import { flushSkinQueue } from './skin-log.js';
 import { connection } from './connection.js';
 import { warmCopy } from './warm.js';
 import { STATUS_TEXT } from './views/parts.jsx';
+import { setRepeatZone } from '../../shared/repeat.js';
 
 const CONFIG_CACHE = 'hq-config';
 const AUTH_SEEN = 'hq-auth-seen'; // 'open' or 'login': what the server said about this device last time
@@ -210,6 +211,8 @@ export function App() {
   const route = useHashRoute();
   const [config, setConfig] = useState(loadCachedConfig);
   const [error, setError] = useState(null);
+  // A repeating task ticked "from completion" counts from the day in the home timezone (shared/repeat.js).
+  setRepeatZone(config?.tz);
   // 'checking' until the server says whether a password is set; 'login' shows only the login page; else 'open'.
   // If this device was let in last time, open at once and let the server's answer lock it if that changed.
   const [gate, setGate] = useState(() => (loadAuthSeen() === 'open' ? 'open' : 'checking'));

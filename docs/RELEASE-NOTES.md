@@ -1,5 +1,28 @@
 # Release notes
 
+## 0.14.0 — 2026-10-16 — Recurring tasks
+
+Version **0.14.0** (new feature). A task can repeat, keeps a history of every time it was done, and counts its next date
+from its scheduled date or from the day it was done. No schema change (attributes on the task inside its note), so
+going back to 0.13.0 is the image swap only; an older app shows a repeating task as an ordinary one. Full description:
+[RECURRING-TASKS.md](RECURRING-TASKS.md).
+
+**Added**
+
+- **Repeat rule** (`shared/repeat.js`): daily, weekly (chosen weekdays), monthly, yearly, every N days/weeks/months/years,
+  from the scheduled date or from the completion day (home timezone). Month ends clamp (31st to Feb 28/29, back to the 31st);
+  Feb 29 yearly falls on Feb 28.
+- **Ticking** a repeating task keeps it open, moves the due date (and start) on, and records the completion; **Skip this one**
+  and **Undo last completion**. One undo step in the editor; the same rules everywhere (`patchedTaskAttrs`).
+- **Setting it:** Repeat section in task details, a Repeat… row in the due-date menu, or typed words ("every 2 weeks",
+  "every mon and thu", "monthly", "every 3 days from done"). A repeat phrase is not read as a date.
+- **Showing it:** a "↻" chip on the Tasks list and dashboard, a Done notice with Undo, the history in task details, completions in
+  the Done list and the note's Task history.
+- **Agents:** `update_task` takes `repeat`, `skip`, `undoCompletion`; `get_note` tasks carry `repeat`, `repeatFrom`, `completions`.
+
+**Tests:** `tests/client/repeat.test.js` (date math, parser, ticking), repeat cases in `task-parity.test.js`, `mcp-edit.test.js`,
+and `tests/e2e/repeat.test.js`.
+
 ## 0.13.0 — 2026-10-16 — Backdate habit check-ins
 
 Version **0.13.0** (new feature). Client only, built on 0.12.0; no schema or API change, so going back to 0.12.0 is the

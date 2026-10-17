@@ -40,7 +40,7 @@ export function EditorBar({ editor, noteDate, today }) {
       const node = $from.node(d);
       if (node.type.name !== 'taskItem') continue;
       const a = node.attrs;
-      setSheet({ id: a.id, text: taskText(node.toJSON()), picked: { dueTime: a.dueTime, startTime: a.startTime, due: a.due, start: a.start, hidden: a.hidden, hideUntil: a.hideUntil, priority: a.priority, dismissedAt: a.dismissedAt } });
+      setSheet({ id: a.id, text: taskText(node.toJSON()), picked: { dueTime: a.dueTime, startTime: a.startTime, due: a.due, start: a.start, hidden: a.hidden, hideUntil: a.hideUntil, priority: a.priority, dismissedAt: a.dismissedAt, repeat: a.repeat, completions: a.completions ?? [] } });
       return;
     }
   };

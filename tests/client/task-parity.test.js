@@ -54,6 +54,13 @@ const PATCHES = [
   { checked: true, completedAt: '2026-10-01T08:00:00.000Z' },
   { content: [paragraph('renamed task')] },
   { content: [paragraph('two'), paragraph('paragraphs')] },
+  // recurring tasks: set a rule, tick (moves the due date on and records it), skip, take back, clear
+  { repeat: { every: 1, unit: 'month', from: 'due' }, due: '2026-01-31' },
+  { repeat: { every: 2, unit: 'week', days: [1, 4], from: 'done' } },
+  { repeat: { every: 1, unit: 'month', from: 'due' }, checked: true },
+  { skip: true },
+  { undoCompletion: true },
+  { repeat: null },
 ];
 
 describe('one change, two paths', () => {

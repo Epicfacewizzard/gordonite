@@ -72,7 +72,7 @@ Editing (0.11.0; the server must be 0.11.0 or later, or these say the server is 
 | Area | Tools |
 |---|---|
 | Notes | `set_note_title`, `add_note_tag`, `remove_note_tag`, `rewrite_note` (whole text from edited `get_note` Markdown; tasks keep their ids), `list_versions`, `get_version`, `restore_version` (undo), `list_trash`, `restore_note` |
-| Tasks | `update_task` (now also `text`, `priority`, `hideUntil`), `delete_task`, `move_task` |
+| Tasks | `update_task` (now also `text`, `priority`, `hideUntil`, and since 0.14.0 `repeat`, `skip`, `undoCompletion`: [RECURRING-TASKS.md](RECURRING-TASKS.md)), `delete_task`, `move_task` |
 | Tags and settings | `list_tags`, `move_tag` (rename and/or move), `set_tag` (star, daily entry on/off), `set_daily_tag` |
 | Moods | `edit_mood`, `delete_mood`, `restore_mood` |
 | Habits | `get_habits`, `add_habit`, `edit_habit`, `delete_habit`, `tick_habit` |

@@ -7,7 +7,7 @@
 // What a change means (when a completion time is stamped, what a dismissed task refuses, which attributes are
 // stored) is decided once, in patchedTaskAttrs; this file only turns the result into steps.
 import { closeHistory } from '@tiptap/pm/history';
-import { patchedTaskAttrs } from '../../../shared/tasks.js';
+import { patchedTaskAttrs, taskText } from '../../../shared/tasks.js';
 
 function findTask(doc, taskId) {
   let found = null;
@@ -24,13 +24,14 @@ function findTask(doc, taskId) {
  * paragraphs and keeps any tasks nested under it). True when the task is in the note, even if the patch is one it
  * refuses (completing a dismissed task changes nothing); false when there is no such task.
  */
-export function putTaskPatch(tr, schema, taskId, patch, { now } = {}) {
+export function putTaskPatch(tr, schema, taskId, patch, { now, noteDate, tz } = {}) {
   const found = findTask(tr.doc, taskId);
   if (!found) return false;
-  const attrs = patchedTaskAttrs(found.node.attrs, patch, now);
+  const attrs = patchedTaskAttrs(found.node.attrs, patch, now, { text: taskText(found.node.toJSON()), noteDate, tz });
   if (!attrs) return true;
-  // Dismissing or completing is its own undo step, so one undo puts the task back and not the typing before it.
-  if ('dismissedAt' in patch || 'completedAt' in patch) closeHistory(tr);
+  // Dismissing, completing, skipping or taking back a repeat's completion is its own undo step, so one undo puts the
+  // task back and not the typing before it.
+  if ('dismissedAt' in patch || 'completedAt' in patch || patch.skip || patch.undoCompletion || (attrs.completions?.length ?? 0) !== (found.node.attrs.completions?.length ?? 0)) closeHistory(tr);
   tr.setNodeMarkup(found.pos, undefined, attrs);
   if (patch.content) {
     const nested = [];

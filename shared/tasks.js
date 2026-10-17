@@ -10,10 +10,13 @@
 //   hidden true         kept out of the combined Tasks list (still in its note)
 //   hideUntil YYYY-MM-DD  hidden from the list until that day, then back by itself
 //   priority  'both' | 'urgent' | 'important'   (none = no attribute)
+//   repeat    { every, unit, days?, day?, from }   a recurring task (shared/repeat.js); "every 2 weeks" typed works too
+//   completions  [{ at, due, skipped?, prev? }]  a repeating task's history: ticking it records one and moves `due` on
 // A date typed in the text ("due fri", see taskdates.js) is used when no date was picked;
 // a picked date always wins.
 import { addDays, formatDateShort } from './dates.js';
 import { parseTaskSchedule } from './taskdates.js';
+import { findRepeatPhrase, isValidRepeat, normalRepeat, nextOccurrence, repeatLabel, repeatZone, MAX_COMPLETIONS } from './repeat.js';
 
 const inlineText = (node) => {
   if (node.type === 'text') return node.text;
@@ -55,7 +58,16 @@ export function describeTask(item, noteDate) {
     priority: a.priority ?? null,
     dueFrom: a.due ? 'set' : typed.due ? 'text' : null,
     startFrom: a.start ? 'set' : typed.start ? 'text' : null,
+    ...repeatOf(a, text),
+    completions: a.completions ?? [],
   };
+}
+
+// A task's repeat rule: the picked one, or one typed in its words ("every 2 weeks"). { repeat, repeatFrom }.
+function repeatOf(a, text) {
+  if (a.repeat) return { repeat: a.repeat, repeatFrom: 'set' };
+  const typed = findRepeatPhrase(text);
+  return typed ? { repeat: typed.rule, repeatFrom: 'text' } : { repeat: null, repeatFrom: null };
 }
 
 /** What names one row of the task list: the note and the task in it. */
@@ -114,6 +126,9 @@ export function taskRecords({ id, doc, date, tags, revision = 0 }) {
     priority: t.priority,
     dueFrom: t.dueFrom,
     startFrom: t.startFrom,
+    repeat: t.repeat,
+    repeatFrom: t.repeatFrom,
+    completions: t.completions,
     date,
     tags,
     revision,
@@ -121,7 +136,7 @@ export function taskRecords({ id, doc, date, tags, revision = 0 }) {
 }
 
 // Attributes that are only stored when they mean something, so untouched tasks stay exactly as before.
-const OPTIONAL = { dueTime: (v) => !v, startTime: (v) => !v, due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v, dismissedAt: (v) => !v, completedAt: (v) => !v };
+const OPTIONAL = { dueTime: (v) => !v, startTime: (v) => !v, due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v, dismissedAt: (v) => !v, completedAt: (v) => !v, repeat: (v) => !v, completions: (v) => !v?.length };
 
 function tidyAttrs(attrs) {
   const next = { ...attrs };
@@ -146,23 +161,52 @@ export function cleanTaskAttrs(doc) {
  * same task whether or not the note's editor is open. `patch.content` (the task's text) is not an attribute and is
  * left to the caller.
  */
-export function patchedTaskAttrs(attrs, patch, now = new Date().toISOString()) {
+export function patchedTaskAttrs(attrs, patch, now = new Date().toISOString(), ctx = {}) {
   if (patch.checked === true && (patch.dismissedAt ?? attrs.dismissedAt) && patch.dismissedAt !== null) return null;
-  const { content, ...changes } = patch;
+  const { content, skip, undoCompletion, ...changes } = patch;
+  // Repeating tasks (shared/repeat.js). ctx = { text, noteDate, tz } lets a rule or dates typed in the words count.
+  const typed = ctx.noteDate ? parseTaskSchedule(ctx.text ?? '', ctx.noteDate) : {};
+  const effectiveDue = (a) => a.due ?? typed.due ?? (a.dueTime && ctx.noteDate ? ctx.noteDate : null);
+  if ('repeat' in changes) {
+    if (changes.repeat && !isValidRepeat(changes.repeat)) return null;
+    changes.repeat = changes.repeat ? anchored(normalRepeat(changes.repeat), effectiveDue({ ...attrs, ...changes })) : null;
+  }
+  const merged = { ...attrs, ...changes };
+  const rule = merged.repeat ?? (ctx.text ? findRepeatPhrase(ctx.text)?.rule : null);
+  const history = merged.completions ?? [];
+  if (undoCompletion) {
+    const last = history.at(-1);
+    if (!last?.prev) return null; // only the latest completion can be taken back, once
+    return tidyAttrs({ ...merged, due: last.prev.due ?? null, start: last.prev.start ?? null, hideUntil: last.prev.hideUntil ?? null, completions: history.slice(0, -1) });
+  }
+  const ticking = changes.checked === true && !attrs.checked;
+  if ((ticking || skip) && rule && !merged.dismissedAt) {
+    const due = effectiveDue(merged);
+    const start = merged.start ?? typed.start ?? null;
+    const firstDue = history.find((c) => c.due)?.due ?? due;
+    const next = nextOccurrence(rule, { due, start, now, tz: ctx.tz ?? repeatZone(), anchor: firstDue ? Number(firstDue.slice(8, 10)) : undefined });
+    const prev = {};
+    for (const k of ['due', 'start', 'hideUntil']) if (merged[k]) prev[k] = merged[k];
+    const entry = { at: now, due, ...(ticking ? {} : { skipped: true }), prev };
+    const completions = [...history.map(({ prev: _, ...c }) => c), entry].slice(-MAX_COMPLETIONS);
+    return tidyAttrs({ ...merged, checked: false, completedAt: null, due: next.due, ...(next.start ? { start: next.start } : {}), hideUntil: null, completions });
+  }
+  if (skip) return null; // only a repeating task can be skipped
   const stamp = 'checked' in changes && changes.checked !== !!attrs.checked ? { completedAt: changes.checked ? now : null } : {};
   return tidyAttrs({ ...attrs, ...stamp, ...changes });
 }
 
 /**
  * A copy of the document with a patch applied to one task ({ checked, due, start, hidden }; a null date
- * or hidden: false removes it), or null if no task has that id. `now` is only for tests.
+ * or hidden: false removes it), or null if no task has that id. `now` is only for tests. `noteDate` (and `tz`, the home
+ * timezone) let a repeating task's typed rule and dates count when it is ticked.
  */
-export function updateTask(doc, taskId, patch, { now } = {}) {
+export function updateTask(doc, taskId, patch, { now, noteDate, tz } = {}) {
   let found = false;
   const walk = (node) => {
     if (node.type === 'taskItem' && node.attrs?.id === taskId) {
       found = true;
-      const attrs = patchedTaskAttrs(node.attrs, patch, now);
+      const attrs = patchedTaskAttrs(node.attrs, patch, now, { text: taskText(node), noteDate, tz });
       if (!attrs) return node; // refused: the task is there, and stays exactly as it was
       node = { ...node, attrs };
       if (patch.content) node.content = [...patch.content, ...(node.content ?? []).filter((c) => c.type === 'taskList')];
@@ -171,6 +215,13 @@ export function updateTask(doc, taskId, patch, { now } = {}) {
   };
   const next = walk(doc);
   return found ? next : null;
+}
+
+// A monthly or yearly rule counted from the due date remembers the day of the month it belongs on (the 31st stays the
+// 31st after a short month).
+function anchored(rule, due) {
+  if ((rule.unit === 'month' || rule.unit === 'year') && rule.from === 'due' && !rule.day && due) return { ...rule, day: Number(due.slice(8, 10)) };
+  return rule;
 }
 
 export const setTaskChecked = (doc, taskId, checked) => updateTask(doc, taskId, { checked });
@@ -213,6 +264,7 @@ export function taskMetaLabel(attrs) {
   if (!attrs?.start && attrs?.startTime) parts.push(`starts at ${attrs.startTime}`);
   if (attrs?.due) parts.push(`due ${formatDateShort(attrs.due)}${attrs.dueTime ? ` at ${attrs.dueTime}` : ''}`);
   if (attrs?.start) parts.push(`starts ${formatDateShort(attrs.start)}${attrs.startTime ? ` at ${attrs.startTime}` : ''}`);
+  if (attrs?.repeat) parts.push(`repeats ${repeatLabel(attrs.repeat)}`);
   if (attrs?.hidden) parts.push('hidden');
   else if (attrs?.hideUntil) parts.push(`hidden until ${formatDateShort(attrs.hideUntil)}`);
   return parts.join(' · ');

@@ -91,7 +91,7 @@ Files: `client/src/views/EarlierNotes.jsx` (new; reuses the stream's `NoteCard`)
 
 - Daily and ordinary titled notes, formatting, bullets/nested lists, inline tasks, tags/sub-tags, exact-tag streams, search, and folder-style note browsing. Tags page: collapsed parents and drag to move/nest.
 - Tasks can be completed, dismissed (Shift-click a checkbox dismisses), deleted, restored, scheduled, and moved. Completed items stay in the document as crossed-out rows; dismissed items are hidden from the writing surface. Each note has date-filtered task history; the Tasks page has Done and Dismissed lists with a date range.
-- Natural dates/times (`docs/NATURAL-DATES.md`): relative phrases use the **note date**. No alarms, notifications or recurrence.
+- Natural dates/times (`docs/NATURAL-DATES.md`): relative phrases use the **note date**. No alarms or notifications. Recurring tasks (0.14.0): `docs/RECURRING-TASKS.md`.
 - Dashboard (the "Today" route, `#/`): widgets (New note, starred tags, Tasks box, Mood, Today's note) can be shown, hidden, reordered and moved between columns per device in Settings → Dashboard.
 - Optional login password, off by default (`docs/LOGIN.md`). Stable HTTPS is still unfinished.
 - People cards/search/group filters are views over ordinary notes tagged `05-people` and its children, not a separate contacts database.

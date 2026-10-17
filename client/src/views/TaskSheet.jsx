@@ -3,6 +3,8 @@ import { Sheet } from './parts.jsx';
 import { addDays, formatDateShort } from '../../../shared/dates.js';
 import { findDatePhrases } from '../../../shared/taskdates.js';
 import { PriorityStar } from './TaskMenus.jsx';
+import { RepeatEditor, CompletionList } from './TaskRepeat.jsx';
+import { repeatZone, findRepeatPhrase } from '../../../shared/repeat.js';
 
 /**
  * Everything about one task in one place: when it is due, when it starts, hide until, priority, and hiding it
@@ -97,6 +99,8 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, uid 
           ))}
         </div>
       </div>
+      <RepeatEditor uid={uid} text={text} picked={picked.repeat ?? null} due={values.due ?? typed.due} today={today} onChange={change} />
+      <CompletionList completions={picked.completions ?? []} tz={repeatZone()} repeating={!!(picked.repeat || findRepeatPhrase(text))} onChange={(patch) => { onChange(patch); onDone?.(); }} />
       <label class="check-row">
         <input type="checkbox" checked={values.hidden} onChange={(e) => change({ hidden: e.currentTarget.checked })} data-testid="input-hidden" />
         <span>Hide from the Tasks list (it stays in its note)</span>

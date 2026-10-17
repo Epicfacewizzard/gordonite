@@ -430,7 +430,7 @@ export class Session extends Emitter {
   }
 
   editTask(taskId, patch) {
-    const doc = patch === null ? removeTask(this.currentDoc(), taskId) : updateTask(this.currentDoc(), taskId, patch);
+    const doc = patch === null ? removeTask(this.currentDoc(), taskId) : updateTask(this.currentDoc(), taskId, patch, { noteDate: this.date });
     if (!doc) return false;
     this.dirtySeq++;
     this.capturedSeq = this.dirtySeq;

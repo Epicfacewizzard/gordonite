@@ -14,6 +14,7 @@
 // checks that the two agree, so a node or a nesting rule is only ever changed in both places.
 import { isValidDateString, isValidTime } from './dates.js';
 import { isPlausibleMime } from './attachments.js';
+import { isValidRepeat, isValidCompletion, MAX_COMPLETIONS } from './repeat.js';
 
 // Optional attributes may be ADDED to a node (e.g. taskItem due/start/hidden) without a new format:
 // existing documents stay valid and meaning does not change. Removing a node/mark/attribute or
@@ -133,6 +134,8 @@ export function validateDoc(doc, format = DOC_FORMAT, { structure = true } = {})
       }
       if (a.hideUntil != null && !isValidDateString(a.hideUntil)) return 'taskItem.hideUntil must be a YYYY-MM-DD date';
       if (a.priority != null && !['both', 'urgent', 'important'].includes(a.priority)) return 'taskItem.priority must be both, urgent or important';
+      if (a.repeat != null && !isValidRepeat(a.repeat)) return 'taskItem.repeat must be a repeat rule';
+      if (a.completions != null && (!Array.isArray(a.completions) || a.completions.length > MAX_COMPLETIONS || !a.completions.every(isValidCompletion))) return 'taskItem.completions must be a list of completions';
     }
     if (structure && parent) {
       const rule = contentRule(parent.type, format);

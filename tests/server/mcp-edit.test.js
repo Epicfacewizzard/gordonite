@@ -331,3 +331,34 @@ test('People: list, read, update details (patch) and log a conversation', async 
   assert.match(read.markdown, /## Log\n\n- Oct 15, 2026 · Coffee: Talked about the garden/);
   assert.equal((await call('list_people')).people.find((p) => p.noteId === id).lastTalked, '2026-10-15');
 });
+
+test('update_task sets, ticks, skips, undoes and clears a repeat', async () => {
+  const a = await call('create_note', { title: 'Bills', markdown: '- [ ] Pay rent\n- [ ] Plain' });
+  let read = await note(a.id);
+  const [rent, plain] = read.tasks;
+  await call('update_task', { noteId: a.id, taskId: rent.id, due: '2026-01-31', repeat: { every: 1, unit: 'month' } });
+  let t = (await note(a.id)).tasks[0];
+  assert.deepEqual(t.repeat, { every: 1, unit: 'month', from: 'due', day: 31 });
+  assert.equal(t.repeatFrom, 'set');
+  // ticking keeps it open, moves it on and records the completion
+  await call('update_task', { noteId: a.id, taskId: rent.id, checked: true });
+  t = (await note(a.id)).tasks[0];
+  assert.equal(t.checked, false);
+  assert.equal(t.due, '2026-02-28');
+  assert.equal(t.completions.length, 1);
+  assert.equal(t.completions[0].due, '2026-01-31');
+  await call('update_task', { noteId: a.id, taskId: rent.id, skip: true });
+  t = (await note(a.id)).tasks[0];
+  assert.equal(t.due, '2026-03-31');
+  assert.equal(t.completions[1].skipped, true);
+  await call('update_task', { noteId: a.id, taskId: rent.id, undoCompletion: true });
+  t = (await note(a.id)).tasks[0];
+  assert.equal(t.due, '2026-02-28');
+  assert.equal(t.completions.length, 1);
+  await call('update_task', { noteId: a.id, taskId: rent.id, repeat: null });
+  t = (await note(a.id)).tasks[0];
+  assert.equal(t.repeat, null);
+  // refusals
+  await refused('update_task', { noteId: a.id, taskId: plain.id, skip: true }, /Only a repeating task/);
+  await refused('update_task', { noteId: a.id, taskId: plain.id, repeat: { every: 0, unit: 'day' } });
+});

@@ -13,8 +13,9 @@
 // One request runs at a time; if more are asked for meanwhile they become one more request afterwards.
 import { api as realApi } from './api.js';
 import { sync as realSync } from './sync.js';
-import { taskKey, taskRecords } from '../../shared/tasks.js';
+import { taskKey, taskRecords, patchedTaskAttrs } from '../../shared/tasks.js';
 import { parseTaskSchedule } from '../../shared/taskdates.js';
+import { findRepeatPhrase } from '../../shared/repeat.js';
 
 const STALE_MS = 2000; // a list this fresh is not fetched again only because another screen appeared
 const COALESCE_MS = 250; // a burst of announcements is one request
@@ -30,6 +31,23 @@ export function applyPatchToRow(row, patch) {
     }
   }
   return next;
+}
+
+/**
+ * What a row looks like after a patch, as a patch to the row. Most patches are shown as they are; a patch that a
+ * repeating task turns into something else (a tick moves its due date on and records it; skip; taking a completion
+ * back; a new rule) is worked out with the same rules the note will apply (patchedTaskAttrs), so the row moves to its
+ * next date at once instead of flashing as done.
+ */
+export function shownPatch(row, patch) {
+  const ticksRepeat = patch.checked === true && !row.checked && row.repeat && !row.dismissedAt;
+  if (!ticksRepeat && !('repeat' in patch) && !patch.skip && !patch.undoCompletion) return patch;
+  const picked = (k) => (row[`${k}From`] === 'set' ? row[k] : null);
+  const attrs = { checked: row.checked, dismissedAt: row.dismissedAt, due: picked('due'), start: picked('start'), dueTime: picked('dueTime'), startTime: picked('startTime'), hideUntil: row.hideUntil, repeat: row.repeatFrom === 'set' ? row.repeat : null, completions: row.completions ?? [] };
+  const next = patchedTaskAttrs(attrs, patch, undefined, { text: row.text, noteDate: row.date });
+  if (!next) return {};
+  const typed = findRepeatPhrase(row.text)?.rule ?? null;
+  return { checked: !!next.checked, due: next.due ?? null, start: next.start ?? null, hideUntil: next.hideUntil ?? null, completions: next.completions ?? [], repeat: next.repeat ?? typed, repeatFrom: next.repeat ? 'set' : typed ? 'text' : null };
 }
 
 // The page's own events. Tests hand in a fake with the same shape.

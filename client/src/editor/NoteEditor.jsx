@@ -27,9 +27,12 @@ export function toggleTaskById(editor, taskId) {
 // Change a task's picked dates / hidden flag / text by its stable id. Like toggling, this is one ordinary, undoable
 // transaction; what a change means is decided in shared/tasks.js (patchedTaskAttrs). A null date (or hidden: false)
 // clears it. True when the task is in the note.
+// The note's date, which dates and repeat rules typed in a task's words are read against.
+const noteDateOf = (editor) => editor.extensionManager.extensions.find((e) => e.name === 'taskItem')?.options.getNoteDate?.() ?? null;
+
 export function updateTaskById(editor, taskId, patch) {
   const tr = editor.state.tr;
-  if (!putTaskPatch(tr, editor.schema, taskId, patch)) return false;
+  if (!putTaskPatch(tr, editor.schema, taskId, patch, { noteDate: noteDateOf(editor) })) return false;
   if (tr.docChanged) editor.view.dispatch(tr);
   return true;
 }
