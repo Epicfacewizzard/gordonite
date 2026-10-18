@@ -38,7 +38,7 @@ password field.
   browser test now switches the tag with the Today chips.
 - An unused import in `server/store.js` and two unused CSS rules (`.tasks-link`, `.archive-dates`).
 
-**Checked:** see the merge commit for the unit and browser suite results.
+**Checked** on the merged branch: pm test 375/375; pm run test:e2e 173/173.
 
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
