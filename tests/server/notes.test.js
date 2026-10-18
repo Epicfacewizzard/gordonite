@@ -436,6 +436,19 @@ describe('task dates', () => {
     assert.deepEqual(cleanTaskAttrs(docOf({ type: 'taskList', content: [{ ...task('x', false, id), attrs: { checked: false, id, due: null, start: null, hidden: false } }] })).content[0].content[0].attrs, { checked: false, id });
   });
 
+  test('a start date with no time gets 09:00; a time already there stays; the date going takes the default time with it', async () => {
+    const { extractTasks, updateTask } = await import('../../shared/tasks.js');
+    const mk = (text, id, attrs = {}) => ({ ...task(text, false, id), attrs: { checked: false, id, ...attrs } });
+    const doc = docOf({ type: 'taskList', content: [mk('plain', 'task-s-1'), mk('timed', 'task-s-2', { startTime: '14:30' }), mk('typed starts oct 20', 'task-s-3')] });
+    const times = (d) => extractTasks(d, NOTE).map((t) => t.startTime);
+    assert.deepEqual(times(doc), [null, '14:30', '09:00'], 'a typed start date gets the default time too');
+    let next = updateTask(doc, 'task-s-1', { start: '2026-10-19' });
+    next = updateTask(next, 'task-s-2', { start: '2026-10-19' });
+    assert.deepEqual(times(next).slice(0, 2), ['09:00', '14:30'], 'filled in; a chosen time is never overwritten');
+    assert.equal(extractTasks(updateTask(doc, 'task-s-1', { start: '2026-10-19', startTime: '07:15' }), NOTE)[0].startTime, '07:15', 'an explicit time wins');
+    assert.equal(times(updateTask(next, 'task-s-1', { start: null }))[0], null);
+  });
+
   test('documents with bad task dates are refused; good ones are stored and listed', async () => {
     const id = 'task-bbbb-2222';
     const withAttrs = (attrs) => docOf({ type: 'taskList', content: [{ ...task('x', false, id), attrs: { checked: false, id, ...attrs } }] });

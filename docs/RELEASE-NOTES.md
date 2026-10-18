@@ -2,6 +2,7 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## 0.16.1 — 2026-10-18 — Cleanup
 
 Version **0.16.1** (code cleanup, no behaviour change, no schema change).
@@ -44,6 +45,15 @@ this version, so going back needs them cleared of strike first. Details: [EDITOR
 - Strikethrough in the editor: `~~text~~`, Ctrl/Cmd+Shift+S, and a toolbar button. Saved as a `strike` mark, shown in
   read-only views, exported to Markdown as `~~text~~`, and read back by the Markdown importer (assistant notes too).
 >>>>>>> refs/heads/claude/strikethrough-f6fc66
+=======
+## 0.16.4 — 2026-10-18 — A start date fills in its time
+
+Version **0.16.4** (small change). No schema change; going back is the image swap only.
+
+- Setting a start date on a task that has no start time now fills in **09:00** (Tomorrow/Today buttons, the date picker,
+  an agent's `update_task`, and a typed `starts tomorrow`). A time already chosen or typed is never overwritten, and
+  taking the start date off again removes a time that was filled in. One rule, `DEFAULT_START_TIME` in `shared/taskdates.js`.
+>>>>>>> refs/heads/claude/tomorrow-time-011808
 
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
