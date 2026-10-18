@@ -1,25 +1,13 @@
 # Release notes
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-## 0.16.1 — 2026-10-18 — Cleanup
+## 0.16.4 — 2026-10-18 — PIN login, strikethrough, start times, cleanup
 
-Version **0.16.1** (code cleanup, no behaviour change, no schema change).
+Version **0.16.4**, one release made from four branches (0.16.1 cleanup, 0.16.2 PIN, 0.16.3 strikethrough, 0.16.4 start
+time). No schema change. Going back to 0.16.0 is the image swap only, except that notes using strikethrough are
+refused by older servers (clear the strike first). A PIN set here keeps working on older builds when typed into their
+password field.
 
-**Removed**
-
-- The "Today's note comes from" dropdown in Settings. It duplicated the tag chips under the note on Today, which still
-  save the choice on the server. The Settings state, handlers and message that only served it went too, and the
-  browser test now switches the tag with the Today chips.
-- An unused import in `server/store.js` and two unused CSS rules (`.tasks-link`, `.archive-dates`).
-=======
-## 0.16.2 — 2026-10-18 — A 4-digit PIN instead of the login password
-
-Version **0.16.2** (small change). No schema change, so going back to 0.16.x is the image swap only (a PIN set on 0.16.2
-keeps working on older builds, typed into their password field). Details: [LOGIN.md](LOGIN.md).
-
-**Changed**
+**Changed: a 4-digit PIN instead of the login password** (details: [LOGIN.md](LOGIN.md))
 
 - **The optional login is now a 4-digit PIN.** The login page shows four boxes with the number pad; the PIN goes in by
   itself after the 4th digit. A wrong PIN shakes and clears the boxes for the next try, with no error message.
@@ -31,29 +19,26 @@ keeps working on older builds, typed into their password field). Details: [LOGIN
   and Settings offers "Set a PIN instead". `GET /api/auth` now also answers `pin` (true/false). The assistant key and
   MCP are unchanged.
 
-**Checked:** `npm test` 371/371; `tests/e2e/settings.test.js` passes; `tests/e2e/login.test.js` 5/5 (PIN auto-submit, wrong PIN clears and retries, several wrong
-tries in a row, old-password install switching to a PIN, Settings rules).
->>>>>>> refs/heads/claude/pin-login-02cda3
-=======
-## 0.16.3 — 2026-10-18 — Strikethrough
-
-Version **0.16.3** (new feature). No schema change. Notes that use strikethrough are refused by a server older than
-this version, so going back needs them cleared of strike first. Details: [EDITOR.md](EDITOR.md#strikethrough).
-
-**Added**
+**Added: strikethrough** (details: [EDITOR.md](EDITOR.md#strikethrough))
 
 - Strikethrough in the editor: `~~text~~`, Ctrl/Cmd+Shift+S, and a toolbar button. Saved as a `strike` mark, shown in
   read-only views, exported to Markdown as `~~text~~`, and read back by the Markdown importer (assistant notes too).
->>>>>>> refs/heads/claude/strikethrough-f6fc66
-=======
-## 0.16.4 — 2026-10-18 — A start date fills in its time
 
-Version **0.16.4** (small change). No schema change; going back is the image swap only.
+**Changed: a start date fills in its time**
 
 - Setting a start date on a task that has no start time now fills in **09:00** (Tomorrow/Today buttons, the date picker,
   an agent's `update_task`, and a typed `starts tomorrow`). A time already chosen or typed is never overwritten, and
-  taking the start date off again removes a time that was filled in. One rule, `DEFAULT_START_TIME` in `shared/taskdates.js`.
->>>>>>> refs/heads/claude/tomorrow-time-011808
+  taking the start date off again removes a time that was filled in. One rule, `DEFAULT_START_TIME` in
+  `shared/taskdates.js`. A bare date at the end of a task ("call mom tmr") is a due date and gets no time.
+
+**Removed: cleanup**
+
+- The "Today's note comes from" dropdown in Settings. It duplicated the tag chips under the note on Today, which still
+  save the choice on the server. The Settings state, handlers and message that only served it went too, and the
+  browser test now switches the tag with the Today chips.
+- An unused import in `server/store.js` and two unused CSS rules (`.tasks-link`, `.archive-dates`).
+
+**Checked:** see the merge commit for the unit and browser suite results.
 
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
