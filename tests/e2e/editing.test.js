@@ -92,6 +92,30 @@ describe('stage 1: one reliable note', () => {
       assert.equal((await structure(page))[0].type, 'p');
     }));
 
+  test('strikethrough: ~~text~~ rule, Ctrl+Shift+S, toolbar button, saved as a strike mark', () =>
+    withPhone(browser, async ({ app, page }) => {
+      await open(page);
+      await editor(page).tap();
+      await type(page, 'a ~~gone~~');
+      assert.match(await editor(page).innerHTML(), /a <s>gone<\/s>/);
+      await type(page, ' keep');
+      assert.match(await editor(page).innerHTML(), /<\/s> keep/);
+
+      await press(page, 'Shift+Home');
+      await page.keyboard.press('Control+Shift+KeyS');
+      await page.waitForTimeout(40);
+      assert.match(await editor(page).innerHTML(), /<s>a gone keep<\/s>/, 'shortcut strikes the whole selected line');
+      await tap(page, 'tb-strike');
+      assert.doesNotMatch(await editor(page).innerHTML(), /<s>/, 'toolbar button toggles it off');
+      await tap(page, 'tb-strike');
+      await waitSaved(page);
+      assert.equal(app.notes().length, 1);
+
+      await page.reload();
+      await page.waitForSelector('.note-text');
+      assert.match(await editor(page).innerHTML(), /<s>/, 'strike survives a reload');
+    }));
+
   test('bullets: Enter continues, Enter on empty bullet returns to text, Backspace at start removes the bullet but keeps the text', () =>
     withPhone(browser, async ({ page }) => {
       await open(page);

@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.16.3 — 2026-10-18 — Strikethrough
+
+Version **0.16.3** (new feature). No schema change. Notes that use strikethrough are refused by a server older than
+this version, so going back needs them cleared of strike first. Details: [EDITOR.md](EDITOR.md#strikethrough).
+
+**Added**
+
+- Strikethrough in the editor: `~~text~~`, Ctrl/Cmd+Shift+S, and a toolbar button. Saved as a `strike` mark, shown in
+  read-only views, exported to Markdown as `~~text~~`, and read back by the Markdown importer (assistant notes too).
+
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
 Version **0.16.0** (new feature). No schema

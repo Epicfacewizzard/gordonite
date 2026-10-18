@@ -34,7 +34,7 @@ const NODE_TYPES = new Set([
   'attachment',
 ]);
 const ATTACHMENT_ID = /^[A-Za-z0-9_-]{8,64}$/;
-const MARK_TYPES = new Set(['bold', 'italic']);
+const MARK_TYPES = new Set(['bold', 'italic', 'strike']);
 // Text and line breaks are the inline nodes: they sit inside a paragraph or heading and are the only nodes that carry marks.
 const INLINE = ['text', 'hardBreak'];
 

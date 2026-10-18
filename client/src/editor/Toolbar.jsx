@@ -71,6 +71,9 @@ export function Toolbar({ editor, onTaskDates }) {
       <Btn label="Italic" testid="tb-italic" disabled={!ready} active={active('italic')} onClick={run((c) => c.toggleItalic())}>
         <i>I</i>
       </Btn>
+      <Btn label="Strikethrough" testid="tb-strike" disabled={!ready} active={active('strike')} onClick={run((c) => c.toggleStrike())}>
+        <s>S</s>
+      </Btn>
       <Btn label="Heading 1" testid="tb-h1" disabled={!ready} active={active('heading', { level: 1 })} onClick={run((c) => c.toggleHeading({ level: 1 }))}>
         H1
       </Btn>

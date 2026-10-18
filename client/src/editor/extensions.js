@@ -246,7 +246,6 @@ export function createExtensions({ getNoteId = null, ...taskContext } = {}) {
       codeBlock: false,
       horizontalRule: false,
       orderedList: false,
-      strike: false,
       underline: false,
       link: false,
       dropcursor: false,

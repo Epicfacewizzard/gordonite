@@ -1,6 +1,6 @@
 // Markdown -> a note document (format 1). Used when the assistant adds a note and, later, to import an Obsidian vault.
 //
-// Understood: # headings (levels 1-3; deeper ones become 3), paragraphs, **bold**, *italic*, bullet and numbered lists
+// Understood: # headings (levels 1-3; deeper ones become 3), paragraphs, **bold**, *italic*, ~~strike~~, bullet and numbered lists
 // (nested by indent), task lists (- [ ] / - [x]), and a leading --- front matter block (skipped).
 // Everything else is kept as plain text rather than dropped: links keep their words, `code` loses the backticks,
 // quotes lose the >, tables keep their cells, [[wiki links]] stay as written.
@@ -10,7 +10,7 @@ import { FILE_REF_LINE } from './attachments.js';
 const text = (t, marks = []) => ({ type: 'text', text: t, ...(marks.length ? { marks: marks.map((type) => ({ type })) } : {}) });
 
 // The editor keeps a text run's marks in this order; so does the importer, whichever way the Markdown nests them.
-const MARK_ORDER = ['bold', 'italic'];
+const MARK_ORDER = ['bold', 'italic', 'strike'];
 
 // Inline markup -> text nodes with bold/italic marks.
 export function inlineToNodes(src) {
@@ -26,7 +26,7 @@ export function inlineToNodes(src) {
   const walk = (s, marks) => {
     // escapes | bold and italic together (***x***) | bold | italic (underscores only at word edges, so snake_case is
     // left alone) | `code` | [text](url) / ![alt](url)
-    const re = /\\([\\`*_{}[\]()#+\-.!>|~])|(\*\*\*|___)(?=[^\s*_])([\s\S]*?[^\s*_])\2|(\*\*|__)(?=\S)([\s\S]*?\S)\4|(?<![\w*])\*(?=[^\s*])([\s\S]*?[^\s*])\*(?!\*)|(?<![\w])_(?=\S)([\s\S]*?\S)_(?![\w])|`([^`]+)`|!?\[([^\]]*)\]\(([^)]*)\)/g;
+    const re = /\\([\\`*_{}[\]()#+\-.!>|~])|(\*\*\*|___)(?=[^\s*_])([\s\S]*?[^\s*_])\2|(\*\*|__)(?=\S)([\s\S]*?\S)\4|(?<![\w*])\*(?=[^\s*])([\s\S]*?[^\s*])\*(?!\*)|(?<![\w])_(?=\S)([\s\S]*?\S)_(?![\w])|`([^`]+)`|!?\[([^\]]*)\]\(([^)]*)\)|~~(?=\S)([\s\S]*?\S)~~/g;
     const add = (list, ...types) => [...list, ...types.filter((t) => !list.includes(t))];
     let last = 0;
     for (const m of s.matchAll(re)) {
@@ -38,6 +38,7 @@ export function inlineToNodes(src) {
       else if (m[6] !== undefined) walk(m[6], add(marks, 'italic'));
       else if (m[7] !== undefined) walk(m[7], add(marks, 'italic'));
       else if (m[8] !== undefined) push(m[8], marks);
+      else if (m[11] !== undefined) walk(m[11], add(marks, 'strike'));
       else push(m[9] ?? '', marks); // a link keeps its words; an image keeps its alt text
     }
     push(s.slice(last), marks);
