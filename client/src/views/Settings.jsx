@@ -41,9 +41,7 @@ export function SettingsView({ config, onConfigChanged }) {
   const [saving, setSaving] = useState(false);
   const [opening, setOpening] = useState(getOpeningPage);
   const [openingMessage, setOpeningMessage] = useState('');
-  const [dailyTag, setDailyTag] = useState(config.dailyTag ?? 'daily-jots');
-  const [dailyTags, setDailyTags] = useState([]);
-  const [dailyMessage, setDailyMessage] = useState('');
+  const [prefsMessage, setPrefsMessage] = useState('');
   const [widgets, setWidgets] = useState(getDashboard);
   const [tasksScope, setTasksScope] = useState(getDashboardTasks);
   const [shiftDismiss, setShiftDismissState] = useState(getShiftDismiss);
@@ -51,23 +49,11 @@ export function SettingsView({ config, onConfigChanged }) {
   const [moodPrefs, setMoodPrefs] = useState(getMoodPrefs);
   const changeMoodPref = (id, value) => {
     if (setMoodPref(id, value)) setMoodPrefs((p) => ({ ...p, [id]: value }));
-    else setDailyMessage('This browser could not save the mood choices.');
-  };
-  useEffect(() => {
-    api.tags().then((r) => setDailyTags(r.tags.filter((t) => t.daily).map((t) => t.path))).catch(() => {});
-    api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
-  }, []);
-  const dailyOptions = [...new Set([dailyTag, ...dailyTags])].filter(Boolean).sort();
-  // Saved on the server (it is the same on every device); put back if the server refuses.
-  const chooseDailyTag = async (next) => {
-    const before = dailyTag;
-    setDailyTag(next); setDailyMessage('');
-    try { await api.setSettings({ dailyTag: next }); await onConfigChanged(); setDailyMessage('Saved.'); }
-    catch (err) { setDailyTag(before); setDailyMessage(err.message); }
+    else setPrefsMessage('This browser could not save the mood choices.');
   };
   const changeWidgets = (next) => {
     setWidgets(next);
-    if (!setDashboard(next)) setDailyMessage('This browser could not save the widget choices.');
+    if (!setDashboard(next)) setPrefsMessage('This browser could not save the widget choices.');
   };
   // Up and down move a widget past its neighbour in the same column; the column menu moves it side to side
   // (to the bottom of the column it lands in).
@@ -106,9 +92,6 @@ export function SettingsView({ config, onConfigChanged }) {
         <a href="#/data">Data &amp; backups</a>
       </nav>
       <h2 class="section">Dashboard</h2>
-      <p class="muted small">Today’s note on the dashboard is the entry for today in this tag. Shared across your devices.</p>
-      <label>Today’s note comes from <select value={dailyTag} onChange={(e) => chooseDailyTag(e.currentTarget.value)} data-testid="daily-tag-select">{dailyOptions.map((path) => <option key={path} value={path}>{path}</option>)}</select></label>
-      <p role="status" data-testid="daily-tag-message">{dailyMessage}</p>
       <p class="muted small">Widgets on this device: choose which to show, which column each sits in, and their order within a column. On a phone the columns stack top to bottom in the order shown here.</p>
       <div data-testid="widget-prefs">
         {DASHBOARD_REGIONS.map(([region, regionName]) => {
@@ -136,15 +119,15 @@ export function SettingsView({ config, onConfigChanged }) {
         })}
       </div>
       <p class="widget-reset">
-        <button type="button" class="btn" data-testid="widget-reset" onClick={() => { if (resetDashboard()) setWidgets(getDashboard()); else setDailyMessage('This browser could not reset the layout.'); }}>Reset dashboard layout</button>
+        <button type="button" class="btn" data-testid="widget-reset" onClick={() => { if (resetDashboard()) setWidgets(getDashboard()); else setPrefsMessage('This browser could not reset the layout.'); }}>Reset dashboard layout</button>
         <span class="muted small"> Puts every widget back where it started.</span>
       </p>
       <p class="muted small">Tasks on this device:</p>
-      <label class="check-row"><input type="checkbox" checked={shiftDismiss} data-testid="shift-dismiss" onChange={(e) => { const on = e.currentTarget.checked; if (setShiftDismiss(on)) setShiftDismissState(on); else setDailyMessage('This browser could not save the choice.'); }} /> <span>Shift-click a task’s checkbox to dismiss it instead of ticking it</span></label>
-      <label>Done and dismissed tasks show <select value={doneDays} data-testid="done-days" onChange={(e) => { const v = Number(e.currentTarget.value); if (setDoneDays(v)) setDoneDaysState(v); else setDailyMessage('This browser could not save the choice.'); }}>{DONE_DAYS.map(([days, name]) => <option key={days} value={days}>{name}</option>)}</select></label>
+      <label class="check-row"><input type="checkbox" checked={shiftDismiss} data-testid="shift-dismiss" onChange={(e) => { const on = e.currentTarget.checked; if (setShiftDismiss(on)) setShiftDismissState(on); else setPrefsMessage('This browser could not save the choice.'); }} /> <span>Shift-click a task’s checkbox to dismiss it instead of ticking it</span></label>
+      <label>Done and dismissed tasks show <select value={doneDays} data-testid="done-days" onChange={(e) => { const v = Number(e.currentTarget.value); if (setDoneDays(v)) setDoneDaysState(v); else setPrefsMessage('This browser could not save the choice.'); }}>{DONE_DAYS.map(([days, name]) => <option key={days} value={days}>{name}</option>)}</select></label>
       <p class="muted small">On the Tasks page and in each note's task history, to start with. You can pick any other dates on the spot.</p>
       <p class="muted small">Tasks box on this device:</p>
-      <label>The dashboard Tasks box shows <select value={tasksScope} data-testid="dashboard-tasks-scope" onChange={(e) => { const v = e.currentTarget.value; if (setDashboardTasks(v)) setTasksScope(v); else setDailyMessage('This browser could not save the choice.'); }}>{DASHBOARD_TASKS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+      <label>The dashboard Tasks box shows <select value={tasksScope} data-testid="dashboard-tasks-scope" onChange={(e) => { const v = e.currentTarget.value; if (setDashboardTasks(v)) setTasksScope(v); else setPrefsMessage('This browser could not save the choice.'); }}>{DASHBOARD_TASKS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       <p class="muted small">Mood band on this device:</p>
       <ul class="widget-prefs" data-testid="mood-prefs">
         {MOOD_OPTIONS.map(([id, name, about]) => (

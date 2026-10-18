@@ -1,5 +1,16 @@
 # Release notes
 
+## 0.16.1 — 2026-10-18 — Cleanup
+
+Version **0.16.1** (code cleanup, no behaviour change, no schema change).
+
+**Removed**
+
+- The "Today's note comes from" dropdown in Settings. It duplicated the tag chips under the note on Today, which still
+  save the choice on the server. The Settings state, handlers and message that only served it went too, and the
+  browser test now switches the tag with the Today chips.
+- An unused import in `server/store.js` and two unused CSS rules (`.tasks-link`, `.archive-dates`).
+
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
 Version **0.16.0** (new feature). No schema

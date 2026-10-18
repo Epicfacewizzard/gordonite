@@ -100,13 +100,12 @@ describe('the Dashboard (the Today screen)', () => {
       await page.waitForSelector('[data-testid="stream"] .note-text[contenteditable="true"]');
       assert.equal(await page.locator('[data-testid="stream"] .note-text[contenteditable="true"]').textContent(), 'Wrote this from Today');
 
-      // switch the tag the dashboard writes in (now a setting); it is remembered on the server, so it survives a reload
-      await app.api('POST', '/api/tags', { path: 'work-log' });
-      await page.goto(`${app.url}/#/settings`);
-      await page.getByTestId('daily-tag-select').waitFor();
-      assert.equal(await page.getByTestId('daily-tag-select').inputValue(), 'daily-jots');
-      await page.getByTestId('daily-tag-select').selectOption('work-log');
-      await page.getByTestId('daily-tag-message').getByText('Saved.').waitFor();
+      // switch the tag the dashboard writes in (a starred tag is a chip under the note); it is remembered on the server, so it survives a reload
+      const workLog = (await app.api('POST', '/api/tags', { path: 'work-log' })).json.tag;
+      await app.api('PUT', `/api/tags/${workLog.id}/favorite`, { favorite: true });
+      await page.goto(`${app.url}/#/`);
+      await page.locator('[data-testid="daily-tag-choice"][data-tag="work-log"]').tap();
+      await page.waitForFunction(() => document.querySelector('[data-testid="daily-tag-choice"][data-tag="work-log"]')?.getAttribute('aria-checked') === 'true');
       await page.goto(`${app.url}/#/`);
       await todayNote(page).waitFor();
       assert.match(await page.getByTestId('daily-tag-from').innerText(), /work-log/);

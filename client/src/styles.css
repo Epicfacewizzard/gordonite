@@ -855,9 +855,6 @@ details summary {
 }
 
 /* ---------- tasks view ---------- */
-.tasks-link {
-  border-bottom: 1px solid var(--line);
-}
 .task-list {
   list-style: none;
   margin: 0;
@@ -1112,7 +1109,6 @@ a.btn {
 .archive-tools nav { display: flex; flex-wrap: wrap; gap: 12px; }
 .archive-tools button { min-height: 44px; }
 .archive-tools nav button[aria-pressed='true'] { font-weight: 650; text-decoration: underline; }
-.archive-dates > summary { min-height: 44px; color: var(--muted); font-size: .85rem; }
 .archive-restore { flex: 0 0 44px; min-height: 44px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 20px; }
 .archive-task-text { text-decoration: line-through; color: var(--muted); overflow-wrap: anywhere; }
 .note-text li[hidden], .note-text .task-actions[hidden], .completed-bullet[hidden] { display: none; }
