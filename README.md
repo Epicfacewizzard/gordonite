@@ -259,7 +259,7 @@ for what to verify on the S24 before relying on mobile editing.
 
 * **Not yet validated on a real S24.** Autocorrect/suggestions, the on-screen keyboard resize, tap-to-focus
   opening the keyboard, and Samsung Keyboard/Gboard composition are untested on hardware.
-* **Login is optional and off by default.** It assumes your VPN is the access control. A small password can be switched on in Settings → Password (see `docs/LOGIN.md`); you can also add basic auth at a reverse proxy.
+* **Login is optional and off by default.** It assumes your VPN is the access control. A 4-digit PIN can be switched on in Settings → PIN (see `docs/LOGIN.md`); you can also add basic auth at a reverse proxy.
 * Offline (HTTPS address, installed app): the app opens, today's note and New note can be written, and recently seen
   notes, streams and tasks are read from the phone's copy and can be ticked; all of it is sent when the server is back
   and the app is open. Search, history and files need the server. See [docs/OFFLINE.md](docs/OFFLINE.md) and

@@ -23,7 +23,7 @@ function PhoneCopySettings() {
       <h2 class="section">Offline copy on this device</h2>
       <p class="muted small">
         Recent notes, today’s stream and the task list are kept on this device so they can be read (and tasks ticked) with no connection. Anyone holding this
-        unlocked device can read them, even with a Gordonite password set.
+        unlocked device can read them, even with a Gordonite PIN set.
       </p>
       <p class="small" data-testid="phone-copy-count">{count === null ? '…' : `${count} ${count === 1 ? 'item' : 'items'} kept.`}</p>
       <button type="button" class="btn" onClick={forget} data-testid="phone-copy-forget">
