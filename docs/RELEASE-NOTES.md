@@ -1,6 +1,7 @@
 # Release notes
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## 0.16.1 — 2026-10-18 — Cleanup
 
 Version **0.16.1** (code cleanup, no behaviour change, no schema change).
@@ -32,6 +33,17 @@ keeps working on older builds, typed into their password field). Details: [LOGIN
 **Checked:** `npm test` 371/371; `tests/e2e/settings.test.js` passes; `tests/e2e/login.test.js` 5/5 (PIN auto-submit, wrong PIN clears and retries, several wrong
 tries in a row, old-password install switching to a PIN, Settings rules).
 >>>>>>> refs/heads/claude/pin-login-02cda3
+=======
+## 0.16.3 — 2026-10-18 — Strikethrough
+
+Version **0.16.3** (new feature). No schema change. Notes that use strikethrough are refused by a server older than
+this version, so going back needs them cleared of strike first. Details: [EDITOR.md](EDITOR.md#strikethrough).
+
+**Added**
+
+- Strikethrough in the editor: `~~text~~`, Ctrl/Cmd+Shift+S, and a toolbar button. Saved as a `strike` mark, shown in
+  read-only views, exported to Markdown as `~~text~~`, and read back by the Markdown importer (assistant notes too).
+>>>>>>> refs/heads/claude/strikethrough-f6fc66
 
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
