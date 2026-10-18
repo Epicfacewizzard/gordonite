@@ -1,6 +1,6 @@
 {
   "name": "personal-hq",
-  "version": "0.16.2",
+  "version": "0.16.3",
   "private": true,
   "type": "module",
   "description": "Personal HQ: tag-based daily notes with inline tasks. Self-hosted, SQLite-backed.",
@@ -23,11 +23,13 @@
     "check-files": "node server/cli.js check-files"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^14.0.3",
     "heic-convert": "^2.1.0"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@preact/preset-vite": "^2.10.6",
+    "@simplewebauthn/browser": "^14.0.0",
     "@tiptap/core": "^3.31.4",
     "@tiptap/extension-list": "^3.31.4",
     "@tiptap/extension-unique-id": "^3.31.4",

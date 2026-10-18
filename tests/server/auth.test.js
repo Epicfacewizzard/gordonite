@@ -19,7 +19,7 @@ const cookieOf = (r) => /^(hq_session=[^;]*)/.exec(r.headers.get('set-cookie') ?
 
 describe('the optional PIN', () => {
   test('there is no login until a password is set: everything is open, and the app says so', async () => {
-    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: false, loggedIn: true, pin: false });
+    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: false, loggedIn: true, pin: false, passkey: false });
     assert.equal((await app.api('GET', '/api/tags')).status, 200);
     assert.equal((await app.api('POST', '/api/auth/login', { password: 'whatever' })).json.error.code, 'auth_off');
   });
@@ -50,11 +50,11 @@ describe('the optional PIN', () => {
     }
     assert.equal((await app.api('PUT', '/api/notes/some-note-id-1', {})).status, 401, 'writes too');
     assert.equal((await app.api('GET', '/api/health')).status, 200, 'the health check is open');
-    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: true });
+    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: true, passkey: false });
     assert.equal((await app.api('GET', '/api/assistant/ping', undefined, { authorization: `Bearer ${KEY}` })).status, 200, 'the assistant has its own key');
     assert.equal((await app.api('GET', '/api/assistant/ping')).status, 401);
     assert.equal((await app.api('GET', '/api/tags', undefined, { cookie })).status, 200, 'with the cookie it works');
-    assert.deepEqual((await app.api('GET', '/api/auth', undefined, { cookie })).json, { enabled: true, loggedIn: true, pin: true });
+    assert.deepEqual((await app.api('GET', '/api/auth', undefined, { cookie })).json, { enabled: true, loggedIn: true, pin: true, passkey: false });
   });
 
   test('the PIN is never stored or exported in plain text, and an import cannot remove it', async () => {
@@ -108,7 +108,7 @@ describe('the optional PIN', () => {
     assert.equal((await app.api('POST', '/api/auth/off', { current: '1111' }, { cookie })).status, 401);
     assert.equal((await app.api('POST', '/api/auth/off', { current: '7305' })).status, 401, 'and a login');
     const off = await app.api('POST', '/api/auth/off', { current: '7305' }, { cookie });
-    assert.deepEqual(off.json, { enabled: false, loggedIn: true, pin: false });
+    assert.deepEqual(off.json, { enabled: false, loggedIn: true, pin: false, passkey: false });
     assert.equal((await app.api('GET', '/api/tags')).status, 200);
   });
 
@@ -131,7 +131,7 @@ describe('the optional PIN', () => {
 
   test('a longer password from before PINs still logs in, says it is not a PIN, and can be swapped for a PIN', async () => {
     setLegacyPassword(app.db, 'old long password');
-    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: false });
+    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: false, passkey: false });
     assert.equal((await app.api('POST', '/api/auth/login', { password: 'nope' })).status, 401);
     const cookie = cookieOf(await app.api('POST', '/api/auth/login', { password: 'old long password' }));
     assert.ok(cookie, 'the old password still works');
@@ -139,7 +139,7 @@ describe('the optional PIN', () => {
     assert.equal((await app.api('GET', '/api/assistant/ping', undefined, { authorization: `Bearer ${KEY}` })).status, 200, 'the assistant key is untouched');
     const swapped = await app.api('PUT', '/api/auth/password', { password: '1357', current: 'old long password' }, { cookie });
     assert.equal(swapped.status, 200);
-    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: true });
+    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: true, passkey: false });
     assert.equal((await app.api('POST', '/api/auth/login', { password: 'old long password' })).status, 401, 'the old password is gone');
     const fresh = cookieOf(await app.api('POST', '/api/auth/login', { password: '1357' }));
     assert.equal((await app.api('POST', '/api/auth/off', { current: '1357' }, { cookie: fresh })).status, 200);

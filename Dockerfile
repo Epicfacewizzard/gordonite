@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 #
-# Personal HQ. The server uses Node's built-in SQLite and has one small runtime dependency (heic-convert,
-# which turns HEIC photos into JPEG; about 10 MB). The final image has only those, the server code and the
+# Personal HQ. The server uses Node's built-in SQLite and has two small runtime dependencies: heic-convert (turns
+# HEIC photos into JPEG; about 10 MB) and @simplewebauthn/server (fingerprint / face unlock; about 5 MB). The final
+# image has only those, the server code and the
 # built client; the browser libraries are bundled into the client in the build stage.
 
 FROM node:24-bookworm-slim AS build

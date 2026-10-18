@@ -1,5 +1,26 @@
 # Release notes
 
+## 0.16.3 — 2026-10-18 — Fingerprint / face unlock
+
+Version **0.16.3** (small feature). No schema change (the passkeys live in `meta`), so going back to 0.16.2 is the image
+swap only; the passkeys are then ignored and the PIN works as before. Details: [LOGIN.md](LOGIN.md#fingerprint--face-unlock-passkeys).
+
+**Added**
+
+- **Fingerprint / face unlock** (WebAuthn passkeys) at the https address: Settings → PIN → *Add fingerprint / face
+  unlock on this device*; the saved devices are listed with name and date and can be removed. The login page asks for
+  the fingerprint once by itself and has a **Use fingerprint / face** button; the PIN boxes stay underneath. Not
+  offered at `http://<LAN IP>` (browsers do not allow it there).
+- New server dependency **@simplewebauthn/server** (and @simplewebauthn/browser in the client bundle).
+- `GET /api/auth` also answers `passkey`.
+
+**Changed**
+
+- Setting, changing or turning off the PIN (and `server/cli.js password-off`) removes every passkey.
+- The login generation is kept while the PIN is off, so turning the PIN off and on again cannot bring back an old login.
+
+**Checked:** CHECKED_LINE
+
 ## 0.16.2 — 2026-10-18 — A 4-digit PIN instead of the login password
 
 Version **0.16.2** (small change). No schema change, so going back to 0.16.x is the image swap only (a PIN set on 0.16.2

@@ -102,7 +102,7 @@ test('an install with a password from before PINs keeps its text login until a P
     await page.getByTestId('pw-again').fill('1357');
     await page.getByTestId('pw-change').tap();
     await page.getByText('PIN changed').waitFor();
-    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: true });
+    assert.deepEqual((await app.api('GET', '/api/auth')).json, { enabled: true, loggedIn: false, pin: true, passkey: false });
     assert.equal(await page.getByTestId('pw-legacy').count(), 0);
   }));
 

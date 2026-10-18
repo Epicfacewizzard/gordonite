@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api.js';
+import { loginWithPasskey, passkeySupported } from '../passkey.js';
 
 const PIN_LENGTH = 4;
+/** Set by "Log out on this device", so the login page does not ask for the fingerprint straight away. */
+export const LOGGED_OUT = 'gordonite-logged-out';
 
 // Shown instead of the app when a PIN is set and this browser has not logged in (or the login ran out).
 // Nothing else is drawn, and nothing the app holds is shown here. Anything typed on this device and not yet sent
@@ -9,16 +12,51 @@ const PIN_LENGTH = 4;
 //
 // The PIN goes in by itself once the 4th digit is typed; a wrong one shakes, clears and waits for the next try.
 // A longer password set before PINs (0.16.2) still gets the old text field until a PIN is set in Settings.
+//
+// When this address has fingerprint / face unlock (a passkey) and the browser can use it (a secure context: the
+// https address, not http://<LAN IP>), the page asks for it once by itself and offers a button to ask again. The PIN
+// boxes always stay underneath.
 export function LoginView() {
   const [pinMode, setPinMode] = useState(true);
   const [value, setValue] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(0);
+  const [passkey, setPasskey] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const input = useRef(null);
 
+  const unlock = async () => {
+    setUnlocking(true);
+    setMessage('');
+    try {
+      await loginWithPasskey();
+      location.reload();
+    } catch (err) {
+      setMessage(err.message);
+      setUnlocking(false);
+    }
+  };
+
   useEffect(() => {
-    api.auth().then((s) => s.enabled && setPinMode(s.pin !== false)).catch(() => {});
+    api
+      .auth()
+      .then((s) => {
+        if (!s.enabled) return;
+        setPinMode(s.pin !== false);
+        if (!s.passkey || !passkeySupported()) return;
+        setPasskey(true);
+        // Once, by itself, unless this device has just logged out on purpose.
+        let loggedOut = false;
+        try {
+          loggedOut = sessionStorage.getItem(LOGGED_OUT) !== null;
+          sessionStorage.removeItem(LOGGED_OUT);
+        } catch {
+          /* no storage: ask anyway */
+        }
+        if (!loggedOut) unlock();
+      })
+      .catch(() => {});
   }, []);
   useEffect(() => {
     if (!busy) input.current?.focus();
@@ -54,6 +92,11 @@ export function LoginView() {
     <main class="login" data-testid="login">
       <img class="login-logo" src="/icon-192.png" alt="" width="72" height="72" />
       <h1>Gordonite</h1>
+      {passkey && (
+        <button type="button" class="btn primary block passkey-btn" onClick={unlock} disabled={unlocking || busy} data-testid="login-passkey">
+          {unlocking ? 'Waiting for fingerprint / face…' : 'Use fingerprint / face'}
+        </button>
+      )}
       {pinMode ? (
         <form onSubmit={(e) => e.preventDefault()}>
           <label class="pin-label" for="login-pin">PIN</label>

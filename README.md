@@ -12,7 +12,7 @@ deliberately not built.
 
 | | |
 |---|---|
-| **Runs on** | Node 24 (built-in SQLite, no native modules, no runtime npm dependencies on the server) |
+| **Runs on** | Node 24 (built-in SQLite, no native modules, two small runtime npm dependencies on the server: heic-convert, @simplewebauthn/server) |
 | **Client** | Preact + [Tiptap](https://tiptap.dev) (ProseMirror) editor, built with Vite |
 | **Storage** | one SQLite file, WAL mode, `synchronous=FULL`; versioned schema migrations |
 | **Docs** | [Deployment & HTTPS](docs/DEPLOYMENT.md) · [Android app](docs/ANDROID-APP.md) · [Offline](docs/OFFLINE.md) · [Skin log](docs/SKIN-LOG.md) · [Habits](docs/HABITS.md) · [People](docs/PEOPLE.md) · [Backups & restore](docs/BACKUPS.md) · [Editor choices](docs/EDITOR.md) · [Architecture](docs/ARCHITECTURE.md) · [Assistant access](docs/ASSISTANT.md) · [Handover](docs/HANDOVER.md) · [S24 checklist](docs/DEVICE-CHECKLIST.md) |
@@ -259,7 +259,7 @@ for what to verify on the S24 before relying on mobile editing.
 
 * **Not yet validated on a real S24.** Autocorrect/suggestions, the on-screen keyboard resize, tap-to-focus
   opening the keyboard, and Samsung Keyboard/Gboard composition are untested on hardware.
-* **Login is optional and off by default.** It assumes your VPN is the access control. A 4-digit PIN can be switched on in Settings → PIN (see `docs/LOGIN.md`); you can also add basic auth at a reverse proxy.
+* **Login is optional and off by default.** It assumes your VPN is the access control. A 4-digit PIN can be switched on in Settings → PIN, with fingerprint / face unlock on top at the https address (see `docs/LOGIN.md`); you can also add basic auth at a reverse proxy.
 * Offline (HTTPS address, installed app): the app opens, today's note and New note can be written, and recently seen
   notes, streams and tasks are read from the phone's copy and can be ticked; all of it is sent when the server is back
   and the app is open. Search, history and files need the server. See [docs/OFFLINE.md](docs/OFFLINE.md) and
@@ -301,7 +301,7 @@ show an explanation. Navigation uses note IDs, but references are not yet perman
 Folder disambiguation, heading navigation and backlinks remain future work.
 
 ```
-server/    HTTP API, SQLite store, files, backups, import/export, CLI (Node built-ins; heic-convert for photos)
+server/    HTTP API, SQLite store, files, backups, import/export, CLI (Node built-ins; heic-convert for photos, @simplewebauthn/server for fingerprint / face unlock)
 shared/    document format, tag rules, dates, ids (used by server and client)
 client/    Preact app: sync engine (sync.js), IndexedDB store (pending.js), editor, views
 tests/     server/ client/ e2e/

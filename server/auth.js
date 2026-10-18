@@ -8,6 +8,8 @@
 //   so a restart (or an update) does not log anyone out.
 // - Wrong guesses slow down gently: 10 in a row lock the login for 30 seconds, so retyping a mistyped PIN is never
 //   blocked, but trying all 10 000 PINs takes hours.
+// - Passkeys (fingerprint / face unlock, see server/passkeys.js) are a second way in, kept in `meta` as `auth_passkeys`.
+//   The PIN is the root of trust: setting, changing or turning off the PIN removes every passkey.
 // - The assistant's key (ASSISTANT_TOKEN) is a separate door and is not affected.
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
@@ -40,6 +42,9 @@ export function createAuth(db, { now = () => Date.now() } = {}) {
       return { broken: true }; // a damaged record keeps the app locked rather than quietly opening it
     }
   };
+  // The login generation outlives the PIN record (`auth_gen`), so turning the PIN off and on again never brings back
+  // a cookie from before.
+  const lastGen = () => Math.max(record()?.gen ?? 0, Number(getMeta('auth_gen')) || 0);
   const secret = () => {
     let hex = getMeta('auth_secret');
     if (!hex) {
@@ -85,7 +90,8 @@ export function createAuth(db, { now = () => Date.now() } = {}) {
       if (typeof pin !== 'string' || !PIN_RE.test(pin)) throw new HttpError(400, 'bad_pin', 'Use exactly 4 digits.');
       const salt = crypto.randomBytes(16);
       const hash = await scrypt(pin, salt, 32);
-      const gen = (record()?.gen ?? 0) + 1;
+      const gen = lastGen() + 1;
+      delMeta('auth_passkeys');
       setMeta('auth_password', JSON.stringify({ salt: salt.toString('hex'), hash: hash.toString('hex'), gen, pin: true }));
       secret();
     },
@@ -116,8 +122,34 @@ export function createAuth(db, { now = () => Date.now() } = {}) {
       return false;
     },
 
-    /** Turn the PIN off (the signing secret stays so a later password works the same way). */
-    turnOff: () => delMeta('auth_password'),
+    /** Turn the PIN off and remove every passkey; true if a PIN was set. The signing secret and the generation stay,
+     *  so a later PIN works the same way and no cookie from before comes back. */
+    turnOff() {
+      const gen = lastGen();
+      delMeta('auth_passkeys');
+      if (gen) setMeta('auth_gen', String(gen));
+      return delMeta('auth_password').changes > 0;
+    },
+
+    /** The saved passkeys: [{ id, publicKey, counter, transports, rpId, label, createdAt }], keys in base64url. */
+    passkeys() {
+      try {
+        const list = JSON.parse(getMeta('auth_passkeys') ?? '[]');
+        return Array.isArray(list) ? list : [];
+      } catch {
+        return [];
+      }
+    },
+    /** A random handle shared by this install's passkeys (hex), made once. */
+    passkeyUserId() {
+      let hex = getMeta('auth_passkey_user');
+      if (!hex) {
+        hex = crypto.randomBytes(16).toString('hex');
+        setMeta('auth_passkey_user', hex);
+      }
+      return hex;
+    },
+    savePasskeys: (list) => (list.length ? setMeta('auth_passkeys', JSON.stringify(list)) : delMeta('auth_passkeys')),
   };
   return api;
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
+import { addPasskeyHere, guessDeviceName, passkeySupported } from '../passkey.js';
+import { LOGGED_OUT } from './LoginView.jsx';
 
 const EMPTY = { current: '', password: '', again: '', offCurrent: '' };
 
@@ -10,6 +12,7 @@ export function PasswordSettings() {
   const [state, setState] = useState(null); // { enabled, loggedIn, pin }
   const [message, setMessage] = useState('');
   const [fields, setFields] = useState(EMPTY);
+  const [round, setRound] = useState(0); // a PIN change removes the passkeys: reload their list
   const set = (key) => (e) => setFields((f) => ({ ...f, [key]: e.currentTarget.value }));
   const setDigits = (key) => (e) => {
     const digits = e.currentTarget.value.replace(/\D/g, '').slice(0, 4);
@@ -26,6 +29,7 @@ export function PasswordSettings() {
     try {
       setState(await call());
       setFields(EMPTY);
+      setRound((n) => n + 1);
       setMessage(done);
     } catch (err) {
       setMessage(err.message);
@@ -53,6 +57,11 @@ export function PasswordSettings() {
     run(() => api.passwordOff(fields.offCurrent), 'The PIN is off.');
   };
   const logOut = async () => {
+    try {
+      sessionStorage.setItem(LOGGED_OUT, '1'); // the login page then waits instead of asking for the fingerprint at once
+    } catch {
+      /* it asks; no harm */
+    }
     await api.logout().catch(() => {});
     location.reload();
   };
@@ -89,6 +98,7 @@ export function PasswordSettings() {
           <p>
             <button type="button" class="btn" onClick={logOut} data-testid="pw-logout">Log out on this device</button>
           </p>
+          {state.pin && <PasskeySettings key={round} />}
           <details open={!state.pin}>
             <summary>{state.pin ? 'Change the PIN' : 'Set a PIN instead'}</summary>
             <form class="pw-form" onSubmit={change}>
@@ -105,10 +115,79 @@ export function PasswordSettings() {
               <button type="submit" class="btn" disabled={!fields.offCurrent} data-testid="pw-off">Turn off {state.pin ? 'PIN' : 'password'}</button>
             </form>
           </details>
+          <p class="muted small">Changing the PIN or turning it off also removes every fingerprint / face unlock.</p>
           <p class="muted small">Forgot it? On the server run <code>sudo docker exec gordonite node server/cli.js password-off</code>, then set a new PIN here.</p>
         </>
       )}
       <p role="status" data-testid="pw-message">{message}</p>
     </section>
+  );
+}
+
+// Fingerprint / face unlock: one passkey per device, made by that device's own fingerprint or face sensor. Listing and
+// removing work anywhere; adding needs the https:// address (WebAuthn exists only in a secure context).
+function PasskeySettings() {
+  const [list, setList] = useState(null);
+  const [name, setName] = useState(guessDeviceName);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const supported = passkeySupported();
+
+  useEffect(() => {
+    api.passkeys().then((r) => setList(r.passkeys)).catch((err) => setMessage(err.message));
+  }, []);
+
+  const add = async () => {
+    setBusy(true);
+    setMessage('');
+    try {
+      setList(await addPasskeyHere(name));
+      setMessage('Fingerprint / face unlock is on for this device.');
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (p) => {
+    if (!confirm(`Remove fingerprint / face unlock for “${p.label}”? It then needs the PIN.`)) return;
+    setMessage('');
+    try {
+      setList((await api.removePasskey(p.id)).passkeys);
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
+  return (
+    <div class="passkeys" data-testid="passkey-settings">
+      <h3>Fingerprint / face unlock</h3>
+      {list?.length ? (
+        <ul class="passkey-list">
+          {list.map((p) => (
+            <li key={p.id} data-testid="passkey-row">
+              <span>
+                <strong>{p.label}</strong>
+                <span class="muted small"> added {new Date(p.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              </span>
+              <button type="button" class="btn small" onClick={() => remove(p)} data-testid="passkey-remove">Remove</button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        list && <p class="muted small">No device unlocks with a fingerprint or face yet.</p>
+      )}
+      {supported ? (
+        <div class="pw-form">
+          <label>Name for this device<input type="text" maxlength={60} value={name} onInput={(e) => setName(e.currentTarget.value)} data-testid="passkey-name" /></label>
+          <button type="button" class="btn" onClick={add} disabled={busy} data-testid="passkey-add">
+            {busy ? 'Waiting for fingerprint / face…' : 'Add fingerprint / face unlock on this device'}
+          </button>
+        </div>
+      ) : (
+        <p class="muted small" data-testid="passkey-unsupported">To add fingerprint / face unlock, open Gordonite at its https:// address (it does not work at a plain http:// address).</p>
+      )}
+      {message && <p role="status" data-testid="passkey-message">{message}</p>}
+    </div>
   );
 }

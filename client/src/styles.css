@@ -1679,6 +1679,10 @@ body:not([data-editing]) .today .toolbar {
 @media (prefers-reduced-motion: reduce) { .pin-wrong { animation: none; } }
 .pw-form { display: grid; gap: 8px; max-width: 22rem; margin: 8px 0; }
 .pw-form label { display: grid; gap: 4px; }
+.passkeys h3 { margin: 16px 0 4px; font-size: 1rem; }
+.passkey-list { list-style: none; padding: 0; margin: 4px 0; display: grid; gap: 6px; max-width: 28rem; }
+.passkey-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.login .passkey-btn { margin-bottom: 16px; }
 
 .archive-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
 
