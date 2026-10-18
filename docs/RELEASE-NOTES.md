@@ -38,7 +38,7 @@ password field.
   browser test now switches the tag with the Today chips.
 - An unused import in `server/store.js` and two unused CSS rules (`.tasks-link`, `.archive-dates`).
 
-**Checked** on the merged branch: pm test 375/375; pm run test:e2e 173/173.
+**Checked** on the merged branch: `npm test` 375/375; `npm run test:e2e` 173/173.
 
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
@@ -128,6 +128,10 @@ image swap only. See [HABITS.md](HABITS.md) → *Backdating*.
 **Checks:** `npm test` (340 pass); browser `tests/e2e/skin-habits.test.js` (11 pass, 3 new in "backdating habits":
 the Dashboard's ‹ day › with the start moved back and the streak recomputed, a number logged before the start on the
 habit's page, a past day logged offline and sent when back online) and `tests/e2e/today.test.js` (14 pass).
+
+Workspace maintenance, 2026-10-16: the main folder now uses the already deployed **0.12.0** release.
+Redundant local branches and working copies were archived and retired; unfinished Android work remains
+separate. See [WORKSPACE.md](WORKSPACE.md) for recovery and verification. No application code change or new release.
 
 ## 0.12.0 — 2026-10-16 — Agents can edit everything they can read, habit options included
 
