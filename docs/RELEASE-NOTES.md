@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.16.4 — 2026-10-18 — A start date fills in its time
+
+Version **0.16.4** (small change). No schema change; going back is the image swap only.
+
+- Setting a start date on a task that has no start time now fills in **09:00** (Tomorrow/Today buttons, the date picker,
+  an agent's `update_task`, and a typed `starts tomorrow`). A time already chosen or typed is never overwritten, and
+  taking the start date off again removes a time that was filled in. One rule, `DEFAULT_START_TIME` in `shared/taskdates.js`.
+
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
 Version **0.16.0** (new feature). No schema

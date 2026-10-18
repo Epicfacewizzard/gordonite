@@ -140,12 +140,16 @@ export function findDatePhrases(text, noteDate) {
   return dates.sort((a, b) => a.index - b.index);
 }
 
+/** The time a start date gets when none was given ("starts tomorrow", or a start date picked in the task sheet or set by an agent): Amplenote's "Morning". */
+export const DEFAULT_START_TIME = '09:00';
+
 export function parseTaskSchedule(text, noteDate) {
   const out = { due: null, start: null, dueTime: null, startTime: null };
   for (const phrase of findDatePhrases(text, noteDate)) if (!out[phrase.kind]) {
     out[phrase.kind] = phrase.date;
     out[`${phrase.kind}Time`] = phrase.time ?? null;
   }
+  if (out.start && !out.startTime) out.startTime = DEFAULT_START_TIME;
   return out;
 }
 

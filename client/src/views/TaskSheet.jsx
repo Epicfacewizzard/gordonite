@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Sheet } from './parts.jsx';
 import { addDays, formatDateShort } from '../../../shared/dates.js';
-import { findDatePhrases } from '../../../shared/taskdates.js';
+import { findDatePhrases, DEFAULT_START_TIME } from '../../../shared/taskdates.js';
 import { PriorityStar } from './TaskMenus.jsx';
 import { RepeatEditor, CompletionList } from './TaskRepeat.jsx';
 import { repeatZone, findRepeatPhrase } from '../../../shared/repeat.js';
@@ -86,6 +86,8 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags
   }
 
   const change = (patch) => {
+    // A start date with no time yet gets the default time (the same rule as shared/tasks.js); a time already there stays.
+    if (patch.start && !('startTime' in patch) && !(values.startTime ?? typed.startTime)) patch = { ...patch, startTime: DEFAULT_START_TIME };
     setValues((v) => ({ ...v, ...patch }));
     onChange(patch);
   };
