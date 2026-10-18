@@ -25,7 +25,7 @@ const config = loadConfig();
 function usage() {
   console.log(`Usage:
   node server/cli.js backup                        Take a verified backup now
-  node server/cli.js password-off                  Turn the app's login password off (if you forgot it)
+  node server/cli.js password-off                  Turn the app's login PIN off (if you forgot it)
   node server/cli.js token                         Print a new random key to use as ASSISTANT_TOKEN
                                                    (it is not stored anywhere; put it in the app's settings)
   node server/cli.js check-files [--hashes]        Check that every attached file is present (--hashes also

@@ -165,7 +165,7 @@ POST /api/moods/:id/restore       undo a mood delete (soft delete)
 Cross-site writes are refused (`Sec-Fetch-Site`, and JSON-only bodies force a CORS preflight that is never
 granted). The one non-JSON write, a file upload, sends raw bytes and is protected the same way by requiring a custom
 header, which a cross-site page cannot send without a preflight. There is no authentication of its own; the VPN is
-the boundary (an optional password can be set; see LOGIN.md).
+the boundary (an optional 4-digit PIN can be set; see LOGIN.md).
 
 ## Saving protocol
 

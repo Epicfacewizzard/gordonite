@@ -1,10 +1,13 @@
-// An optional password for the web app (see docs/LOGIN.md). OFF until the owner turns it on in Settings.
+// An optional 4-digit PIN for the web app (see docs/LOGIN.md). OFF until the owner turns it on in Settings.
 //
-// - The password is kept only as a salted scrypt hash in the `meta` table (never in plain text, never exported).
+// - New locks are always a 4-digit PIN (`pin: true` in the record). A longer password set before 0.16.2 keeps working
+//   until a PIN replaces it; the login page then shows the old text field instead of the PIN boxes.
+// - The PIN (or old password) is kept only as a salted scrypt hash in the `meta` table (never in plain text, never exported).
 // - A signed cookie (`hq_session`, HttpOnly, 30 days) says "this browser has logged in". It carries the password
 //   generation, so changing the password logs every other browser out. The signing secret is stored in `meta` too,
 //   so a restart (or an update) does not log anyone out.
-// - Wrong passwords slow down: 5 in a row locks the login for a minute.
+// - Wrong guesses slow down gently: 10 in a row lock the login for 30 seconds, so retyping a mistyped PIN is never
+//   blocked, but trying all 10 000 PINs takes hours.
 // - The assistant's key (ASSISTANT_TOKEN) is a separate door and is not affected.
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
@@ -13,11 +16,11 @@ import { HttpError } from './errors.js';
 const scrypt = promisify(crypto.scrypt);
 
 export const SESSION_COOKIE = 'hq_session';
-export const MIN_PASSWORD = 6;
+const PIN_RE = /^\d{4}$/;
 const MAX_PASSWORD = 200;
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
-const FAILS_BEFORE_LOCK = 5;
-const LOCK_SECONDS = 60;
+const FAILS_BEFORE_LOCK = 10;
+const LOCK_SECONDS = 30;
 
 export function createAuth(db, { now = () => Date.now() } = {}) {
   const getMeta = (key) => db.prepare('SELECT value FROM meta WHERE key = ?').get(key)?.value ?? null;
@@ -49,8 +52,10 @@ export function createAuth(db, { now = () => Date.now() } = {}) {
   const cookieAttrs = (maxAge) => `Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`;
 
   const api = {
-    /** Is a password set? */
+    /** Is a PIN (or an old password) set? */
     enabled: () => record() !== null,
+    /** Is what is set a 4-digit PIN? False for a password set before PINs, so the login page shows a text field. */
+    isPin: () => record()?.pin === true,
 
     /** The Set-Cookie value that marks a browser as logged in. */
     cookie() {
@@ -75,23 +80,22 @@ export function createAuth(db, { now = () => Date.now() } = {}) {
       return Number(exp) * 1000 > now() && Number(gen) === rec.gen;
     },
 
-    /** Set or change the password. Every browser logged in with the old one has to log in again. */
-    async setPassword(password) {
-      if (typeof password !== 'string' || password.length < MIN_PASSWORD) throw new HttpError(400, 'weak_password', `Use at least ${MIN_PASSWORD} characters.`);
-      if (password.length > MAX_PASSWORD) throw new HttpError(400, 'weak_password', `Use at most ${MAX_PASSWORD} characters.`);
+    /** Set or change the PIN (exactly 4 digits). Every browser logged in with the old one has to log in again. */
+    async setPassword(pin) {
+      if (typeof pin !== 'string' || !PIN_RE.test(pin)) throw new HttpError(400, 'bad_pin', 'Use exactly 4 digits.');
       const salt = crypto.randomBytes(16);
-      const hash = await scrypt(password, salt, 32);
+      const hash = await scrypt(pin, salt, 32);
       const gen = (record()?.gen ?? 0) + 1;
-      setMeta('auth_password', JSON.stringify({ salt: salt.toString('hex'), hash: hash.toString('hex'), gen }));
+      setMeta('auth_password', JSON.stringify({ salt: salt.toString('hex'), hash: hash.toString('hex'), gen, pin: true }));
       secret();
     },
 
-    /** Is this the password? Counts wrong guesses and locks for a minute after too many. */
+    /** Is this the PIN (or old password)? Counts wrong guesses and locks for a short while after too many. */
     async check(password) {
       const t = now();
       if (t < lockedUntil) {
         const wait = Math.ceil((lockedUntil - t) / 1000);
-        throw new HttpError(429, 'too_many_tries', `Too many wrong passwords. Try again in ${wait} seconds.`, { retryAfter: wait });
+        throw new HttpError(429, 'too_many_tries', `Too many wrong tries. Try again in ${wait} seconds.`, { retryAfter: wait });
       }
       const rec = record();
       let ok = false;
@@ -112,7 +116,7 @@ export function createAuth(db, { now = () => Date.now() } = {}) {
       return false;
     },
 
-    /** Turn the password off (the signing secret stays so a later password works the same way). */
+    /** Turn the PIN off (the signing secret stays so a later password works the same way). */
     turnOff: () => delMeta('auth_password'),
   };
   return api;

@@ -1,13 +1,13 @@
-// The optional password (see docs/LOGIN.md).
+// The optional PIN (see docs/LOGIN.md). The routes and fields keep their older "password" names.
 import { sendJson } from '../http.js';
 import { HttpError } from '../errors.js';
 
 export function registerAuthRoutes({ route, auth, log }) {
-  // ----- the optional password (see docs/LOGIN.md). These routes work without a login; everything else needs one when a password is set. -----
-  route('GET', '/api/auth', async ({ req, res }) => sendJson(res, 200, { enabled: auth.enabled(), loggedIn: auth.loggedIn(req) }));
+  // ----- the optional PIN (see docs/LOGIN.md). These routes work without a login; everything else needs one when a PIN is set. -----
+  route('GET', '/api/auth', async ({ req, res }) => sendJson(res, 200, { enabled: auth.enabled(), loggedIn: auth.loggedIn(req), pin: auth.isPin() }));
   route('POST', '/api/auth/login', async ({ res, body }) => {
-    if (!auth.enabled()) throw new HttpError(400, 'auth_off', 'No password is set');
-    if (!(await auth.check(body.password))) throw new HttpError(401, 'wrong_password', 'That password is not right');
+    if (!auth.enabled()) throw new HttpError(400, 'auth_off', 'No PIN is set');
+    if (!(await auth.check(body.password))) throw new HttpError(401, 'wrong_password', 'That PIN is not right');
     res.setHeader('set-cookie', auth.cookie());
     sendJson(res, 200, { ok: true });
   });
@@ -15,22 +15,22 @@ export function registerAuthRoutes({ route, auth, log }) {
     res.setHeader('set-cookie', auth.clearCookie());
     sendJson(res, 200, { ok: true });
   });
-  // Set the first password (nothing needed), or change it (log in and give the current one). The browser that did it stays logged in.
+  // Set the first PIN (nothing needed), or change it (log in and give the current one). The browser that did it stays logged in.
   route('PUT', '/api/auth/password', async ({ req, res, body }) => {
     if (auth.enabled()) {
       if (!auth.loggedIn(req)) throw new HttpError(401, 'login_required', 'Log in to continue');
-      if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current password is not right');
+      if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current PIN is not right');
     }
     await auth.setPassword(body.password);
     res.setHeader('set-cookie', auth.cookie());
-    sendJson(res, 200, { enabled: true, loggedIn: true });
+    sendJson(res, 200, { enabled: true, loggedIn: true, pin: true });
   });
   route('POST', '/api/auth/off', async ({ req, res, body }) => {
-    if (!auth.enabled()) return sendJson(res, 200, { enabled: false, loggedIn: true });
+    if (!auth.enabled()) return sendJson(res, 200, { enabled: false, loggedIn: true, pin: false });
     if (!auth.loggedIn(req)) throw new HttpError(401, 'login_required', 'Log in to continue');
-    if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current password is not right');
+    if (!(await auth.check(body.current))) throw new HttpError(401, 'wrong_password', 'The current PIN is not right');
     auth.turnOff();
     res.setHeader('set-cookie', auth.clearCookie());
-    sendJson(res, 200, { enabled: false, loggedIn: true });
+    sendJson(res, 200, { enabled: false, loggedIn: true, pin: false });
   });
 }

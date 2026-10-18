@@ -1,5 +1,6 @@
 # Release notes
 
+<<<<<<< HEAD
 ## 0.16.1 — 2026-10-18 — Cleanup
 
 Version **0.16.1** (code cleanup, no behaviour change, no schema change).
@@ -10,6 +11,27 @@ Version **0.16.1** (code cleanup, no behaviour change, no schema change).
   save the choice on the server. The Settings state, handlers and message that only served it went too, and the
   browser test now switches the tag with the Today chips.
 - An unused import in `server/store.js` and two unused CSS rules (`.tasks-link`, `.archive-dates`).
+=======
+## 0.16.2 — 2026-10-18 — A 4-digit PIN instead of the login password
+
+Version **0.16.2** (small change). No schema change, so going back to 0.16.x is the image swap only (a PIN set on 0.16.2
+keeps working on older builds, typed into their password field). Details: [LOGIN.md](LOGIN.md).
+
+**Changed**
+
+- **The optional login is now a 4-digit PIN.** The login page shows four boxes with the number pad; the PIN goes in by
+  itself after the 4th digit. A wrong PIN shakes and clears the boxes for the next try, with no error message.
+- **Settings → PIN** sets, changes and turns off the PIN. New PINs must be exactly 4 digits (the old "at least 6
+  characters" rule is gone; the server answers `400 bad_pin` otherwise).
+- **Gentler wrong-try limit:** 10 wrong tries in a row lock the login for 30 seconds (was 5 for 60 seconds), so a few
+  mistypes never block the right PIN.
+- An install that already has a longer password keeps it: the login page shows the old text field until a PIN is set,
+  and Settings offers "Set a PIN instead". `GET /api/auth` now also answers `pin` (true/false). The assistant key and
+  MCP are unchanged.
+
+**Checked:** `npm test` 371/371; `tests/e2e/settings.test.js` passes; `tests/e2e/login.test.js` 5/5 (PIN auto-submit, wrong PIN clears and retries, several wrong
+tries in a row, old-password install switching to a PIN, Settings rules).
+>>>>>>> refs/heads/claude/pin-login-02cda3
 
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 

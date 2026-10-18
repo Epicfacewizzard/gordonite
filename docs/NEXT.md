@@ -13,7 +13,7 @@ a future redesign can replace the interface without changing note documents.
   anchors, and backlinks. Folder-qualified links currently resolve the leaf title; no match is guessed.
 - People has structured details beside each note since 0.10.0 (docs/PEOPLE.md). Still open: the assistant (MCP)
   reading and writing details, birthdays on the Dashboard, and "last talked" filled in from notes that mention someone.
-- A small optional login now exists (Settings → Password, `docs/LOGIN.md`); the fuller version below is still open if this becomes a private diary: one owner account, salted password hash,
+- A small optional login now exists (a 4-digit PIN, Settings → PIN, `docs/LOGIN.md`); the fuller version below is still open if this becomes a private diary: one owner account, salted password hash,
   server sessions, login throttling, CSRF protection, logout and local administrator recovery. Protect all
   note/export/backup endpoints. Keep separately authenticated MCP access. Use HTTPS over LAN/WireGuard;
   no public exposure or port forwarding. Pending phone edits must survive logout/session expiry and must
