@@ -1,7 +1,7 @@
 import { tx } from './db.js';
 import { uuid } from '../shared/ids.js';
 import { normalizeTag } from '../shared/tags.js';
-import { dateInTz, isValidDateString } from '../shared/dates.js';
+import { isValidDateString } from '../shared/dates.js';
 import { DOC_FORMAT, attachmentsIn, hasOnlyStructureProblems, migrateDoc, plainText, validateDoc } from '../shared/doc.js';
 import { extractTasks, taskRecords } from '../shared/tasks.js';
 import { linkableTitle, rewriteLinks } from '../shared/wiki-links.js';

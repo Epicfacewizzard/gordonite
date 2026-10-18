@@ -45,6 +45,7 @@ function inline(nodes = []) {
       for (const m of n.marks ?? []) {
         if (m.type === 'bold') html = `<strong>${html}</strong>`;
         else if (m.type === 'italic') html = `<em>${html}</em>`;
+        else if (m.type === 'strike') html = `<s>${html}</s>`;
       }
       return html;
     })

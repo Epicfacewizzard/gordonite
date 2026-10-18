@@ -18,7 +18,7 @@
 // A date typed in the text ("due fri", see taskdates.js) is used when no date was picked;
 // a picked date always wins.
 import { addDays, formatDateShort } from './dates.js';
-import { parseTaskSchedule } from './taskdates.js';
+import { parseTaskSchedule, DEFAULT_START_TIME } from './taskdates.js';
 import { findRepeatPhrase, isValidRepeat, normalRepeat, nextOccurrence, repeatLabel, repeatZone, MAX_COMPLETIONS } from './repeat.js';
 
 const inlineText = (node) => {
@@ -201,6 +201,10 @@ export function patchedTaskAttrs(attrs, patch, now = new Date().toISOString(), c
     return tidyAttrs({ ...merged, checked: false, completedAt: null, due: next.due, ...(next.start ? { start: next.start } : {}), hideUntil: null, completions });
   }
   if (skip) return null; // only a repeating task can be skipped
+  // Setting a start date on a task with no start time (picked, typed or from an agent) gives it the default time; a time already there stays.
+  if (changes.start && !('startTime' in changes) && !attrs.startTime && !typed.startTime) changes.startTime = DEFAULT_START_TIME;
+  // Taking the start date off again takes the time it was given with it (a time picked by hand stays).
+  else if (changes.start === null && !('startTime' in changes) && attrs.startTime === DEFAULT_START_TIME) changes.startTime = null;
   const stamp = 'checked' in changes && changes.checked !== !!attrs.checked ? { completedAt: changes.checked ? now : null } : {};
   return tidyAttrs({ ...attrs, ...stamp, ...changes });
 }

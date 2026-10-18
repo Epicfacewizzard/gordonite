@@ -1,8 +1,8 @@
 # Release notes
 
-## 0.16.3 — 2026-10-18 — Fingerprint / face unlock
+## 0.16.5 — 2026-10-18 — Fingerprint / face unlock
 
-Version **0.16.3** (small feature). No schema change (the passkeys live in `meta`), so going back to 0.16.2 is the image
+Version **0.16.5** (small feature). No schema change (the passkeys live in `meta`), so going back to 0.16.4 is the image
 swap only; the passkeys are then ignored and the PIN works as before. Details: [LOGIN.md](LOGIN.md#fingerprint--face-unlock-passkeys).
 
 **Added**
@@ -19,14 +19,19 @@ swap only; the passkeys are then ignored and the PIN works as before. Details: [
 - Setting, changing or turning off the PIN (and `server/cli.js password-off`) removes every passkey.
 - The login generation is kept while the PIN is off, so turning the PIN off and on again cannot bring back an old login.
 
-**Checked:** CHECKED_LINE
+**Checked:** `npm test` 391/391 (16 new passkey tests: a software authenticator with a real P-256 key, plus the handlers
+with the library stubbed out); `tests/e2e/login.test.js`, `settings.test.js` and the new `passkey.test.js` (Chromium virtual
+authenticator: add in Settings, auto-unlock, button, finger that does not match, remove, PIN change removes it) 9/9.
+Not tried on the S24 yet.
 
-## 0.16.2 — 2026-10-18 — A 4-digit PIN instead of the login password
+## 0.16.4 — 2026-10-18 — PIN login, strikethrough, start times, cleanup
 
-Version **0.16.2** (small change). No schema change, so going back to 0.16.x is the image swap only (a PIN set on 0.16.2
-keeps working on older builds, typed into their password field). Details: [LOGIN.md](LOGIN.md).
+Version **0.16.4**, one release made from four branches (0.16.1 cleanup, 0.16.2 PIN, 0.16.3 strikethrough, 0.16.4 start
+time). No schema change. Going back to 0.16.0 is the image swap only, except that notes using strikethrough are
+refused by older servers (clear the strike first). A PIN set here keeps working on older builds when typed into their
+password field.
 
-**Changed**
+**Changed: a 4-digit PIN instead of the login password** (details: [LOGIN.md](LOGIN.md))
 
 - **The optional login is now a 4-digit PIN.** The login page shows four boxes with the number pad; the PIN goes in by
   itself after the 4th digit. A wrong PIN shakes and clears the boxes for the next try, with no error message.
@@ -38,8 +43,26 @@ keeps working on older builds, typed into their password field). Details: [LOGIN
   and Settings offers "Set a PIN instead". `GET /api/auth` now also answers `pin` (true/false). The assistant key and
   MCP are unchanged.
 
-**Checked:** `npm test` 371/371; `tests/e2e/settings.test.js` passes; `tests/e2e/login.test.js` 5/5 (PIN auto-submit, wrong PIN clears and retries, several wrong
-tries in a row, old-password install switching to a PIN, Settings rules).
+**Added: strikethrough** (details: [EDITOR.md](EDITOR.md#strikethrough))
+
+- Strikethrough in the editor: `~~text~~`, Ctrl/Cmd+Shift+S, and a toolbar button. Saved as a `strike` mark, shown in
+  read-only views, exported to Markdown as `~~text~~`, and read back by the Markdown importer (assistant notes too).
+
+**Changed: a start date fills in its time**
+
+- Setting a start date on a task that has no start time now fills in **09:00** (Tomorrow/Today buttons, the date picker,
+  an agent's `update_task`, and a typed `starts tomorrow`). A time already chosen or typed is never overwritten, and
+  taking the start date off again removes a time that was filled in. One rule, `DEFAULT_START_TIME` in
+  `shared/taskdates.js`. A bare date at the end of a task ("call mom tmr") is a due date and gets no time.
+
+**Removed: cleanup**
+
+- The "Today's note comes from" dropdown in Settings. It duplicated the tag chips under the note on Today, which still
+  save the choice on the server. The Settings state, handlers and message that only served it went too, and the
+  browser test now switches the tag with the Today chips.
+- An unused import in `server/store.js` and two unused CSS rules (`.tasks-link`, `.archive-dates`).
+
+**Checked** on the merged branch: `npm test` 375/375; `npm run test:e2e` 173/173.
 
 ## 0.16.0 — 2026-10-16 — Backlinks, mentions and renames that keep links working
 
@@ -129,6 +152,10 @@ image swap only. See [HABITS.md](HABITS.md) → *Backdating*.
 **Checks:** `npm test` (340 pass); browser `tests/e2e/skin-habits.test.js` (11 pass, 3 new in "backdating habits":
 the Dashboard's ‹ day › with the start moved back and the streak recomputed, a number logged before the start on the
 habit's page, a past day logged offline and sent when back online) and `tests/e2e/today.test.js` (14 pass).
+
+Workspace maintenance, 2026-10-16: the main folder now uses the already deployed **0.12.0** release.
+Redundant local branches and working copies were archived and retired; unfinished Android work remains
+separate. See [WORKSPACE.md](WORKSPACE.md) for recovery and verification. No application code change or new release.
 
 ## 0.12.0 — 2026-10-16 — Agents can edit everything they can read, habit options included
 

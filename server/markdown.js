@@ -3,10 +3,10 @@
 // revision history are not included); the JSON export is the full-fidelity one.
 import { fileRef, isImageType } from '../shared/attachments.js';
 
-const MARK_ORDER = ['bold', 'italic'];
-const DELIM = { bold: '**', italic: '*' };
+const MARK_ORDER = ['bold', 'italic', 'strike'];
+const DELIM = { bold: '**', italic: '*', strike: '~~' };
 
-const escapeText = (s) => s.replace(/([\\`*_[\]<>])/g, '\\$1');
+const escapeText = (s) => s.replace(/([\\`*_~[\]<>])/g, '\\$1');
 
 function wrap(delim, s) {
   const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(s);

@@ -353,6 +353,22 @@ describe('task dates: due, start, hidden', () => {
       await page.getByTestId('clear-due').tap();
       await waitSaved(page);
       assert.deepEqual(Object.keys(stored()[3].attrs).sort(), ['checked', 'id']);
+
+      // A start date picked with Tomorrow fills in the time (09:00); a time already chosen is not overwritten.
+      const row = (text) => page.locator('[data-testid="task-row"]', { hasText: text });
+      // (its sheet is still open from the step above)
+      await page.getByTestId('field-start').getByRole('button', { name: 'Tomorrow' }).tap();
+      await waitSaved(page);
+      assert.equal(await page.getByTestId('input-start-time').inputValue(), '09:00');
+      assert.equal(stored()[3].attrs.startTime, '09:00');
+      await page.getByTestId('task-sheet-done').tap();
+      await row('coming up').getByTestId('task-expand').tap();
+      await page.getByTestId('input-start-time').fill('14:30');
+      await waitSaved(page);
+      await page.getByTestId('field-start').getByRole('button', { name: 'Tomorrow' }).tap();
+      await waitSaved(page);
+      assert.equal(await page.getByTestId('input-start-time').inputValue(), '14:30');
+      assert.equal(stored()[2].attrs.startTime, '14:30');
       assert.deepEqual(page.errors, []);
     }));
 

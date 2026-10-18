@@ -19,13 +19,13 @@ because the app is only reachable on the home network or over WireGuard.
 - **Forgot it:** on the server, `sudo docker exec gordonite node server/cli.js password-off` (the same command with
   `node server/cli.js password-off` where the app runs without Docker). The app opens without a login again; set a new
   PIN in Settings.
-- **Fingerprint / face unlock (0.16.3):** see the next section.
+- **Fingerprint / face unlock (0.16.5):** see the next section.
 - **An install with a password from before 0.16.2** keeps it: the login page shows the old text field and Log in button
   until a PIN is set. Settings → PIN then says "old password" and offers **Set a PIN instead** (current password + new PIN).
 
 ## Fingerprint / face unlock (passkeys)
 
-Since 0.16.3 a phone (or a PC with Windows Hello) can unlock Gordonite with its own fingerprint or face instead of
+Since 0.16.5 a phone (or a PC with Windows Hello) can unlock Gordonite with its own fingerprint or face instead of
 typing the PIN. It is a WebAuthn **passkey**: the device keeps a private key behind its fingerprint / face sensor, and
 the server keeps only the matching public key. The PIN boxes always stay on the login page as the fallback.
 
@@ -65,7 +65,7 @@ How it works:
   date added. No private key or biometric data ever reaches the server. Not exported or imported (like the PIN), but it
   is inside the database file and its backups.
 - A passkey login sets the same `hq_session` cookie as the PIN. Changing or turning off the PIN raises `gen`; since
-  0.16.3 `gen` is also remembered while the PIN is off (`auth_gen`), so turning it off and on again cannot bring back an
+  0.16.5 `gen` is also remembered while the PIN is off (`auth_gen`), so turning it off and on again cannot bring back an
   old cookie.
 - Routes (all under `/api/auth`, JSON only, same-site only): `POST /passkey/options` and `POST /passkey/login` (open,
   like the PIN login); `GET /passkeys`, `POST /passkeys/options`, `POST /passkeys`, `DELETE /passkeys/:id` (need a login

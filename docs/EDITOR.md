@@ -25,8 +25,8 @@ selection, composition, paste and undo is the engine's. The editor-related code 
 
 | File | What it does | Why it exists |
 |---|---|---|
-| `client/src/editor/extensions.js` | Chooses extensions and options | Match the document format: bold, italic, headings 1-3, bullets, tasks. Everything else is turned off (blockquote, code, links, ordered lists, strike, underline, rules, drop/gap cursor, trailing node) so nothing pops up or rewrites the text by itself. Adds `UniqueID` for task ids. |
-| `client/src/editor/Toolbar.jsx` | Buttons that call stock commands (`toggleBold`, `toggleTaskList`, `undo`, …) | Cancels pointer/mouse down so the editor keeps focus and the keyboard stays up; `aria-disabled` rather than `disabled` because a disabled button can take focus away. Buttons are defined at module level so a re-render can't replace a button mid-tap. |
+| `client/src/editor/extensions.js` | Chooses extensions and options | Match the document format: bold, italic, strikethrough, headings 1-3, bullets, tasks. Everything else is turned off (blockquote, code, links, ordered lists, underline, rules, drop/gap cursor, trailing node) so nothing pops up or rewrites the text by itself. Adds `UniqueID` for task ids. |
+| `client/src/editor/Toolbar.jsx` | Buttons that call stock commands (`toggleBold`, `toggleStrike`, `toggleTaskList`, `undo`, …) | Cancels pointer/mouse down so the editor keeps focus and the keyboard stays up; `aria-disabled` rather than `disabled` because a disabled button can take focus away. Buttons are defined at module level so a re-render can't replace a button mid-tap. |
 | `client/src/editor/NoteEditor.jsx` | Creates/destroys one editor for a note | Connects it to the save engine. Ignores transactions the engine flags `addToHistory:false` (housekeeping such as giving an old task an id) so merely opening a note never saves it; everything else counts as an edit. Refuses to autosave if the stored document can't be represented. Applies the tap that activated the editor (see below). Uses `toggleTaskById` for a checkbox tapped in a read-only note (one ordinary undoable transaction, same as the built-in checkbox). |
 | `client/src/editor/render.js` | Draws a document as HTML for notes that are not being edited | A long stream must not mount an editor per note. Same markup/CSS as the editor's. Also builds the markup for a file (`attachmentHtml`), which the editor reuses. |
 | `client/src/editor/attachments.js` | The `attachment` block (an atom holding a file's id, name, type and size), the paste/drop handling, and the upload-then-insert step | Files are uploaded first and inserted afterwards as one transaction, so one undo reverses it and a note never refers to a file that is not stored. The block is drawn from the same markup as the read-only view plus a × that removes it from the note (the file itself is kept). A pasted or dropped file is only taken when the paste has no text. See [ATTACHMENTS.md](ATTACHMENTS.md). |
@@ -55,7 +55,7 @@ selection, composition, paste and undo is the engine's. The editor-related code 
 
 What the editor can hold and what the server accepts are the same set; `tests/client/doc-contract.test.js` keeps them
 so. A document is blocks (paragraph, heading, bullet list, task list, file); a paragraph or heading holds text and line
-breaks; a list item or task starts with a paragraph and may then hold any blocks. Bold and italic sit on text **and on
+breaks; a list item or task starts with a paragraph and may then hold any blocks. Bold, italic and strikethrough sit on text **and on
 line breaks**: Shift+Enter inside bold text puts the mark on the break too, and the server accepts it (it used to refuse
 such a note, which then never saved). When the editor gains a node or changes a nesting rule, change `contentRule` in
 `shared/doc.js` in the same commit; the generated tests fail until both agree.
@@ -126,3 +126,12 @@ A task may carry `repeat` (a rule) and `completions` (its history) as optional a
 `data-completions`; no format bump). Ticking the checkbox of a repeating task is handled by `TaskHistory`
 (`client/src/editor/task-history.js`) in the same transaction as the tick, so one undo puts the due date and history back;
 the rules are `patchedTaskAttrs` in `shared/tasks.js`. See [RECURRING-TASKS.md](RECURRING-TASKS.md).
+
+## Strikethrough
+
+Strikethrough is a third mark, `strike`, beside bold and italic. Type `~~text~~` (the stock input rule), press Ctrl/Cmd+Shift+S
+(the stock shortcut), or use the toolbar button (`tb-strike`). It is stored as `{ "type": "strike" }`, allowed by
+`MARK_TYPES` in `shared/doc.js`, drawn as `<s>` (editor and `client/src/editor/render.js`), and written to Markdown as
+`~~text~~` by `server/markdown.js` (literal `~` is escaped there). `shared/markdown-import.js` reads `~~text~~` back as
+strike. DOC_FORMAT stays 2: the mark is an addition. A note that holds strike is refused by a server older than 0.16.3,
+so going back past that version needs those notes' strike removed first.

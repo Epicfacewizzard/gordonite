@@ -10,6 +10,7 @@ import { toggleMark, splitBlock, deleteSelection, joinBackward, setBlockType, li
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from '@tiptap/pm/schema-list';
 import { validateDoc, hasOnlyStructureProblems } from '../../shared/doc.js';
 import { markdownToDoc } from '../../shared/markdown-import.js';
+import { docToMarkdown } from '../../server/markdown.js';
 import { removeTask, updateTask, cleanTaskAttrs } from '../../shared/tasks.js';
 import { FIXTURES } from '../fixtures/docs.js';
 import { schema, rng, pick, editorAccepts, generate, generateAny, mutate, TYPES } from './generators.js';
@@ -69,6 +70,7 @@ describe('what real editing produces is always accepted', () => {
   const commands = [
     (s, d) => toggleMark(schema.marks.bold)(s, d),
     (s, d) => toggleMark(schema.marks.italic)(s, d),
+    (s, d) => toggleMark(schema.marks.strike)(s, d),
     (s, d) => splitBlock(s, d),
     (s, d) => deleteSelection(s, d),
     (s, d) => joinBackward(s, d),
@@ -123,6 +125,35 @@ describe('what real editing produces is always accepted', () => {
   });
 });
 
+describe('strikethrough', () => {
+  const struck = { type: 'doc', content: [{ type: 'paragraph', content: [
+    { type: 'text', text: 'keep ' },
+    { type: 'text', text: 'gone', marks: [{ type: 'strike' }] },
+    { type: 'text', text: ' both', marks: [{ type: 'bold' }, { type: 'strike' }] },
+  ] }] };
+
+  test('is a valid mark and the editor opens it', () => {
+    assert.equal(validateDoc(struck), null);
+    assert.equal(editorAccepts(struck), true);
+  });
+
+  test('~~text~~ loads as strike and saves back as ~~text~~', () => {
+    const md = 'keep ~~gone~~ **~~both~~**';
+    const doc = markdownToDoc(md);
+    assert.deepEqual(doc.content[0].content[1], { type: 'text', text: 'gone', marks: [{ type: 'strike' }] });
+    assert.equal(validateDoc(doc), null);
+    assert.equal(docToMarkdown(doc).trim(), md);
+    assert.equal(docToMarkdown(struck).trim(), 'keep ~~gone~~ **~~both~~**');
+  });
+
+  test('literal tildes are escaped on export so they do not become strike', () => {
+    const plain = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '~~not struck~~' }] }] };
+    const md = docToMarkdown(plain).trim();
+    assert.equal(md, String.raw`\~\~not struck\~\~`);
+    assert.deepEqual(markdownToDoc(md).content[0].content, [{ type: 'text', text: '~~not struck~~' }]);
+  });
+});
+
 describe('what the app writes itself is always accepted', () => {
   test('Markdown import', () => {
     const r = rng(31);
@@ -130,7 +161,7 @@ describe('what the app writes itself is always accepted', () => {
       '# Heading', '## Two', '###### deep', 'Plain words with **bold** and *italic*', '- item', '  - nested', '    - deeper', '* star item',
       '1. numbered', '2) paren', '- [ ] task', '- [x] done', '  - [ ] subtask', '> quote', '```', 'code line', '| a | b |', '|---|---|', '---',
       '', '', '![pic](gordonite-file:abcdefgh12)', '[[Wiki Link]]', '   ', 'text _under_ score', '**', '*', '`', '\\*escaped\\*', '- ', '#', '1)',
-      '***both***', '* **nested** *marks*', '\tTabbed item',
+      '***both***', '~~struck~~ and ~~**bold struck**~~', '~~', '~~ ~~', '* **nested** *marks*', '\tTabbed item',
     ];
     const resolveAttachment = (id) => ({ id, name: 'pic.png', mime: 'image/png', size: 5 });
     for (let i = 0; i < 600; i++) {
