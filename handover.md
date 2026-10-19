@@ -129,7 +129,7 @@ Production preview and browser tests serve `client/dist`; **build after client e
 
 ## Deploying
 
-`scripts/deploy-casaos.ps1` builds a clean `git archive` of the last commit, runs the unit tests, copies it to the server, builds the image there and recreates the container with the **existing** Compose configuration (assistant token, mount, port and user preserved). It needs the server password interactively (copy, login, sudo), so it must be run by the owner in a normal PowerShell window; an assistant cannot answer those prompts. `-DryRun` builds and verifies without touching the server; `-Inspect` is read-only.
+`scripts/deploy-casaos.ps1` builds a clean `git archive` of the last commit, runs the unit tests, copies it to the server, builds the image there and recreates the container with the **existing** Compose configuration (assistant token, mount, port and user preserved). Since 2026-10-18 it asks for the server password once (sudo); the copy and login use a deploy key it sets up on first run (one extra password prompt that time; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#updating-the-running-casaos-install-one-command)). It must still be run by the owner in a normal PowerShell window; an assistant cannot answer those prompts. `-DryRun` builds and verifies without touching the server; `-Inspect` is read-only.
 
 **Latest deployment: 0.10.0 on 2026-10-15** (release `c6ba5bf`, with 0.9.0; schema v6 → v9), run by the owner with the script above; `/api/health` then reported `0.10.0`. Rollback image `gordonite:rollback-before-c6ba5bf` (needs the deploy's pre-update backup too, because of the newer schema). The vault's people details were imported afterwards with Merge (59 people; pre-import backup `hq-preimport-20261015-065703.sqlite`).
 

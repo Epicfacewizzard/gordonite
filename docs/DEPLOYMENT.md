@@ -228,13 +228,21 @@ powershell -ExecutionPolicy Bypass -File scripts\deploy-casaos.ps1
 
 Add `-DryRun` to build the release archive and stop before touching the server. The script refuses to run with
 uncommitted changes (the release is the last commit), runs the unit tests, copies a `git archive` of that commit and
-`deploy/casaos-update.sh` to `/home/gordon/gordonite/releases/` over SSH (server password: copy, log in, sudo), and
+`deploy/casaos-update.sh` to `/home/gordon/gordonite/releases/` over SSH, and
 the server script then: verifies the archive hash, takes a verified backup through the app, tags the running image
 `gordonite:rollback-before-<commit>`, builds `gordonite:<commit>`, retags it `gordonite:0.1.0`, recreates the existing
 Compose service without changing its settings, and checks health, the new mood route, the logo and that the
 assistant key is still set. Nothing secret is stored or printed. See `DEPLOYMENT-2026-10-06.md` for the manual steps
 it automates and for rollback. A database upgrade (like schema v5) cannot be undone by the old image: restore the
 backup taken at the start as well.
+
+**One password per deploy (2026-10-18).** The copy and the login use a deploy key, `~/.ssh/gordonite_deploy` on the
+computer that deploys (ed25519, no passphrase, never in the repository). The first run makes it and appends its
+public half to `gordon`'s `~/.ssh/authorized_keys` on the server, which asks for the server password one extra time.
+After that the only prompt is sudo on the server. Because the login needs no typing, the server's roughly two-minute
+limit at the SSH password prompt (which made earlier deploys fail with "Connection closed") no longer applies. To
+revoke the key, delete its `gordonite-deploy@<computer>` line from the server's `authorized_keys` and the two key
+files on the computer; the next deploy then sets it up again.
 
 ### Updating from the server's own terminal (nothing to copy)
 
