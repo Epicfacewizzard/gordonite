@@ -1,6 +1,6 @@
 # Gordonite handover
 
-Updated **2026-10-16**, home timezone **America/Edmonton**. Read [the workspace guide](docs/WORKSPACE.md) for the current two local branches, archives and recovery instructions. The older deployment sections below are historical; see `docs/RELEASE-NOTES.md` for per-release details.
+Updated **2026-10-18**, home timezone **America/Edmonton**. Read [the workspace guide](docs/WORKSPACE.md) for the current two local branches, archives and recovery instructions. The older deployment sections below are historical; see `docs/RELEASE-NOTES.md` for per-release details.
 
 ## Read first
 
@@ -16,9 +16,9 @@ Updated **2026-10-16**, home timezone **America/Edmonton**. Read [the workspace 
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.16.4** (2026-10-18) |
-| Waiting to be deployed | **0.13.0–0.16.4** (the server runs 0.12.0): 0.13.0 (backdate habit check-ins), 0.14.0 (recurring tasks; [docs/RECURRING-TASKS.md](docs/RECURRING-TASKS.md)), 0.15.0 (Projects and Waiting on; **schema v11**; [docs/PROJECTS.md](docs/PROJECTS.md)), 0.16.0 (backlinks, mentions, renames that keep links; [docs/LINKS.md](docs/LINKS.md)) and 0.16.4 (4-digit PIN login, strikethrough, start dates fill in 09:00, cleanup). The database goes v10 → v11, so a rollback needs the pre-update backup the deploy script takes. After deploying, update the OneDrive checkout so the assistant bridge gets the new tools |
-| Version running on the server | **0.12.0**, confirmed through the connected assistant ping on 2026-10-16. Root checkout also uses 0.12.0 (schema v10). This cleanup did not deploy anything |
+| Version on `origin/main` | **0.16.5** (2026-10-18; release commit `f31da8d`) |
+| Waiting to be deployed | Nothing |
+| Version running on the server | **0.16.5** (`f31da8d`, deployed 2026-10-18 by the owner with `scripts/deploy-casaos.ps1`; `/api/health` reported `0.16.5`, assistant key still set). Schema **v11** (the server was already on 0.16.0, so no schema change). Brings the 4-digit PIN login, fingerprint / face unlock (passkeys; only on `https://gordonite.duckdns.org`, not on the IP address), strikethrough, start dates filling in 09:00 and the cleanup. Pre-update backup `hq-manual-20261019-042039.sqlite`; rollback image `gordonite:rollback-before-f31da8d`. The OneDrive checkout is on `f31da8d` too. Fingerprint unlock has not yet been tried on the S24 |
 | Habit tracker beta | Archived locally with the CRM preview and old Android jot experiment; see [docs/WORKSPACE.md](docs/WORKSPACE.md). Remote cleanup needs explicit approval |
 | HTTPS address | `https://gordonite.duckdns.org` (2026-10-15): DuckDNS name → `192.168.1.50`, Nginx Proxy Manager on the server (admin `http://192.168.1.50:81`) with a Let's Encrypt certificate by DNS challenge; reachable only on the LAN or WireGuard. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain). `http://192.168.1.50:8082` still works |
 
@@ -131,7 +131,9 @@ Production preview and browser tests serve `client/dist`; **build after client e
 
 `scripts/deploy-casaos.ps1` builds a clean `git archive` of the last commit, runs the unit tests, copies it to the server, builds the image there and recreates the container with the **existing** Compose configuration (assistant token, mount, port and user preserved). Since 2026-10-18 it asks for the server password once (sudo); the copy and login use a deploy key it sets up on first run (one extra password prompt that time; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#updating-the-running-casaos-install-one-command)). It must still be run by the owner in a normal PowerShell window; an assistant cannot answer those prompts. `-DryRun` builds and verifies without touching the server; `-Inspect` is read-only.
 
-**Latest deployment: 0.10.0 on 2026-10-15** (release `c6ba5bf`, with 0.9.0; schema v6 → v9), run by the owner with the script above; `/api/health` then reported `0.10.0`. Rollback image `gordonite:rollback-before-c6ba5bf` (needs the deploy's pre-update backup too, because of the newer schema). The vault's people details were imported afterwards with Merge (59 people; pre-import backup `hq-preimport-20261015-065703.sqlite`).
+**Latest deployment: 0.16.5 on 2026-10-18** (release `f31da8d`, 391/391 unit tests; the server went 0.16.0 → 0.16.5, schema v11 unchanged), run by the owner with the script above, the first run to use the deploy key (two password prompts that time: the key, then sudo). Two earlier tries the same day failed at the SSH password prompt ("Connection closed") and changed nothing, which is why the key was added. `/api/health` then reported `0.16.5`. Pre-update backup `hq-manual-20261019-042039.sqlite`; rollback image `gordonite:rollback-before-f31da8d`.
+
+Before that: **0.10.0 on 2026-10-15** (release `c6ba5bf`, with 0.9.0; schema v6 → v9), run by the owner with the script above; `/api/health` then reported `0.10.0`. Rollback image `gordonite:rollback-before-c6ba5bf` (needs the deploy's pre-update backup too, because of the newer schema). The vault's people details were imported afterwards with Merge (59 people; pre-import backup `hq-preimport-20261015-065703.sqlite`).
 
 Before that: **0.5.1 on 2026-10-12** (release `37bf398`, 140/140 unit tests), run by the owner with the script above; `/api/health` then reported `0.5.1`. The first attempt was closed by the server while it waited at the password prompt (it drops the connection after about two minutes) and changed nothing; the second went through. Pre-update backup `hq-manual-20261013-054257.sqlite`; rollback image `gordonite:rollback-before-37bf398`. Earlier: 0.5.0 (`bf48e8b`) and 0.4.3 the same day. `main` was pushed after each deployment.
 

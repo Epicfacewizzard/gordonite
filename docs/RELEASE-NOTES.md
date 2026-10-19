@@ -24,6 +24,11 @@ with the library stubbed out); `tests/e2e/login.test.js`, `settings.test.js` and
 authenticator: add in Settings, auto-unlock, button, finger that does not match, remove, PIN change removes it) 9/9.
 Not tried on the S24 yet.
 
+**Deployed 2026-10-18** by the owner with `scripts/deploy-casaos.ps1` (release `f31da8d`, which adds only the
+one-password deploy script on top of 0.16.5; 391/391 unit tests). The server went 0.16.0 → 0.16.5 (schema v11
+unchanged); `/api/health` reported `0.16.5` and the assistant key was still set. Pre-update backup
+`hq-manual-20261019-042039.sqlite`, rollback image `gordonite:rollback-before-f31da8d`.
+
 ## 0.16.4 — 2026-10-18 — PIN login, strikethrough, start times, cleanup
 
 Version **0.16.4**, one release made from four branches (0.16.1 cleanup, 0.16.2 PIN, 0.16.3 strikethrough, 0.16.4 start
