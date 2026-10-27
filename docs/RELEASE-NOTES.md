@@ -13,7 +13,7 @@ Version **0.16.6** (fix). No schema change; going back to 0.16.5 is the image sw
 - A weekday in front of a calendar date (`due thu oct 29`) no longer makes the parser read only the weekday; the date
   decides. Details: [NATURAL-DATES.md](NATURAL-DATES.md).
 
-**Checked:** `npm test` 391/391 (new cases in `tests/server/task-times.test.js`). `tests/e2e/task-clock-calendar.test.js` and `tasks.test.js` 11/11. Not deployed.
+**Checked:** `npm test` 391/391 (new cases in `tests/server/task-times.test.js`). `tests/e2e/task-clock-calendar.test.js` and `tasks.test.js` 11/11. **Deployed 2026-10-26** by the owner with `scripts/deploy-casaos.ps1` (release `04a3680`); `/api/health` reported `0.16.6`.
 
 ## 0.16.5 — 2026-10-18 — Fingerprint / face unlock
 
