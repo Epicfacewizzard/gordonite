@@ -19,6 +19,17 @@ test('clock grammar attaches times to the right dates, accepts next and explicit
   assert.equal(parse('Sponsor due oct 12, 2027').due, '2027-10-12');
   assert.equal(parse('Sponsor due 12 oct 2025').due, '2025-10-12');
   for (const text of ['Buy 6 apples', 'Call at 25:00', 'Call at 13pm', 'Call at 6', 'Call at 9:70']) assert.equal(parse(text).dueTime, null);
+  // A date with no keyword counts when it sits right next to the time, weekday in front or not.
+  const meeting = { due: '2026-10-29', dueTime: '15:00', start: null, startTime: null };
+  assert.deepEqual(parse('Attend the Mahjong meeting (Thu Oct 29, 3 pm) with Marcus', '2026-10-26'), meeting);
+  assert.deepEqual(parse('Mahjong meeting oct 29 at 3pm with Marcus', '2026-10-26'), meeting);
+  assert.deepEqual(parse('Mahjong meeting at 3pm on 29 oct with Marcus', '2026-10-26'), meeting);
+  assert.deepEqual(parse('Mahjong meeting tmr 3pm with Marcus', '2026-10-28'), meeting);
+  assert.deepEqual(parse('Room set-up starts 9am thu oct 29 then lunch', '2026-10-26'), { due: null, dueTime: null, start: '2026-10-29', startTime: '09:00' });
+  assert.equal(parse('Sponsor due thu oct 29', '2026-10-05').due, '2026-10-29');
+  // A date away from the time is still not a due date; the time alone stays on the note's day.
+  assert.deepEqual(parse('Recap the oct 29 meeting at 3pm sharp', '2026-10-26'), { due: '2026-10-26', dueTime: '15:00', start: null, startTime: null });
+  assert.equal(parse('Read the oct 29 minutes', '2026-10-26').due, null);
   assert.equal(parse('Call at midnight').dueTime, '00:00');
   assert.equal(parse('Call at noon').dueTime, '12:00');
   assert.equal(parse('Call at 12am').dueTime, '00:00');

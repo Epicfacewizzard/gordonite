@@ -29,14 +29,17 @@ const alt = (names) => Object.keys(names).sort((a, b) => b.length - a.length).jo
 const WD = alt(WEEKDAYS);
 const MO = alt(MONTHS);
 
+// A calendar date may carry its weekday in front ("thu oct 29"); the date itself decides.
+// It comes before the bare weekday so "thu oct 29" is not read as just "thu".
+const WD_PREFIX = `(?:(?:${WD})\\.?,?\\s+)?`;
 const EXPR = [
   `(?<iso>\\d{4}-\\d{2}-\\d{2})`,
   `(?<rel>today|tomorrow|tmrw|tmr)`,
   `next\\s+(?<nextUnit>week|month|year)`,
   `in\\s+(?<n>\\d{1,3})\\s+(?<unit>days?|weeks?)`,
+  `${WD_PREFIX}(?<mo1>${MO})\\.?\\s+(?<d1>\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(?<year1>\\d{4}))?`,
+  `${WD_PREFIX}(?<d2>\\d{1,2})(?:st|nd|rd|th)?\\s+(?<mo2>${MO})(?:,?\\s+(?<year2>\\d{4}))?`,
   `(?:next\\s+)?(?<wd>${WD})`,
-  `(?<mo1>${MO})\\.?\\s+(?<d1>\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(?<year1>\\d{4}))?`,
-  `(?<d2>\\d{1,2})(?:st|nd|rd|th)?\\s+(?<mo2>${MO})(?:,?\\s+(?<year2>\\d{4}))?`,
 ].join('|');
 
 const PHRASE = new RegExp(`(?<![\\w-])(?<kw>due|starts?|starting)\\s+(?:on\\s+)?(?:${EXPR})(?![\\w-])`, 'gi');
@@ -44,6 +47,10 @@ const PHRASE = new RegExp(`(?<![\\w-])(?<kw>due|starts?|starting)\\s+(?:on\\s+)?
 // A date word at the very end of a task counts as its due date, with or without "due" in front:
 // "review this example tomorrow", "call mom on sun". (Only the due date; a start date needs its keyword.)
 const TRAILING = new RegExp(`(?<![\\w-])(?:(?:by|on)\\s+)?(?:${EXPR})(?:\\s*[.!?])?\\s*$`, 'i');
+
+// A date with no keyword anywhere in the text. Only used when it sits right next to a clock time
+// ("meeting (thu oct 29, 3 pm) with Sam"), so a stray date word elsewhere is still not a due date.
+const BARE = new RegExp(`(?<![\\w-])(?:${EXPR})(?![\\w-])`, 'gi');
 
 const dow = (date) => new Date(`${date}T00:00:00Z`).getUTCDay();
 
@@ -121,9 +128,15 @@ export function findDatePhrases(text, noteDate) {
     masked = masked.slice(0, match.index) + ' '.repeat(match[0].length) + masked.slice(match.index + match[0].length);
   }
   const dates = findCalendarPhrases(masked, noteDate);
+  const bare = [];
+  for (const m of masked.matchAll(BARE)) {
+    const date = resolve(m.groups, noteDate);
+    const overlaps = dates.some((p) => m.index < p.index + p.length && p.index < m.index + m[0].length);
+    if (date && !overlaps) bare.push({ kind: null, date, index: m.index, length: m[0].length, bare: true });
+  }
   for (const clock of times) {
-    const adjacent = dates.filter((date) => {
-      if (clock.kind && date.kind !== clock.kind) return false;
+    const adjacent = [...dates, ...bare].filter((date) => {
+      if (clock.kind && date.kind && date.kind !== clock.kind) return false;
       const left = Math.min(date.index + date.length, clock.index + clock.length);
       const right = Math.max(date.index, clock.index);
       return /^[\s,]*(?:at|on)?[\s,]*$/i.test(text.slice(left, right));
@@ -132,6 +145,13 @@ export function findDatePhrases(text, noteDate) {
       return gap(a) - gap(b) || a.index - b.index;
     })[0];
     if (adjacent && !adjacent.time) {
+      if (adjacent.bare) {
+        // A bare date takes the clock's kind ("starts" on the time makes it a start date).
+        bare.splice(bare.indexOf(adjacent), 1);
+        delete adjacent.bare;
+        adjacent.kind = clock.kind || 'due';
+        dates.push(adjacent);
+      }
       const end = Math.max(adjacent.index + adjacent.length, clock.index + clock.length);
       adjacent.index = Math.min(adjacent.index, clock.index); adjacent.length = end - adjacent.index;
       adjacent.time = clock.time;

@@ -1,5 +1,20 @@
 # Release notes
 
+## 0.16.6 — 2026-10-26 — Dates next to a time in the middle of a task
+
+Version **0.16.6** (fix). No schema change; going back to 0.16.5 is the image swap only.
+
+**Fixed**
+
+- A task like `Attend the meeting (Thu Oct 29, 3 pm) with Marcus` in a note dated Oct 26 was due **Oct 26** at 15:00:
+  the time was found, but a date with no "due" keyword was only read at the end of the task, so the time fell back to
+  the note date. A date with no keyword now counts anywhere when a time sits right next to it (only spaces, a comma,
+  "at" or "on" between). A date elsewhere with no time next to it is still ordinary text.
+- A weekday in front of a calendar date (`due thu oct 29`) no longer makes the parser read only the weekday; the date
+  decides. Details: [NATURAL-DATES.md](NATURAL-DATES.md).
+
+**Checked:** `npm test` 391/391 (new cases in `tests/server/task-times.test.js`). `tests/e2e/task-clock-calendar.test.js` and `tasks.test.js` 11/11. Not deployed.
+
 ## 0.16.5 — 2026-10-18 — Fingerprint / face unlock
 
 Version **0.16.5** (small feature). No schema change (the passkeys live in `meta`), so going back to 0.16.4 is the image

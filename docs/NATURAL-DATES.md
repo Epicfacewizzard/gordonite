@@ -17,6 +17,7 @@ For a note dated **Monday, October 5, 2026**:
 | Call at noon | October 5 at 12:00 | — |
 | Essay due oct 12, 2027 | October 12, 2027 | — |
 | Pay rent due in 3 days | October 8 | — |
+| Mahjong meeting (Thu Oct 8, 3 pm) with Marcus | October 8 at 15:00 | — |
 
 Times use the **home timezone in Settings**, initially America/Edmonton. Optional HH:mm attributes are stored alongside calendar dates in the original task node. Changing the home timezone retains that date and wall-clock time, interpreted in the new zone. Completion/dismissal timestamps remain UTC instants. During daylight-saving clock repetition the task view follows the current wall clock, so a local time can occur twice. There are no reminders, notifications, alarms or automatic emails. Repeat phrases ("every 2 weeks", "every mon and thu", "monthly") make a task recurring; see [RECURRING-TASKS.md](RECURRING-TASKS.md).
 
@@ -26,13 +27,13 @@ Times use the **home timezone in Settings**, initially America/Edmonton. Optiona
 - weekdays, full or abbreviated, with optional “next”
 - next week = seven days later; next month/year = same day next month/year, clamped to its last day if necessary
 - in N days or weeks (up to three digits)
-- oct 12, October 12th, 12 oct; optional four-digit year, including oct 12, 2027
+- oct 12, October 12th, 12 oct; optional four-digit year, including oct 12, 2027; an optional weekday in front (thu oct 29) is ignored and the date decides
 - ISO dates: 2026-10-12
 - times: 6pm, 6:30 pm, 18:30, noon, midnight; optional “at”
 
 A start date with no time gets **09:00** (picked, typed or set by an agent); a time already there is kept. A due date with no time stays date-only.
 
-Use **due** for a due date and **start**, **starts** or **starting** for a start date. Optional “on” works: `due on Friday`. A date at the end counts as due without a keyword, optionally preceded by “by” or “on”. An adjacent time may come before or after it. A time without a date uses the note date: `Call at 6pm`. A start time needs its keyword: `Call starts at 6pm`.
+Use **due** for a due date and **start**, **starts** or **starting** for a start date. Optional “on” works: `due on Friday`. A date at the end counts as due without a keyword, optionally preceded by “by” or “on”. An adjacent time may come before or after it. Anywhere else in the text, a date with no keyword counts only when a time sits right next to it (only spaces, a comma, “at” or “on” between): `Meeting (Thu Oct 29, 3 pm) with Sam` is due October 29 at 15:00. A time without a date next to it uses the note date: `Call at 6pm`. A start time needs its keyword: `Call starts at 6pm`.
 
 This is a deterministic grammar: it recognizes date/time components and combines them. It does not store whole example sentences or ask AI to guess. Unsupported wording stays ordinary text. Bare `6` or `at 6` is ambiguous and ignored; use am/pm or HH:mm. “Next” alone, “next weekend”, slash dates, timezone abbreviations and “in two hours” are unsupported. Invalid dates/times such as February 30 and 25:00 are ignored. Check the interpreted values in Task details.
 
