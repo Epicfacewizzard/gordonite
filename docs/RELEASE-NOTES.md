@@ -1,5 +1,47 @@
 # Release notes
 
+## 0.17.0 — Plain names link themselves, and Today is one journal page
+
+Version **0.17.0** (feature). **No schema change and no data change:** nothing new is stored (the name matching is
+computed from the notes and the people list), the note document format is untouched, and going back to 0.16.6 is the
+image swap only. Rules and limits: [LINKS.md](LINKS.md#plain-names-since-0170).
+
+**Added**
+
+- **Plain-name mentions.** A person's page lists a note under *Mentioned in* when it just writes their name, with no
+  `[[link]]`: the full name, an "Also called" name, a first name (at least 3 letters, exactly as capitalised, only when
+  nobody else shares it) or "First L" / "First L." when unique. Whole words only; text inside `[[ ]]` is skipped.
+  `shared/mentions.js` is the one matcher; `server/links.js` merges it with the `[[link]]` hits (one row per note, `count`
+  the total, up to three distinct lines) under the same per-note revision stamp, so there is still no hook. Only people get
+  this; the assistant's `get_backlinks` picks it up through the same function.
+- **Names shown as links.** In a note that is not being edited, a person's name is a quiet dotted-underline link to their
+  page (`class="mention"`); a person's own page does not link their name to itself. While editing, the same look is a
+  ProseMirror decoration only (no document change, no click handling). Until the people list has loaded the names stay plain.
+- **Today as one journal page.** The Dashboard's *Today's note* is the daily entry of the journal tag; the row of tag
+  chips (and the device-kept "unsent pick" that existed only for it) is gone. Under the note: **People today**, a chip
+  for each person named in the journal entry (as you type) and in the other notes dated today, and **Also today**, the other
+  notes dated today with their name or first tag and first line. Both are hidden when empty.
+- **Phone order.** On a single-column screen the Tasks box comes first, then today's note, then the other widgets as
+  before. Wide layout and Settings → Dashboard are unchanged; a hidden widget stays hidden.
+- `GET /api/notes?date=YYYY-MM-DD` lists the live notes dated that day (a 400 for a bad date).
+
+**Changed**
+
+- The journal tag is changed in **Settings → Dashboard → Journal tag**. That control had been removed in 0.16.1 as a
+  duplicate of the Today chips; with the chips gone it is back (same server setting `dailyTag`, same `daily-tag-select`).
+- `tests/e2e/today.test.js` and `earlier-notes.test.js`: the tests that switched tags with the chips are replaced by the
+  Settings route and by tests of People today, Also today and the phone order.
+
+**Checked:** `npm test` **404/404** (was 391; new `tests/client/mentions.test.js`, plain-name and `date` server tests).
+Browser tests, each file run alone, all green on the first run: `today` 15/15, `earlier-notes` 9/9, `people` 3/3,
+`links` 2/2, `link-navigation` 1/1, `notepage` 3/3, `offline-copy` 5/5, `freenotes` 6/6. The whole browser suite was not run.
+Not tried on a real phone.
+
+**Known limits:** a first name that is also an ordinary capitalised word (Will, Grace) marks that word wherever it appears
+with a capital; a person created on another device is not marked until the people list is next read; names in a note
+version preview and in Trash are not linked; *Also today* reads each note once per visit and does not follow other devices
+until the page is opened again.
+
 ## 0.16.6 — 2026-10-26 — Dates next to a time in the middle of a task
 
 Version **0.16.6** (fix). No schema change; going back to 0.16.5 is the image swap only.

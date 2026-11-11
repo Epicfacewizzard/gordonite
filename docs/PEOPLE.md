@@ -64,7 +64,10 @@ offline shows on their page at once and joins the list once their note reaches t
 
 ## Mentions
 
-A person's page ends with **Mentioned in**: the notes that link them with `[[Name]]` or an Also called name. See [LINKS.md](LINKS.md).
+A person's page ends with **Mentioned in**: the notes that link them with `[[Name]]` or an Also called name, and since 0.17.0 the notes that
+just write their name (the full name, an Also called name, or a first name nobody else shares; there is no need to link or to
+update the page by hand). A note's read-only text shows such a name as a link to the person's page. The rules and limits
+are in [LINKS.md](LINKS.md#plain-names-since-0170).
 
 ## Export, import, backups
 

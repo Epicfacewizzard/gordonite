@@ -139,27 +139,7 @@ describe("Dashboard: the last few days under today's note", () => {
       assert.equal(await page.locator('[data-testid="widget-note"] [contenteditable="true"]').count(), 1, 'still a single editor');
     }));
 
-  test('the tag choices sit beside the "Today’s note" heading, not under the note', () =>
-    withPhone(browser, async ({ page, app }) => {
-      await app.api('POST', '/api/tags', { path: 'school' });
-      const id = (await app.api('GET', '/api/tags')).json.tags.find((t) => t.path === 'school').id;
-      await app.api('PUT', `/api/tags/${id}/favorite`, { favorite: true });
-      await seed(app, { text: 'yesterday', date: daysAgo(1) });
-      await open(page, app);
-      await page.getByTestId('daily-tag-from').waitFor();
-      await page.waitForFunction(() => document.querySelectorAll('[data-testid="daily-tag-choice"]').length === 2);
-
-      const [heading, choices, note] = await Promise.all([
-        page.locator('[data-testid="widget-note"] h2.section').boundingBox(),
-        page.getByTestId('daily-tag-from').boundingBox(),
-        page.locator('[data-testid="widget-note"] article').first().boundingBox(),
-      ]);
-      assert.ok(choices.x >= heading.x + heading.width - 1, 'to the right of the heading');
-      assert.ok(Math.abs(choices.y + choices.height / 2 - (heading.y + heading.height / 2)) < 30, 'on the same line as the heading');
-      assert.ok(choices.y + choices.height <= note.y, 'above the note');
-    }));
-
-  test('the list follows the chosen tag, and shows daily entries only', () =>
+  test('the list follows the journal tag (the server setting), and shows daily entries only', () =>
     withPhone(browser, async ({ page, app }) => {
       await seed(app, { text: 'jots yesterday', date: daysAgo(1) });
       await seed(app, { text: 'work yesterday', date: daysAgo(1), tags: ['work-log'] });
@@ -171,11 +151,8 @@ describe("Dashboard: the last few days under today's note", () => {
       assert.doesNotMatch(text, /work yesterday/, 'another tag');
       assert.doesNotMatch(text, /standalone note/, 'not a daily entry');
 
-      const id = (await app.api('GET', '/api/tags')).json.tags.find((t) => t.path === 'work-log').id;
-      await app.api('PUT', `/api/tags/${id}/favorite`, { favorite: true });
+      assert.equal((await app.api('PUT', '/api/settings', { dailyTag: 'work-log' })).status, 200);
       await page.reload();
-      await page.getByTestId('daily-tag-choice').first().waitFor();
-      await page.locator('[data-testid="daily-tag-choice"][data-tag="work-log"]').click();
       await page.waitForFunction(() => /work yesterday/.test(document.querySelector('[data-testid="earlier-notes"]')?.innerText ?? ''));
       assert.doesNotMatch(await page.getByTestId('earlier-notes').innerText(), /jots yesterday/);
     }));

@@ -1,18 +1,19 @@
 // Links between notes (see docs/LINKS.md): which notes a [[link]] opens, which notes link to a note ("Linked from",
 // "Mentioned in" on a person), and the names the editor suggests after "[[".
 //
-// The index is a cache of each note's links, kept in memory and checked against the note's revision on every read, so
+// The index is a cache of each note's links and lines of text, kept in memory and checked against the note's revision on every read, so
 // every way a note's text changes (typing, the assistant, a restored version, an import) is picked up without a hook in
 // each of them, and nothing new is stored in the database.
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
-import { linksInDoc, linkTitle } from '../shared/wiki-links.js';
+import { clipLine, linesInDoc, linksInDoc, linkTitle } from '../shared/wiki-links.js';
+import { buildMentionMatcher } from '../shared/mentions.js';
 import { PEOPLE_TAG } from '../shared/people.js';
 
 const lc = (s) => s.toLowerCase();
 
 export class LinkIndex {
-  #cache = new Map(); // note id → { stamp, links }
+  #cache = new Map(); // note id → { stamp, links, lines }
 
   constructor(db) {
     this.db = db;
@@ -28,12 +29,15 @@ export class LinkIndex {
       const stamp = `${r.revision}|${r.updated_at}`;
       if (this.#cache.get(r.id)?.stamp === stamp) continue;
       let links = [];
+      let lines = [];
       try {
-        links = linksInDoc(JSON.parse(docOf.get(r.id).doc));
+        const doc = JSON.parse(docOf.get(r.id).doc);
+        links = linksInDoc(doc);
+        lines = linesInDoc(doc); // for plain-name mentions of people
       } catch {
         /* a document this version cannot read has no links */
       }
-      this.#cache.set(r.id, { stamp, links });
+      this.#cache.set(r.id, { stamp, links, lines });
     }
     for (const id of this.#cache.keys()) if (!seen.has(id)) this.#cache.delete(id);
     return rows;
@@ -57,6 +61,18 @@ export class LinkIndex {
       }
     }
     return out;
+  }
+
+  // Every live person with a name, for finding plain-name mentions: [{ id, title, aliases }].
+  #people() {
+    const aliases = this.#aliases();
+    return this.db
+      .prepare(
+        `SELECT n.id, n.title FROM notes n WHERE n.deleted_at IS NULL AND n.title IS NOT NULL AND EXISTS (
+           SELECT 1 FROM note_tags x JOIN tags t ON t.id = x.tag_id WHERE x.note_id = n.id AND (t.path = ? OR t.path LIKE ?))`,
+      )
+      .all(PEOPLE_TAG, `${PEOPLE_TAG}/%`)
+      .map((r) => ({ id: r.id, title: r.title, aliases: aliases.get(r.id) ?? [] }));
   }
 
   #tags(ids) {
@@ -91,7 +107,9 @@ export class LinkIndex {
 
   /**
    * The notes that link to this one: by its title, and for a person by their "Also called" names too (unless another
-   * note has that title, which the link would open instead). Newest first, each with the lines holding the links.
+   * note has that title, which the link would open instead). A person is also mentioned by plain name (see
+   * shared/mentions.js); ordinary notes are linked by [[ ]] only. Newest first, one row per note: `count` is the links
+   * and names together, `lines` up to three distinct lines holding one.
    */
   backlinks(noteId) {
     checkId(noteId, 'note id');
@@ -103,12 +121,25 @@ export class LinkIndex {
     const names = new Set(target.title ? [lc(target.title)] : []);
     for (const a of this.#aliases().get(noteId) ?? []) if (!titles.has(lc(a))) names.add(lc(a));
 
+    const people = this.#people();
+    const mentions = people.some((p) => p.id === noteId) ? buildMentionMatcher(people) : null;
+
     const found = [];
     for (const r of live) {
       if (r.id === noteId) continue;
-      const hits = this.#cache.get(r.id).links.filter((l) => names.has(lc(l.title)));
-      if (!hits.length) continue;
-      found.push({ id: r.id, title: r.title ?? null, kind: r.kind, date: r.note_date, count: hits.length, lines: [...new Set(hits.map((l) => l.line))].slice(0, 3) });
+      const { links, lines } = this.#cache.get(r.id);
+      const hits = links.filter((l) => names.has(lc(l.title)));
+      const linked = new Set(hits.map((l) => l.line));
+      let count = hits.length;
+      const shown = [];
+      for (const line of lines) {
+        const clipped = clipLine(line);
+        const named = mentions ? mentions(line).filter((m) => m.id === noteId).length : 0;
+        count += named;
+        if ((named || linked.has(clipped)) && !shown.includes(clipped)) shown.push(clipped);
+      }
+      if (!count) continue;
+      found.push({ id: r.id, title: r.title ?? null, kind: r.kind, date: r.note_date, count, lines: shown.slice(0, 3) });
     }
     found.sort((a, b) => b.date.localeCompare(a.date) || (a.title ?? '').localeCompare(b.title ?? '') || a.id.localeCompare(b.id));
     const tags = this.#tags(found.map((f) => f.id));

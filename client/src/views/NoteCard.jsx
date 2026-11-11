@@ -14,6 +14,7 @@ import { RepeatMenu } from './TaskRepeat.jsx';
 import { extractTasks } from '../../../shared/tasks.js';
 import { TaskArchive } from './TaskArchive.jsx';
 import { getShiftDismiss } from '../prefs.js';
+import { useMentionMatcher } from '../mentions.js';
 
 // The name of a free note, editable on its own page. Typing goes through the note's save session, like the text.
 function NoteTitle({ session }) {
@@ -56,9 +57,11 @@ export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active,
   const openTaskMenu = useCallback((kind, taskId) => setTaskMenu({ kind, taskId }), []);
   const label = formatDateLabel(session.date, today);
   const weekday = label === 'Today' || label === 'Yesterday' ? formatDateShort(session.date) : null;
+  // People's names in the text are drawn as links once the people list is known (null until then: plain text).
+  const mentions = useMentionMatcher();
   const html = useMemo(
-    () => (active ? '' : renderDoc(session.currentDoc(), { today, noteDate: session.date })),
-    [session.pending, session.serverDoc, session.generation, active, today],
+    () => (active ? '' : renderDoc(session.currentDoc(), { today, noteDate: session.date, mentions, selfId: session.id })),
+    [session.pending, session.serverDoc, session.generation, active, today, mentions],
   );
   const otherTags = session.tags.filter((t) => t !== tag);
   // The heading is a link to the note's own page, except there or while it is not on the server yet.
@@ -74,7 +77,7 @@ export function NoteCard({ session, tag, today, tz = 'America/Edmonton', active,
   const empty = !session.currentDoc().content?.some((n) => n.content?.length || n.type === 'attachment');
 
   const activate = (e) => {
-    if (e.target.closest?.('a.wiki-link, a.attachment-open')) return;
+    if (e.target.closest?.('a.wiki-link, a.mention, a.attachment-open')) return;
     // One of a task's round buttons (hide / due / priority): open its menu, without waking the editor.
     const taskButton = e.target.closest?.('[data-task-action]');
     if (taskButton) {

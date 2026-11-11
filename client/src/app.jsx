@@ -334,7 +334,7 @@ export function App() {
     const id = route.slice(7);
     view = <ShareView key={id} id={id || null} config={config} />;
   } else {
-    view = <TodayView config={config} onConfigChanged={loadConfig} />;
+    view = <TodayView config={config} />;
   }
 
   useTypingMarks();

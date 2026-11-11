@@ -18,6 +18,7 @@ export function registerNoteRoutes({ route, store }) {
         limit: query.get('limit'),
         offset: query.get('offset'),
         sort: query.get('sort'),
+        date: query.get('date'),
       }),
     );
   });

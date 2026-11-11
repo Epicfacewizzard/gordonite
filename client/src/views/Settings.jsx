@@ -42,6 +42,21 @@ export function SettingsView({ config, onConfigChanged }) {
   const [opening, setOpening] = useState(getOpeningPage);
   const [openingMessage, setOpeningMessage] = useState('');
   const [prefsMessage, setPrefsMessage] = useState('');
+  const [dailyTag, setDailyTag] = useState(config.dailyTag ?? 'daily-jots');
+  const [dailyTags, setDailyTags] = useState([]);
+  const [dailyMessage, setDailyMessage] = useState('');
+  useEffect(() => {
+    api.tags().then((r) => setDailyTags(r.tags.filter((t) => t.daily).map((t) => t.path))).catch(() => {});
+    api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
+  }, []);
+  const dailyOptions = [...new Set([dailyTag, ...dailyTags])].filter(Boolean).sort();
+  // Saved on the server (it is the same on every device); put back if the server refuses.
+  const chooseDailyTag = async (next) => {
+    const before = dailyTag;
+    setDailyTag(next); setDailyMessage('');
+    try { await api.setSettings({ dailyTag: next }); await onConfigChanged(); setDailyMessage('Saved.'); }
+    catch (err) { setDailyTag(before); setDailyMessage(err.message); }
+  };
   const [widgets, setWidgets] = useState(getDashboard);
   const [tasksScope, setTasksScope] = useState(getDashboardTasks);
   const [shiftDismiss, setShiftDismissState] = useState(getShiftDismiss);
@@ -92,7 +107,10 @@ export function SettingsView({ config, onConfigChanged }) {
         <a href="#/data">Data &amp; backups</a>
       </nav>
       <h2 class="section">Dashboard</h2>
-      <p class="muted small">Widgets on this device: choose which to show, which column each sits in, and their order within a column. On a phone the columns stack top to bottom in the order shown here.</p>
+      <p class="muted small">Today’s note on the dashboard is your journal: the entry for today in this tag. Shared across your devices.</p>
+      <label>Journal tag <select value={dailyTag} onChange={(e) => chooseDailyTag(e.currentTarget.value)} data-testid="daily-tag-select">{dailyOptions.map((path) => <option key={path} value={path}>{path}</option>)}</select></label>
+      <p role="status" data-testid="daily-tag-message">{dailyMessage}</p>
+      <p class="muted small">Widgets on this device: choose which to show, which column each sits in, and their order within a column. On a phone the Tasks box and Today’s note come first, then the columns stack top to bottom in the order shown here.</p>
       <div data-testid="widget-prefs">
         {DASHBOARD_REGIONS.map(([region, regionName]) => {
           const here = widgets.map((w, i) => ({ ...w, i })).filter((w) => w.region === region);

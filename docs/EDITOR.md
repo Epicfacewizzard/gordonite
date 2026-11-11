@@ -85,6 +85,11 @@ The indent/outdent toolbar calls stock `sinkListItem` / `liftListItem` for bulle
 selection and undo. Wiki links are non-persistent ProseMirror decorations: original text remains ordinary
 editable text, with an explicit open-link control. They add no input rules, popups, or document rewrites.
 Read-only rendering recognises the same syntax across bold/italic text runs.
+People's plain names (0.17.0, [LINKS.md](LINKS.md#plain-names-since-0170)) are a second non-persistent decoration,
+`client/src/editor/mentions.js`: a `mention` class on the name, nothing else (no widget, no node view, no click handling,
+no transaction that changes the document). It redraws when the people list arrives with an empty transaction flagged
+`addToHistory: false`, which `NoteEditor` does not count as an edit (and Tiptap's `update` event ignores). Read-only
+rendering (`render.js`) turns the same names into links to `#/people/<id>`.
 
 Task lifecycle additions use ordinary editor transactions: dismissal changes an optional `dismissedAt`
 attribute; deletion removes the selected task item (or its now-empty list) with the engine's range deletion.

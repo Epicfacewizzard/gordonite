@@ -27,8 +27,19 @@ export function attachmentHtml(a, { removable = false } = {}) {
   return `<figure class="attachment attachment-file" ${attrs}><a class="attachment-open attachment-card" href="${href}" target="_blank" rel="noopener"${kind === 'pdf' ? '' : ' download'}><span class="attachment-type">${esc(label)}</span><span class="attachment-name">${name}</span>${size ? `<span class="attachment-size">${esc(size)}</span>` : ''}</a>${remove}</figure>`;
 }
 
-function inline(nodes = []) {
-  const links = wikiLinks(nodes.map((n) => n.type === 'hardBreak' ? '\n' : n.text).join(''));
+// The [[links]] in a run of text and, when a matcher is given, the plain names of people (shared/mentions.js), which
+// become links to their pages. Names inside [[ ]] are left to the wiki link; a person's own name on their own page
+// (ctx.selfId) is left as text.
+function linkRanges(text, ctx) {
+  const links = wikiLinks(text).map((l) => ({ from: l.from, to: l.to, href: wikiHref(l.target), cls: 'wiki-link' }));
+  const names = (ctx?.mentions?.(text) ?? [])
+    .filter((m) => m.id !== ctx.selfId)
+    .map((m) => ({ from: m.from, to: m.to, href: `#/people/${m.id}`, cls: 'mention' }));
+  return [...links, ...names].sort((a, b) => a.from - b.from);
+}
+
+function inline(nodes = [], ctx) {
+  const links = linkRanges(nodes.map((n) => n.type === 'hardBreak' ? '\n' : n.text).join(''), ctx);
   let position = 0;
   return nodes
     .map((n) => {
@@ -37,7 +48,7 @@ function inline(nodes = []) {
       for (const link of links) {
         const from = Math.max(0, link.from - position), to = Math.min(n.text.length, link.to - position);
         if (from >= to) continue;
-        html += esc(n.text.slice(offset, from)) + `<a href="${esc(wikiHref(link.target))}" class="wiki-link">${esc(n.text.slice(from, to))}</a>`;
+        html += esc(n.text.slice(offset, from)) + `<a href="${esc(link.href)}" class="${link.cls}">${esc(n.text.slice(from, to))}</a>`;
         offset = to;
       }
       html += esc(n.text.slice(offset));
@@ -68,9 +79,9 @@ function taskActions(task, id, today) {
 function block(n, ctx) {
   switch (n.type) {
     case 'paragraph':
-      return n.content?.length ? `<p>${inline(n.content)}</p>` : '<p><br></p>';
+      return n.content?.length ? `<p>${inline(n.content, ctx)}</p>` : '<p><br></p>';
     case 'heading':
-      return `<h${n.attrs.level}>${inline(n.content)}</h${n.attrs.level}>`;
+      return `<h${n.attrs.level}>${inline(n.content, ctx)}</h${n.attrs.level}>`;
     case 'attachment':
       return attachmentHtml(n.attrs ?? {});
     case 'bulletList':
@@ -97,7 +108,10 @@ function block(n, ctx) {
   }
 }
 
-/** ctx (optional): { today, noteDate }. With today, tasks get their strip colour and buttons. */
+/**
+ * ctx (optional): { today, noteDate, mentions, selfId }. With today, tasks get their strip colour and buttons. With
+ * mentions (a matcher from shared/mentions.js), people's names become links; selfId is the note's own id.
+ */
 export function renderDoc(doc, ctx) {
   return blocks(doc.content, ctx);
 }

@@ -129,3 +129,36 @@ test('a rename leaves links alone when another note has the old name or the new 
   assert.equal((await rename(solo, null)).relinked, undefined, 'removing the name rewrites nothing');
   assert.equal((await read(l2)).revision, 1);
 });
+
+test('a person is also mentioned by plain name: first name, "Also called" name, mixed with [[ ]], never ambiguous or trashed', async () => {
+  const wren = await note('Wren Falkner', ['05-people'], '2026-10-01', para('Wren is the neighbour'));
+  assert.equal((await app.api('PUT', `/api/people/${wren}`, { profile: { aliases: ['Birdie'] } })).status, 200);
+  // Two people share the first name Tobias: it names neither of them.
+  const tobiasA = await note('Tobias Ashgrove', ['05-people/club'], '2026-10-01', para('treasurer'));
+  await note('Tobias Brandt', ['05-people'], '2026-10-01', para('coach'));
+  const other = await note('Budget', [], '2026-10-01', para('money'));
+
+  const plain = await note('Coffee', [], '2026-10-03', para('Coffee with Wren on Friday'));
+  const byAlias = await note('Walk', [], '2026-10-04', para('Walked with Birdie.'), para('And a developer called Wrenchley.'));
+  const mixed = await note('Plans', [], '2026-10-05', para('Asked [[Wren Falkner]] and later Wren again'), para('Wren said yes'), para('Wren to call'), para('[[Wren Falkner|Wren]] only'));
+  const trashed = await note('Old', [], '2026-10-06', para('Wren was there'));
+  await app.api('DELETE', `/api/notes/${trashed}`);
+  await note('Tobias', [], '2026-10-07', para('Tobias was late'));
+
+  const r = await backlinks(wren);
+  assert.deepEqual(r.backlinks.map((x) => x.id), [mixed, byAlias, plain], 'by name, by alias and by link, newest first; not the trashed note; the lookalike word "Wrenchley" is not Wren');
+  const m = r.backlinks[0];
+  assert.equal(m.count, 5, 'two links and three plain names');
+  assert.deepEqual(m.lines, ['Asked [[Wren Falkner]] and later Wren again', 'Wren said yes', 'Wren to call'], 'up to three distinct lines, in the note\'s order');
+  assert.deepEqual(r.backlinks[1].lines, ['Walked with Birdie.']);
+  assert.equal(r.backlinks[2].count, 1);
+
+  assert.deepEqual((await backlinks(tobiasA)).backlinks, [], 'an ambiguous first name links to nobody');
+  assert.deepEqual((await backlinks(other)).backlinks, [], 'an ordinary note is linked by [[ ]] only');
+
+  // A person's own page does not list itself, and typing follows without any hook.
+  assert.equal(r.backlinks.some((x) => x.id === wren), false);
+  const n = await read(plain);
+  await app.api('PUT', `/api/notes/${plain}`, { baseRevision: n.revision, doc: docOf(para('Coffee alone')), docFormat: 2 });
+  assert.deepEqual((await backlinks(wren)).backlinks.map((x) => x.id), [mixed, byAlias]);
+});

@@ -143,6 +143,17 @@ the stream's `NoteCard` for today's entry, so ticking, saving and conflicts beha
 so far, which tag's daily entry Today shows, lives in the `meta` table (`daily_tag`, default `daily-jots`), is returned by
 `GET /api/config` and changed with `PUT /api/settings { dailyTag }`, and travels with JSON export/import.
 
+**One journal page (0.17.0).** Today's note is the journal: the daily entry of the one tag in `dailyTag`, changed only in
+Settings → Dashboard → *Journal tag* (the row of tag chips on the dashboard and the device-kept "unsent pick" went). Under
+the entry are two small sections. **People today** (`data-testid="people-today"`) is a chip for each person named, plainly or
+with a `[[link]]`, in the journal entry (read as it is typed, after a 0.4 s pause) and in the other notes dated today
+(`client/src/mentions.js`, rules in [LINKS.md](LINKS.md#plain-names-since-0170)); hidden when empty. **Also today**
+(`also-today`) lists the other live notes dated today (other tags' daily entries and free notes, not the journal entry),
+each as a row to its page with its name or first tag and its first line; it reads `GET /api/notes?date=YYYY-MM-DD` and then
+each note, and is hidden when empty or the server cannot be reached. Nothing is stored for either. On a screen narrower than
+860 px (one column) the Tasks box comes first, then today's note, then the other widgets in the order the columns stack
+(`@media` rules in `styles.css`, classes `dash-first` / `dash-second`); the wide layout and the Settings choices are unchanged.
+
 ## API (JSON; all state changes require `Content-Type: application/json`)
 
 ```

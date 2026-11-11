@@ -1,7 +1,7 @@
 # Links between notes
 
 Since 0.16.0. A note's page shows **Linked from** (the notes whose text links to it); a person's page shows
-**Mentioned in** (the same, also counting their other names). Renaming a note keeps the links to it working.
+**Mentioned in** (the same, also counting their other names and, since 0.17.0, their plain name written without a link, see [Plain names](#plain-names-since-0170)). Renaming a note keeps the links to it working.
 
 ## How links are written
 
@@ -33,6 +33,34 @@ written as a link; a link whose name is split across differently formatted text;
 are changed only if it is restored and the title edited again); and links in a note edited on a phone not yet synced
 (those link by the text typed, and keep working by title if a note with that title exists).
 Removing a title does not rewrite anything (those links stop resolving until a note has the name again).
+
+## Plain names (since 0.17.0)
+
+A person's name written in ordinary text counts as a mention, with no `[[ ]]`: **Mentioned in** on their page lists
+those notes too, a note's read-only view draws the name as a quiet link to the person's page, and the editor underlines
+it while you write (style only: the text, saving and undo are untouched, and a name is not a link there). `shared/mentions.js`
+(`buildMentionMatcher`) holds the rules, so the server and the phone agree:
+
+* **Full name** (the note's title), any capitals. A name that is one word is matched as written.
+* **"Also called" names**: several words in any capitals, one word as written (`Sammy` is not `sammy`).
+* **First name**, as written, at least three letters, **only when nobody else could be meant**: if another person has the
+  same first word, or the same name as a title or "Also called" name, it links to nobody. Two people called Tobias mean
+  `Tobias` is nobody; `Tobias A` / `Tobias A.` (first name and last initial, as written, when unique) still work.
+* Whole words only (`Dev` is not in `Developer`; accents and apostrophes are handled). Where names overlap the earlier,
+  longer one wins. Text already inside `[[ ]]` is left to the link.
+* Only **people** (notes under `05-people`) are matched. An ordinary note is still linked from by `[[ ]]` alone, and a
+  person's own page never lists itself or links their name to itself.
+
+`backlinks` (server, assistant `get_backlinks`) merges both kinds: one row per note, `count` is links and names together,
+`lines` up to three distinct lines. The Dashboard's **People today** uses the same
+matcher ([ARCHITECTURE.md](ARCHITECTURE.md), the Today screen).
+
+Known limits: a first name that is also an ordinary capitalised word (a person called Will, Grace or May) marks that word
+wherever it starts a sentence, and "Sam" at the start of a note counts as a mention of Sam; give such a person a
+distinct "Also called" name or accept it. Matching is by the people list: a person not yet in it (just created on
+another device) is not marked until the list is next read. Words split across differently formatted text still match (the
+view works on the whole line), but a name broken by a line break does not. Lines are read whole, so a name late in a very
+long paragraph is found.
 
 ## The index
 

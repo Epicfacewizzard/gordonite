@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { api, NetworkError } from '../api.js';
 import { sync } from '../sync.js';
 import { useSession, useToday } from '../hooks.js';
@@ -9,6 +9,8 @@ import { getDashboard, getDashboardTasks } from '../prefs.js';
 import { MoodWidget } from './Mood.jsx';
 import { EarlierNotes } from './EarlierNotes.jsx';
 import { HabitsWidget } from './Habits.jsx';
+import { useMentions, peopleInText } from '../mentions.js';
+import { plainText } from '../../../shared/doc.js';
 
 // The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
 // context (today's date, config, tags, the chosen daily tag) and draws its own part. To add one, write the
@@ -17,26 +19,6 @@ import { HabitsWidget } from './Habits.jsx';
 
 const longDate = (today) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(`${today}T00:00:00Z`));
-
-// A tag picked while the server cannot be reached is kept on this device and sent once it can be. Without this the
-// note snapped back to the old tag when the save gave up (up to 15 s later, so it looked like it switched on its own),
-// and again on every return to the dashboard, which reads the tag from the server.
-const UNSENT_KEY = 'hq-daily-tag-unsent';
-const unsentPick = () => {
-  try {
-    return localStorage.getItem(UNSENT_KEY) || null;
-  } catch {
-    return null;
-  }
-};
-const keepPick = (path) => {
-  try {
-    if (path) localStorage.setItem(UNSENT_KEY, path);
-    else localStorage.removeItem(UNSENT_KEY);
-  } catch {
-    /* storage may be unavailable: the pick still holds until the page is left */
-  }
-};
 
 const streamHref = (tag) => `#/t/${encodeURIComponent(tag).replaceAll('%2F', '/')}`;
 
@@ -72,19 +54,94 @@ function PinnedWidget({ tags }) {
 
 function TasksWidget({ config }) {
   return (
-    <section class="widget" data-testid="widget-tasks">
+    <section class="widget dash-first" data-testid="widget-tasks">
       <TasksView config={config} compact scope={getDashboardTasks()} />
     </section>
   );
 }
 
-// Today's entry of the chosen daily tag, ready to write in (created on the first keystroke, like in a stream).
-// Beside its heading, the tag it comes from can be changed in one tap: the current tag and every starred tag are
-// offered. Under it, the last couple of days' entries of that tag (EarlierNotes), greyed until tapped: a tap opens that
+// A short pause after the last change before the value is used, so a screen that works something out from what is being
+// typed does it when the typing stops, not on every key.
+function useSettled(value, ms = 400) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return settled;
+}
+
+// The other notes dated today (other tags' daily entries and free notes, not the journal entry), read in full so the
+// people they name can be found. Nothing here when the server cannot be reached.
+function useNotesToday(today, journalId, nonce) {
+  const [notes, setNotes] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await api.notes({ date: today, limit: 50 });
+        const full = await Promise.all(list.notes.filter((n) => n.id !== journalId).map((n) => api.getNote(n.id).then((r) => r.note).catch(() => null)));
+        if (!cancelled) setNotes(full.filter(Boolean));
+      } catch {
+        if (!cancelled) setNotes([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [today, journalId, nonce]);
+  return notes;
+}
+
+const firstLine = (doc) => plainText(doc).split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+
+// Who today's writing is about: a chip for each person named (plainly or with a [[link]]) in the journal entry and in
+// the other notes dated today. The journal entry is read as it is typed, after a short pause.
+function PeopleToday({ journalText, others }) {
+  const mentions = useMentions();
+  const settled = useSettled(journalText);
+  const ids = peopleInText([settled, ...others.map((n) => plainText(n.doc))].join('\n'), mentions);
+  if (!ids.length) return null;
+  return (
+    <section class="today-people" aria-label="People today" data-testid="people-today">
+      <h3 class="today-sub">People today</h3>
+      <ul class="chips">
+        {ids.map((id) => (
+          <li key={id} class="chip">
+            <a href={`#/people/${id}`}>{mentions.people.find((p) => p.id === id).title}</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// The other notes written today, one row each: its name (or its first tag) and its first line.
+function AlsoToday({ others }) {
+  if (!others.length) return null;
+  return (
+    <section class="today-also" aria-label="Also today" data-testid="also-today">
+      <h3 class="today-sub">Also today</h3>
+      <ul>
+        {others.map((n) => (
+          <li key={n.id}>
+            <a href={`#/n/${n.id}`} data-testid="also-today-note">
+              <span class="also-title">{n.title || n.tags[0]?.path || 'Note'}</span>
+              <span class="muted small also-line">{firstLine(n.doc)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Today's journal entry (the daily entry of the journal tag, a server setting changed in Settings), ready to write in
+// (created on the first keystroke, like in a stream). Under it: the people named today and the other notes dated today.
+// Under those, the last couple of days' entries of that tag (EarlierNotes), greyed until tapped: a tap opens that
 // day for editing right there, and only one note is ever open for editing. A button brings in older days.
-function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTag, unsent }) {
+function TodayNoteWidget({ config, today, dailyTag }) {
   useSession();
-  const [pickError, setPickError] = useState('');
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
   const [earlier, setEarlier] = useState(null); // this tag's first page of notes, for the earlier days under today's
   const [editor, setEditor] = useState(null);
@@ -139,49 +196,14 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
     setFocusRequest(req ? { ...req, n: Date.now() } : null);
   };
   const changed = () => setNonce((n) => n + 1);
-  // The current tag, every starred tag, and any tag used since this page was opened (so there is always a way back).
-  // Alphabetical, so the choices do not jump around when one is picked. A tag whose daily entry is switched off has
-  // nothing to write in, so it is left out (unless it is the current one, which always shows).
-  const unusable = (path) => path !== dailyTag && tags.find((t) => t.path === path)?.daily === false;
-  const choices = [...new Set([dailyTag, ...visited, ...tags.filter((t) => t.favorite).map((t) => t.path)])].filter((path) => path && !unusable(path)).sort();
-  const pick = async (path) => {
-    if (path === dailyTag || unusable(path)) return;
-    setPickError('');
-    try {
-      await chooseDailyTag(path);
-    } catch (err) {
-      setPickError(err.message);
-    }
-  };
+  const others = useNotesToday(today, state.id, nonce);
+  const journalText = session && !session.discarded ? plainText(session.currentDoc()) : '';
 
   return (
-    <section class="widget" data-testid="widget-note">
+    <section class="widget dash-second" data-testid="widget-note">
       <div class="widget-head">
         <h2 class="section">Today’s note</h2>
-        {dailyTag && (
-          <div class="today-source small" data-testid="daily-tag-from">
-            <ul class="chips today-source-chips" role="radiogroup" aria-label="Which tag today’s note comes from">
-              {choices.map((path) => (
-                <li key={path} class="chip">
-                  <button type="button" role="radio" aria-checked={path === dailyTag} data-testid="daily-tag-choice" data-tag={path} onClick={() => pick(path)}>
-                    {path}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
-      {unsent && (
-        <p class="muted small" data-testid="daily-tag-unsent">
-          Kept on this phone; your other devices get it once the server can be reached.
-        </p>
-      )}
-      {pickError && (
-        <p class="error small" role="alert">
-          {pickError}
-        </p>
-      )}
       {state.status === 'error' && (
         <div class="banner error" role="alert" data-testid="load-error">
           <span>Can’t reach the server: {state.error}. Text already typed on this phone is safe.</span>
@@ -192,7 +214,7 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
       )}
       {state.status === 'off' && (
         <p class="muted" data-testid="note-off">
-          “{dailyTag}” has no entry for today (its daily entry is switched off). Pick another tag above.
+          “{dailyTag}” has no entry for today (its daily entry is switched off). Choose another journal tag in Settings.
         </p>
       )}
       {session && !session.discarded && (
@@ -208,6 +230,8 @@ function TodayNoteWidget({ config, today, dailyTag, tags, visited, chooseDailyTa
           focusRequest={editingId === session.id ? focusRequest : null}
         />
       )}
+      <PeopleToday journalText={journalText} others={others} />
+      <AlsoToday others={others} />
       {earlier && state.status !== 'error' && (
         <EarlierNotes
           tag={dailyTag}
@@ -258,64 +282,23 @@ function gridFor(shown) {
   return { '--dash-cols': columns, '--dash-areas': rows.join(' ') };
 }
 
-export function TodayView({ config, onConfigChanged }) {
+export function TodayView({ config }) {
   const today = useToday(config.tz);
   const [tags, setTags] = useState([]);
-  const [dailyTag, setDailyTag] = useState(() => unsentPick() ?? config.dailyTag ?? 'daily-jots');
-  const [unsent, setUnsent] = useState(() => !!unsentPick());
-  const picked = useRef(false); // once a tag is picked here, a late answer from the server must not undo it
-  const [visited, setVisited] = useState([]); // tags the note has come from since this page opened
-  useEffect(() => {
-    if (dailyTag) setVisited((v) => (v.includes(dailyTag) ? v : [...v, dailyTag]));
-  }, [dailyTag]);
-
-  // Which tag today's note comes from is one setting kept on the server (the same one as in Settings). Offline, the
-  // pick stays on this device until it can be sent; only a refusal from the server puts the old tag back.
-  const send = async (path) => {
-    try {
-      await api.setSettings({ dailyTag: path });
-    } catch (err) {
-      if (err instanceof NetworkError) return setUnsent(true);
-      if (unsentPick() === path) keepPick(null);
-      setUnsent(!!unsentPick());
-      throw err;
-    }
-    if (unsentPick() === path) keepPick(null);
-    setUnsent(!!unsentPick());
-    onConfigChanged?.();
-  };
-  const sendUnsent = () => {
-    const path = unsentPick();
-    if (!path) return;
-    send(path).catch(() => api.config().then((c) => !picked.current && setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {}));
-  };
+  // The journal tag is one setting kept on the server, changed in Settings. Asked for again each time this opens.
+  const [dailyTag, setDailyTag] = useState(config.dailyTag ?? 'daily-jots');
 
   useEffect(() => {
     api.tags().then((r) => setTags(r.tags)).catch(() => {});
-    if (unsentPick()) sendUnsent();
-    else api.config().then((c) => !picked.current && !unsentPick() && setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
-    window.addEventListener('online', sendUnsent);
-    window.addEventListener('focus', sendUnsent);
-    return () => {
-      window.removeEventListener('online', sendUnsent);
-      window.removeEventListener('focus', sendUnsent);
-    };
+    api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
+    try {
+      localStorage.removeItem('hq-daily-tag-unsent'); // a pick kept by an older version, which no longer exists
+    } catch {
+      /* storage unavailable: nothing was kept */
+    }
   }, []);
 
-  const chooseDailyTag = async (next) => {
-    const before = dailyTag;
-    picked.current = true;
-    setDailyTag(next);
-    keepPick(next);
-    try {
-      await send(next);
-    } catch (err) {
-      setDailyTag(before);
-      throw err;
-    }
-  };
-
-  const context = { config, today, tags, dailyTag, visited, chooseDailyTag, unsent };
+  const context = { config, today, tags, dailyTag };
   // A widget with nothing to show (starred tags, when none are starred) is left out, so it cannot hold a column open.
   const shown = getDashboard().filter((w) => w.shown && !(w.id === 'pinned' && !tags.some((t) => t.favorite)));
   return (

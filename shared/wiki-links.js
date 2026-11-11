@@ -29,6 +29,11 @@ function textBlocks(doc) {
 const pieceText = (c) => (c.type === 'text' ? c.text : c.type === 'hardBreak' ? '\n' : '￼');
 const blockText = (block) => block.content.map(pieceText).join('');
 
+// A line of text as shown under "Linked from" / "Mentioned in": one space between words, at most 200 characters.
+const cleanLine = (raw) => raw.replace(/￼/g, '').replace(/\s+/g, ' ').trim();
+export const clipLine = (line) => (line.length > 200 ? `${line.slice(0, 199)}…` : line);
+const shownLine = (raw) => clipLine(cleanLine(raw));
+
 /** Every [[link]] in a stored document: { target, title, label, line } where line is the line of text holding it. */
 export function linksInDoc(doc) {
   const out = [];
@@ -37,11 +42,15 @@ export function linksInDoc(doc) {
     for (const link of wikiLinks(text)) {
       const start = text.lastIndexOf('\n', link.from) + 1;
       const end = text.indexOf('\n', link.to);
-      const line = text.slice(start, end === -1 ? undefined : end).replace(/￼/g, '').replace(/\s+/g, ' ').trim();
-      out.push({ target: link.target, title: linkTitle(link.target), label: link.label, line: line.length > 200 ? `${line.slice(0, 199)}…` : line });
+      out.push({ target: link.target, title: linkTitle(link.target), label: link.label, line: shownLine(text.slice(start, end === -1 ? undefined : end)) });
     }
   }
   return out;
+}
+
+/** Every line of text in a stored document (a line break starts a new line), whole; clipLine gives the shown form. */
+export function linesInDoc(doc) {
+  return textBlocks(doc).flatMap((block) => blockText(block).split('\n').map(cleanLine).filter(Boolean));
 }
 
 /**

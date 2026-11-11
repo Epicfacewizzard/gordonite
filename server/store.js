@@ -220,12 +220,18 @@ export class Store {
   }
 
   // All live notes, most recently changed first, for the Notes page. Filters: tag (exact, or with its
-  // sub-tags when `sub` is true), untagged, and a text search over the note's words.
-  listNotes({ tag = null, sub = false, untagged = false, q = '', limit = 30, offset = 0, sort = 'updated' } = {}) {
+  // sub-tags when `sub` is true), untagged, one date (the notes dated that day, "Also today" on the dashboard), and a
+  // text search over the note's words.
+  listNotes({ tag = null, sub = false, untagged = false, q = '', limit = 30, offset = 0, sort = 'updated', date = null } = {}) {
     limit = Math.min(Math.max(Number(limit) || 30, 1), 100);
     offset = Math.max(Number(offset) || 0, 0);
     const where = ['n.deleted_at IS NULL'];
     const args = [];
+    if (date) {
+      if (!isValidDateString(date)) throw new HttpError(400, 'bad_date', 'Invalid "date"');
+      where.push('n.note_date = ?');
+      args.push(date);
+    }
     if (untagged) {
       where.push('NOT EXISTS (SELECT 1 FROM note_tags x WHERE x.note_id = n.id)');
     } else if (tag) {

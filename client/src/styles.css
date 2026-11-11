@@ -695,6 +695,10 @@ input[type='text'] {
 
 /* ---------- toolbar (follows the on-screen keyboard) ---------- */
 .wiki-link-text { color: var(--accent); text-decoration: underline; }
+/* A person's name written without a [[link]]: a quieter version of a wiki link (a dotted underline, the text colour).
+   A link on the read-only page, only styling in the editor. */
+.mention { color: inherit; text-decoration: underline dotted var(--accent); text-underline-offset: 2px; }
+a.mention:hover { text-decoration-style: solid; }
 .wiki-open { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; text-decoration: none; }
 .settings select { max-width: 100%; }
 .toolbar-spacer {
@@ -1694,6 +1698,25 @@ body:not([data-editing]) .today .toolbar {
 .widget-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 8px; }
 .widget-head .section { margin: 0; }
 .widget-head .today-source { margin: 0; min-width: 0; }
+
+/* On a phone (the grid above stacks below 860px) the Tasks box and today's note come first, then the rest in the
+   order they stack in. The regions step aside (display: contents) so the two can be ordered among all the widgets; the
+   widgets still sit in rows as they did inside a region (the New note button beside the starred tags). */
+@media (max-width: 859px) {
+  .dashboard-grid { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; }
+  .dash-region { display: contents; }
+  .dashboard-grid .dash-region > .widget:last-child { margin-bottom: 12px; }
+  .dash-region > .dash-first { order: -2; }
+  .dash-region > .dash-second { order: -1; }
+}
+
+/* Under today's note: who it names, and what else was written today */
+.today-sub { margin: 12px 0 4px; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.today-people .chips { margin: 0; }
+.today-also ul { list-style: none; margin: 0; padding: 0; }
+.today-also li a { display: flex; flex-direction: column; padding: 6px 0; min-height: 44px; justify-content: center; text-decoration: none; color: inherit; border-bottom: 1px solid var(--line); }
+.today-also .also-title { font-weight: 600; }
+.today-also .also-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .earlier { margin-top: 14px; }
 .earlier-item { opacity: 0.6; transition: opacity 0.12s; }
 .earlier-item:hover, .earlier-item:focus-within, .earlier-item.is-active { opacity: 1; }

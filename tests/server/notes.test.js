@@ -611,6 +611,19 @@ describe('notes list: search and tag filters', () => {
     await t.api('DELETE', `/api/notes/${id}`);
     assert.equal((await t.api('GET', '/api/notes?tag=trashtag')).json.notes.length, 0);
   });
+
+  test('date lists the live notes dated that day (daily entries and free notes), and refuses a bad date', async () => {
+    const day = await put('Dated note', ['datetag'], '2026-11-02');
+    const daily = await put('Daily entry', ['datetag/daily'], '2026-11-02', 'daily');
+    await put('Other day', ['datetag'], '2026-11-03');
+    const gone = await put('Trashed', ['datetag'], '2026-11-02');
+    await t.api('DELETE', `/api/notes/${gone}`);
+    const ids = async (qs) => (await t.api('GET', `/api/notes?${qs}`)).json.notes.map((n) => n.id).sort();
+    assert.deepEqual(await ids('date=2026-11-02'), [day, daily].sort());
+    assert.deepEqual(await ids('date=2026-11-02&tag=datetag'), [day], 'it combines with the other filters');
+    assert.deepEqual(await ids('date=2026-01-01'), []);
+    assert.equal((await t.api('GET', '/api/notes?date=yesterday')).status, 400);
+  });
 });
 
 describe('free notes survive export and import', () => {
