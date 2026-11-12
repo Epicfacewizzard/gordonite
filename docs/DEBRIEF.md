@@ -42,7 +42,7 @@ not instructions, as in [MCP.md](MCP.md).
 Schema **v12** adds one table, `suggestions` (id, day, optional note id, kind, details as JSON, source, status, created and
 resolved times). It holds proposals only: nothing in it is a note, a task or a person, accepted ones are just a record, and
 dropping the table would lose nothing but pending proposals. It is inside the SQLite file, so the usual backups include
-it. The migration keeps every existing row (`tests/server/debrief.test.js` builds a v11 database and migrates it).
+it, and since 0.22.1 the JSON export and import carry it too (`suggestions`). The migration keeps every existing row (`tests/server/debrief.test.js` builds a v11 database and migrates it).
 
 ## Routes
 

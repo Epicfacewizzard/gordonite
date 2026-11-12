@@ -22,6 +22,7 @@ Built on branch `claude/write-once-steps-1-4-cbddde` (four commits, each its own
 | 0.20.0 | Debrief screen + four assistant-neutral bridge tools ([docs/DEBRIEF.md](docs/DEBRIEF.md)); **schema v12** |
 | 0.21.0 | Other people's tasks: task `owner`, Waiting on others, owner suggestions; no schema change |
 | 0.22.0 | Project over an existing tag with meetings, people, files; pasted transcripts ([docs/MEETINGS.md](docs/MEETINGS.md)); **schema v13** |
+| 0.22.1 | Export/import carry meetings and suggestions; meetings are made atomically; no schema change |
 
 Deploying: schema goes 11 → 13, so take the pre-update backup first (the deploy script does) and note that 0.18.0/0.19.0
 cannot open a v13 database: rolling back means restoring that backup.

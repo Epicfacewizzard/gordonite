@@ -165,3 +165,5 @@ time it connects (the app treats "note missing" as "create it").
     imported text is stored as a version of that one. Importing the same file twice changes nothing.
   * *Replace everything*: for restoring a whole state; takes a `hq-preimport-…` backup first.
   * The file is fully validated before anything is changed.
+
+Since 0.22.1 the JSON export and import also carry `meetings` (docs/MEETINGS.md) and `suggestions` (docs/DEBRIEF.md). SQLite backups and bundles already contained them.

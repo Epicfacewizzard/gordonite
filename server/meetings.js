@@ -2,6 +2,7 @@
 // transcript pasted from outside. Both notes are made through Store.saveNote like any note, so they get history, revisions
 // and backups; the record only says which note is the minutes, which is its transcript, who was there and where the
 // transcript came from. Nothing here changes an existing note or tag.
+import { tx } from './db.js';
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
 import { uuid } from '../shared/ids.js';
@@ -45,9 +46,14 @@ export function createMeeting(db, store, body) {
     store.saveNote(id, { baseRevision: 0, doc, docFormat: DOC_FORMAT, tags, date: m.date, opId: uuid(), kind: 'note', title });
     return id;
   };
-  const transcriptNoteId = hasTranscript ? save(transcriptTitle, transcriptDoc({ source: m.source, date: m.date, text: m.transcript })) : null;
-  const noteId = save(m.title, minutesDoc({ title: m.title, date: m.date, source: m.source, attendees, minutes: m.minutes, commitments, transcriptTitle }));
-  db.prepare('INSERT INTO meetings (note_id, transcript_note_id, date, source, attendees, created_at) VALUES (?,?,?,?,?,?)').run(noteId, transcriptNoteId, m.date, m.source, JSON.stringify(attendees.map((a) => a.id)), nowIso());
+  // All or nothing: the transcript note, the minutes note and the record are written in one transaction (saveNote's own
+  // transaction nests as a savepoint in tx()), so a failure part way leaves no orphan note and no record.
+  const noteId = tx(db, () => {
+    const transcriptNoteId = hasTranscript ? save(transcriptTitle, transcriptDoc({ source: m.source, date: m.date, text: m.transcript })) : null;
+    const id = save(m.title, minutesDoc({ title: m.title, date: m.date, source: m.source, attendees, minutes: m.minutes, commitments, transcriptTitle }));
+    db.prepare('INSERT INTO meetings (note_id, transcript_note_id, date, source, attendees, created_at) VALUES (?,?,?,?,?,?)').run(id, transcriptNoteId, m.date, m.source, JSON.stringify(attendees.map((a) => a.id)), nowIso());
+    return id;
+  });
   return { meeting: describe(db, store, noteId) };
 }
 

@@ -40,3 +40,5 @@ API: `POST /api/meetings`, `GET /api/meetings?tag=`. Code: `shared/meetings.js`,
 
 **Not built:** an assistant tool for filing minutes from a transcript (the proposal's *draft, then accept* meeting flow), a
 Summary / Transcript tab view on the note, editing a meeting's attendees afterwards, and offline creation.
+
+Since 0.22.1 a meeting is made in one transaction (all or nothing) and the JSON export and import carry the `meetings` records.

@@ -267,6 +267,21 @@ export function migrate(db) {
 
 // Run fn inside one transaction. fn must be synchronous.
 export function tx(db, fn) {
+  // Called inside a transaction already (a caller that groups several saves, such as making a meeting): this one becomes a
+  // savepoint, so the whole group still commits or rolls back together.
+  if (db.isTransaction) {
+    const name = `sp_${Math.random().toString(36).slice(2)}`;
+    db.exec(`SAVEPOINT ${name}`);
+    try {
+      const result = fn();
+      db.exec(`RELEASE ${name}`);
+      return result;
+    } catch (err) {
+      db.exec(`ROLLBACK TO ${name}`);
+      db.exec(`RELEASE ${name}`);
+      throw err;
+    }
+  }
   db.exec('BEGIN IMMEDIATE');
   try {
     const result = fn();

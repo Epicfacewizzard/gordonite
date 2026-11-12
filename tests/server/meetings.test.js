@@ -106,3 +106,70 @@ test('a meeting with no transcript, and bad requests refused', async () => {
   assert.equal((await app.api('POST', '/api/meetings', { title: 'x', date: '2026-11-10', transcript: 'text' })).status, 400, 'a transcript needs its source');
   assert.equal((await app.api('POST', '/api/meetings', { title: 'x', date: '2026-11-10', attendees: [uuid()] })).status, 404);
 });
+
+test('making a meeting is all or nothing: a failure part way leaves no note and no record', async () => {
+  const notesBefore = app.db.prepare('SELECT COUNT(*) AS c FROM notes').get().c;
+  const meetingsBefore = app.db.prepare('SELECT COUNT(*) AS c FROM meetings').get().c;
+  const real = app.store.saveNote.bind(app.store);
+  let calls = 0;
+  app.store.saveNote = (...args) => {
+    if (++calls === 2) throw new Error('disk trouble');
+    return real(...args);
+  };
+  try {
+    await assert.rejects(async () => {
+      const r = await app.api('POST', '/api/meetings', { title: 'Doomed', date: '2026-11-11', source: 'x', transcript: 'a line' });
+      if (r.status >= 400) throw new Error(`refused ${r.status}`);
+    });
+  } finally {
+    app.store.saveNote = real;
+  }
+  assert.equal(calls, 2, 'the transcript was saved before the minutes failed');
+  assert.equal(app.db.prepare('SELECT COUNT(*) AS c FROM notes').get().c, notesBefore, 'the transcript note was rolled back');
+  assert.equal(app.db.prepare('SELECT COUNT(*) AS c FROM meetings').get().c, meetingsBefore);
+  assert.equal(app.db.isTransaction, false, 'no transaction left open');
+  const ok = await app.api('POST', '/api/meetings', { title: 'Fine now', date: '2026-11-11', source: 'x', transcript: 'a line' });
+  assert.equal(ok.status, 201);
+});
+
+test('meetings and filed suggestions survive JSON export then import (replace and merge); older exports without them still import', async () => {
+  const sam = await put({ kind: 'note', title: 'Sam Export', tags: ['05-people'], doc: docOf(para('A person.')) });
+  const made = await app.api('POST', '/api/meetings', { title: 'Export meeting', date: '2026-11-08', source: 'Fictional app', attendees: [sam], transcript: 'Priya: hi', commitments: 'Sam Export: send it' });
+  assert.equal(made.status, 201);
+  const { fileProposals } = await import('../../server/suggestions.js');
+  const filed = fileProposals(app.db, { day: '2026-11-08', items: [{ kind: 'task', text: 'Water plants', ownerId: sam, due: '2026-11-09' }, { kind: 'person', name: 'Dana Reyes' }] }).filed;
+  app.db.prepare("UPDATE suggestions SET status = 'dismissed', resolved_at = ? WHERE id = ?").run('2026-11-08T10:00:00.000Z', filed[1].id);
+
+  const exported = JSON.parse((await app.api('GET', '/api/export/json')).text);
+  assert.ok(exported.meetings.some((m) => m.noteId === made.json.meeting.noteId && m.attendees[0] === sam && m.source === 'Fictional app'));
+  assert.equal(exported.suggestions.length >= 2, true);
+
+  const other = await startServer({ HOME_TZ: 'America/Edmonton' });
+  try {
+    const r = await other.api('POST', '/api/import?mode=replace', exported);
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.equal(r.json.meetingsAdded, exported.meetings.length);
+    assert.equal(r.json.suggestionsAdded, exported.suggestions.length);
+    const row = other.db.prepare('SELECT * FROM meetings WHERE note_id = ?').get(made.json.meeting.noteId);
+    assert.deepEqual([row.transcript_note_id, row.date, row.source, JSON.parse(row.attendees)], [made.json.meeting.transcriptNoteId, '2026-11-08', 'Fictional app', [sam]]);
+    const back = other.db.prepare('SELECT * FROM suggestions WHERE id = ?').get(filed[1].id);
+    assert.deepEqual([back.status, back.resolved_at, back.kind, JSON.parse(back.data).name], ['dismissed', '2026-11-08T10:00:00.000Z', 'person', 'Dana Reyes']);
+    assert.equal(JSON.parse(other.db.prepare('SELECT data FROM suggestions WHERE id = ?').get(filed[0].id).data).ownerId, sam);
+    // merge again: nothing added twice
+    const again = await other.api('POST', '/api/import?mode=merge', exported);
+    assert.deepEqual([again.json.meetingsAdded, again.json.suggestionsAdded], [0, 0]);
+    // an older export without the two lists still imports, and replace empties them
+    const { meetings, suggestions, ...older } = exported;
+    const old = await other.api('POST', '/api/import?mode=replace', older);
+    assert.equal(old.status, 200, JSON.stringify(old.json));
+    assert.equal(other.db.prepare('SELECT COUNT(*) AS c FROM meetings').get().c, 0);
+    // bad entries are refused with the reason
+    const bad = await other.api('POST', '/api/import?mode=merge', { ...exported, suggestions: [{ ...exported.suggestions[0], status: 'maybe' }] });
+    assert.equal(bad.status, 400);
+    assert.match(bad.json.error.message, /suggestion .*bad status/);
+    const bad2 = await other.api('POST', '/api/import?mode=merge', { ...exported, meetings: [{ ...exported.meetings[0], date: 'soon' }] });
+    assert.equal(bad2.status, 400);
+  } finally {
+    await other.close();
+  }
+});

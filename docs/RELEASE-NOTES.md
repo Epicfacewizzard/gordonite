@@ -1,5 +1,32 @@
 # Release notes
 
+## 0.22.1 — Recovery gaps: meetings and suggestions in export and import, atomic meetings
+
+Version **0.22.1** (fix; **no schema change**). Found in review of 0.20.0 to 0.22.0.
+
+**Fixed**
+
+- **JSON export and import now carry `meetings` and `suggestions`** (the two tables added in schema v12 and v13). Import
+  validates them like habits and skin entries (dates, ids, statuses, each suggestion through the same check the assistant
+  door uses; a bad entry refuses the import with the reason). Merge adds only missing rows; replace clears and refills them.
+  Exports made before 0.22.1 have neither list and still import (replace then leaves them empty, as for any list the export
+  lacks). The report gains `meetingsAdded` and `suggestionsAdded`.
+- **Making a meeting is all or nothing.** The transcript note, the minutes note and the `meetings` record are written in
+  one transaction; a failure part way leaves no orphan note or record. For this `tx()` in `server/db.js` becomes a
+  savepoint when called inside a transaction (callers that were not nested behave exactly as before).
+
+**Checked, no change needed**
+
+- **Backups, restore, bundle and verify** copy the whole SQLite file (`VACUUM INTO`), so both tables are in them already;
+  verify only requires the older tables, so older backups still verify.
+- **An older cached client (0.18.0 to 0.19.x) and `owner`:** its editor does not declare the `owner` attribute, so when it
+  saves a note it re-builds each task from its known attributes and drops `owner` from every task in that note (the task
+  becomes the owner's own again). The server stores whatever valid document it is sent. Not fixed (a server-side guard would
+  stop legitimate changes); the service worker updates the client on the next load after deploying, so the window is short.
+  If a note's task suddenly stops being someone else's after a stale tab saved it, set it again in the task sheet.
+- Tests: `tests/server/meetings.test.js` (atomic meeting, export then import of a meeting and suggestions, older export,
+  bad entries).
+
 ## 0.22.0 — One project page over an existing tag, and meetings
 
 Version **0.22.0** (feature; **schema v13**). One new table, `meetings`; the migration only adds it and keeps every existing

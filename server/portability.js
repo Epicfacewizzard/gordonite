@@ -8,6 +8,7 @@ import { cleanSkinEntry } from './skin.js';
 import { cleanHabit } from './habits.js';
 import { cleanPersonProfile } from './people.js';
 import { cleanProjectFields } from '../shared/projects.js';
+import { cleanProposal } from '../shared/suggestions.js';
 import { exportSettings, importSettings, savedTimeZone } from './settings.js';
 import { noteToMarkdownFile } from './markdown.js';
 import { makeZip } from './zip.js';
@@ -98,6 +99,16 @@ export function exportAll(db, cfg) {
     projects: db
       .prepare('SELECT id, name, area, status, tag_id AS tagId, overview_note_id AS overviewNoteId, sort, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM projects ORDER BY area, sort, id')
       .all(),
+    // Meetings (docs/MEETINGS.md): the record beside the minutes and transcript notes (which are ordinary notes above).
+    meetings: db
+      .prepare('SELECT note_id AS noteId, transcript_note_id AS transcriptNoteId, date, source, attendees, created_at AS createdAt FROM meetings ORDER BY date, created_at, note_id')
+      .all()
+      .map(({ attendees, ...m }) => ({ ...m, attendees: JSON.parse(attendees) })),
+    // Suggestions an assistant filed for the Debrief (docs/DEBRIEF.md), with what became of them.
+    suggestions: db
+      .prepare('SELECT id, day, note_id AS noteId, kind, data, source, status, created_at AS createdAt, resolved_at AS resolvedAt FROM suggestions ORDER BY created_at, rowid')
+      .all()
+      .map(({ data, ...x }) => ({ ...x, data: JSON.parse(data) })),
     // What the files are called and where they are used. The bytes are not in this JSON: take them with the files
     // zip (Data page) or by copying the files folder next to the database.
     attachments: db
@@ -268,6 +279,31 @@ function validateExport(data) {
       }
     }
   }
+  if (data.meetings !== undefined) {
+    if (!Array.isArray(data.meetings)) throw bad('meetings must be an array');
+    for (const m of data.meetings) {
+      checkId(m?.noteId, 'meeting note id');
+      if (m.transcriptNoteId != null) checkId(m.transcriptNoteId, 'transcript note id');
+      if (!isValidDateString(m.date)) throw bad(`meeting ${m.noteId}: bad date`);
+      if (typeof m.source !== 'string' || m.source.length > 200) throw bad(`meeting ${m.noteId}: bad source`);
+      if (!Array.isArray(m.attendees) || m.attendees.length > 60) throw bad(`meeting ${m.noteId}: attendees must be a list`);
+      for (const a of m.attendees) checkId(a, 'attendee id');
+    }
+  }
+  if (data.suggestions !== undefined) {
+    if (!Array.isArray(data.suggestions)) throw bad('suggestions must be an array');
+    for (const x of data.suggestions) {
+      checkId(x?.id, 'suggestion id');
+      if (!isValidDateString(x.day)) throw bad(`suggestion ${x.id}: bad day`);
+      if (!['open', 'accepted', 'dismissed', 'withdrawn'].includes(x.status)) throw bad(`suggestion ${x.id}: bad status`);
+      if (typeof x.source !== 'string' || x.source.length > 40) throw bad(`suggestion ${x.id}: bad source`);
+      try {
+        cleanProposal({ ...(x.data ?? {}), kind: x.kind });
+      } catch (err) {
+        throw bad(`suggestion ${x.id}: ${err.message}`);
+      }
+    }
+  }
   const noteIds = new Set();
   const slots = new Set();
   for (const n of data.notes) {
@@ -320,6 +356,8 @@ export function importAll(db, cfg, data, mode) {
     habitChecksAdded: 0,
     peopleAdded: 0,
     projectsAdded: 0,
+    meetingsAdded: 0,
+    suggestionsAdded: 0,
   };
 
   const insertNote = db.prepare(
@@ -406,6 +444,20 @@ export function importAll(db, cfg, data, mode) {
     }
   };
 
+  // Meetings and filed suggestions: merge adds the missing ones and never changes one already here.
+  const addMeetingsAndSuggestions = () => {
+    const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : new Date().toISOString());
+    const meeting = db.prepare('INSERT OR IGNORE INTO meetings (note_id, transcript_note_id, date, source, attendees, created_at) VALUES (?,?,?,?,?,?)');
+    for (const m of data.meetings ?? []) {
+      report.meetingsAdded += Number(meeting.run(m.noteId, m.transcriptNoteId ?? null, m.date, m.source, JSON.stringify([...new Set(m.attendees)]), when(m.createdAt)).changes);
+    }
+    const suggestion = db.prepare('INSERT OR IGNORE INTO suggestions (id, day, note_id, kind, data, source, status, created_at, resolved_at) VALUES (?,?,?,?,?,?,?,?,?)');
+    for (const x of data.suggestions ?? []) {
+      const { kind, noteId, ...rest } = cleanProposal({ ...x.data, kind: x.kind });
+      report.suggestionsAdded += Number(suggestion.run(x.id, x.day, typeof x.noteId === 'string' ? x.noteId : (noteId ?? null), kind, JSON.stringify({ kind, ...rest }), x.source, x.status, when(x.createdAt), x.resolvedAt ? when(x.resolvedAt) : null).changes);
+    }
+  };
+
   // File records come across only when their bytes are already here (copied with the files folder, or the same
   // server). Records for files this server does not have are skipped and counted, never created empty.
   const addAttachments = () => {
@@ -446,7 +498,7 @@ export function importAll(db, cfg, data, mode) {
     importSettings(db, data, mode);
 
     if (mode === 'replace') {
-      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries; DELETE FROM skin_entries; DELETE FROM habit_checks; DELETE FROM habits; DELETE FROM people; DELETE FROM projects;');
+      db.exec('DELETE FROM note_versions; DELETE FROM note_tags; DELETE FROM notes; DELETE FROM tags; DELETE FROM mood_entries; DELETE FROM skin_entries; DELETE FROM habit_checks; DELETE FROM habits; DELETE FROM people; DELETE FROM projects; DELETE FROM meetings; DELETE FROM suggestions;');
       for (const t of data.tags) {
         db.prepare('INSERT INTO tags (id, path, created_at, favorite, daily) VALUES (?,?,?,?,?)').run(t.id, t.path, t.createdAt ?? new Date().toISOString(), t.favorite === true ? 1 : 0, t.daily === false ? 0 : 1);
         tagIdFor.set(t.id, t.id);
@@ -461,6 +513,7 @@ export function importAll(db, cfg, data, mode) {
       addHabits();
       addPeople();
       addProjects(tagIdFor);
+      addMeetingsAndSuggestions();
       addAttachments();
       return;
     }
@@ -522,6 +575,7 @@ export function importAll(db, cfg, data, mode) {
     addHabits();
     addPeople();
     addProjects(tagIdFor);
+    addMeetingsAndSuggestions();
     addAttachments();
   });
   const savedTz = savedTimeZone(db);
