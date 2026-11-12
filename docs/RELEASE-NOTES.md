@@ -42,6 +42,9 @@ with a capital; a person created on another device is not marked until the peopl
 version preview and in Trash are not linked; *Also today* reads each note once per visit and does not follow other devices
 until the page is opened again.
 
+**Deployed 2026-11-11** by the owner with `scripts/deploy-casaos.ps1` (release `85928f9`); `/api/health` reported
+`0.17.0`. Full browser suite on the branch before pushing: 176/176.
+
 ## 0.16.6 — 2026-10-26 — Dates next to a time in the middle of a task
 
 Version **0.16.6** (fix). No schema change; going back to 0.16.5 is the image swap only.
