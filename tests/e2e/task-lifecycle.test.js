@@ -17,7 +17,12 @@ async function tapIntoTask(page, locator, text) {
     const landed = await page
       .waitForFunction((t) => getSelection().anchorNode?.parentElement?.closest('.note-text li')?.textContent.includes(t), text, { timeout: 1000 })
       .then(() => true, () => false);
-    if (landed) return;
+    // the editor can be rebuilt a moment after a tap (Bring back, a saved change): count it only if the caret is still there
+    if (landed) {
+      await page.waitForTimeout(350);
+      const still = await page.evaluate((t) => !!getSelection().anchorNode?.parentElement?.closest('.note-text li')?.textContent.includes(t), text);
+      if (still) return;
+    }
   }
   throw new Error(`the caret never went into "${text}"`);
 }

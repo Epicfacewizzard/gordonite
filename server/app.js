@@ -25,7 +25,7 @@ import { registerMeetingRoutes } from './routes/meetings.js';
 import { registerSuggestionRoutes } from './routes/suggestions.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.22.1';
+export const APP_VERSION = '0.22.2';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);

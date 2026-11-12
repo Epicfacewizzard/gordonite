@@ -1,5 +1,20 @@
 # Release notes
 
+## 0.22.2 — Two flaky browser tests made reliable
+
+Version **0.22.2** (tests only; no app code, schema or data change). Two e2e tests failed intermittently or reproducibly for
+another session. Cause and decision, test by test:
+
+- **"task dismissal and deletion in the editor are undoable and survive a connection interruption"** (`task-lifecycle.test.js`):
+  a timing race in the test, not a regression. After **Bring back** the editor is rebuilt a moment after the tap, and the test
+  typed into a caret that had already been reset to the top of the note (the text landed in the first paragraph). **The same
+  test fails 2 runs in 3 on the 0.18.0 build (3d2704b), before any of this work**, so it is not from 0.19.0 to 0.22.1. The undo
+  and redo of dismissal and deletion, including while the connection drops, are exercised by the test and work. `tapIntoTask`
+  now counts a tap only when the caret is still in the task after a short pause (6 of 6 runs pass).
+- **"on a wide screen the note sits left of a right column…"** (`today.test.js`): after widening the window the test read the
+  grid before the wide layout had drawn, and `getComputedStyle(null)` threw. The layout is as intended; the wait now also
+  requires the grid to exist.
+
 ## 0.22.1 — Recovery gaps: meetings and suggestions in export and import, atomic meetings
 
 Version **0.22.1** (fix; **no schema change**). Found in review of 0.20.0 to 0.22.0.

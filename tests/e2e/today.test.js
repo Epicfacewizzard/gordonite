@@ -283,7 +283,7 @@ describe('dashboard widgets', () => {
       assert.equal(await page.getByTestId('widget-tasks').count(), 0, 'the side-by-side widgets are for a wide screen');
 
       await page.setViewportSize({ width: 1200, height: 800 });
-      await page.waitForFunction(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length === 2); // the left column is empty (nothing starred), so it takes no room
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('.dashboard-grid') ?? document.body).gridTemplateColumns.split(' ').length === 2 && !!document.querySelector('.dashboard-grid')); // the left column is empty (nothing starred), so it takes no room
       const [n, c, m, t] = [await box('today-new-note'), await box('widget-note'), await box('widget-mood'), await box('widget-tasks')];
       assert.ok(c.x + c.width <= n.x + 1 && c.x + c.width <= m.x + 1 && c.x + c.width <= t.x + 1, 'New note, mood and tasks are right of the note');
       assert.ok(n.y + n.height <= m.y + 1 && m.y + m.height <= t.y + 1, 'New note, then mood, then tasks, top to bottom');
