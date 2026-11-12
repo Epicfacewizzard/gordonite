@@ -180,6 +180,8 @@ export const api = {
   savePerson: (noteId, profile) => request('PUT', `/api/people/${enc(noteId)}`, { profile }),
   suggestions: (day) => request('GET', `/api/suggestions?day=${enc(day)}`),
   resolveSuggestion: (id, status) => request('POST', `/api/suggestions/${enc(id)}/resolve`, { status }),
+  projectDetails: (id) => request('GET', `/api/projects/${enc(id)}`),
+  createMeeting: (body) => request('POST', '/api/meetings', body),
   projects: () => request('GET', '/api/projects'),
   createProject: (body) => request('POST', '/api/projects', body),
   saveProject: (id, body) => request('PUT', `/api/projects/${enc(id)}`, body),

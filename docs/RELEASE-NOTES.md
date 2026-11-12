@@ -1,5 +1,23 @@
 # Release notes
 
+## 0.22.0 — One project page over an existing tag, and meetings
+
+Version **0.22.0** (feature; **schema v13**). One new table, `meetings`; the migration only adds it and keeps every existing
+row (tested by building a v12 database and migrating it). **Going back to 0.21.0 means restoring the pre-update backup**
+(an older server refuses a newer schema). The note document format is untouched. Step 6 of "Direction 2: write once";
+details in [MEETINGS.md](MEETINGS.md).
+
+**Added**
+
+- **A project can adopt an existing tag and its sub-tags** (already how projects count notes; now stated, suggested in the
+  form and tested): nothing is moved, retagged or re-saved. The project page also shows **Meetings**, **People** and
+  **Files** beside the tasks (the owner's own, replies awaited and other people's) and notes.
+- **New meeting** on a project page: minutes (attendees, minutes, commitments as tasks, other people's with an owner), and a
+  **pasted, externally-made transcript** kept word for word in its own note with its source, linked from the minutes.
+  `POST /api/meetings`, `GET /api/meetings`.
+- Tests: `tests/server/meetings.test.js` (migration, adoption changes no note, meeting, files, people), `tests/e2e/meetings.test.js`.
+  `tests/e2e/projects.test.js` now closes the search keyboard before tapping Add (the layout moved, so the first tap was lost).
+
 ## 0.21.0 — Other people's tasks
 
 Version **0.21.0** (feature). **No schema change.** A task gains one optional attribute, `owner` (a People note id), stored on

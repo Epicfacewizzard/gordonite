@@ -1,10 +1,12 @@
 # Redesign proposal: everyday flows (2026-11-11)
 
-Status: **proposal; steps 1 and 2 of Direction 2 are built.** 0.17.0: plain names link themselves, Today is one journal,
+Status: **proposal; steps 1 to 6 of Direction 2 are built (on branch `claude/write-once-steps-1-4-cbddde`, 0.19.0 to 0.22.0, not yet deployed).** 0.17.0: plain names link themselves, Today is one journal,
 People today, Also today. 0.18.0: the visible screens (three tabs Today / Tasks / Look up, a To do list over the journal,
 the task sheet with one-tap When choices, the person card with Everything written, Look up); see `docs/RELEASE-NOTES.md`.
-Not built yet: suggestions under entries, the Debrief screen, task owners, meetings, project-word linking (all need the
-assistant bridge or new stored data). Everything else here is still design only. The first clickable sketch is `design/gordonite-workflows-prototype.html` (open it in a browser;
+**Built after that:** 0.19.0 suggestions under the journal entry ([SUGGESTIONS.md](SUGGESTIONS.md)); 0.20.0 the Debrief screen and
+the assistant-neutral debrief tools ([DEBRIEF.md](DEBRIEF.md)); 0.21.0 other people's tasks (task `owner`, Waiting on others);
+0.22.0 a project over an existing tag with meetings, people and files ([MEETINGS.md](MEETINGS.md)). Not built yet: project-word
+linking, the Summary/Transcript tabs and the assistant's meeting-minutes flow (draft, then accept), Find across kinds, Copy briefing. Everything else here is still design only. The first clickable sketch is `design/gordonite-workflows-prototype.html` (open it in a browser;
 fictional content, saves nothing, sends nothing to Gordonite).
 
 ## Direction 2: write once (added later on 2026-11-11, preferred)

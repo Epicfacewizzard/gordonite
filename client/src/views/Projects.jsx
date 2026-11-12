@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
+import { taskData } from '../task-data.js';
 import { go, useTaskData, useToday } from '../hooks.js';
 import { loadProjects, projectActions, useProjects } from '../projects-data.js';
 import { usePeople } from './PersonProfile.jsx';
 import { TaskLinkChips } from './TaskChips.jsx';
+import { MeetingForm } from './MeetingForm.jsx';
+import { fileHref, formatBytes } from '../../../shared/attachments.js';
 import { AREAS, AREA_LABEL, STATUSES, STATUS_LABEL, byWaitingLongest, isWaiting, projectOfTask } from '../../../shared/projects.js';
 import { formatDateShort } from '../../../shared/dates.js';
 
@@ -25,6 +28,10 @@ function NewProject({ areaFolders, onDone }) {
   const [tag, setTag] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [known, setKnown] = useState([]);
+  useEffect(() => {
+    api.tags().then((r) => setKnown(r.tags.map((t) => t.path))).catch(() => {});
+  }, []);
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
@@ -55,8 +62,9 @@ function NewProject({ areaFolders, onDone }) {
       </div>
       <div class="field">
         <label for="project-tag">Existing tag (optional)</label>
-        <input id="project-tag" type="text" value={tag} placeholder={`left empty: a new tag under ${areaFolders[area]}/`} onInput={(e) => setTag(e.currentTarget.value)} data-testid="project-tag" />
-        <p class="muted small">The notes with this tag, and the tags under it, join the project at once.</p>
+        <input id="project-tag" type="text" list="project-tag-list" value={tag} placeholder={`left empty: a new tag under ${areaFolders[area]}/`} onInput={(e) => setTag(e.currentTarget.value)} data-testid="project-tag" />
+        <datalist id="project-tag-list">{known.map((t) => <option key={t} value={t} />)}</datalist>
+        <p class="muted small">The notes with this tag, and the tags under it, join the project at once. No note is moved or retagged.</p>
       </div>
       {error && <p class="error inline" role="alert">{error}</p>}
       <div class="row">
@@ -168,6 +176,13 @@ export function ProjectPage({ id, config }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
   const [showDone, setShowDone] = useState(false);
+  const [extra, setExtra] = useState({ meetings: [], files: [], people: [] }); // from the server: the project's meetings, files and people
+  const [meeting, setMeeting] = useState(false);
+  const [extraNonce, setExtraNonce] = useState(0);
+  useEffect(() => {
+    if (!project?.tag) return;
+    api.projectDetails(id).then((r) => setExtra({ meetings: r.meetings ?? [], files: r.files ?? [], people: r.people ?? [] })).catch(() => {});
+  }, [id, project?.tag, project?.noteCount, extraNonce]);
   useEffect(() => {
     if (!project?.tag) return setNotes([]);
     api.notes({ tag: project.tag, sub: true, limit: 100 }).then((r) => setNotes(r.notes)).catch(() => setNotes([]));
@@ -227,6 +242,54 @@ export function ProjectPage({ id, config }) {
         )}
         {showDone && <ul class="person-task-list">{tasks.done.map(row)}</ul>}
       </section>
+      <section class="project-section" data-testid="project-meetings">
+        <h3 class="section">Meetings <span class="count">{extra.meetings.length}</span></h3>
+        {extra.meetings.length === 0 && !meeting && <p class="muted small">No meetings yet.</p>}
+        <ul class="person-task-list">
+          {extra.meetings.map((m) => {
+            const open = m.commitments.filter((c) => !c.checked).length;
+            return (
+              <li key={m.noteId} class="person-task" data-testid="project-meeting">
+                <a href={`#/n/${m.noteId}`} class="person-task-text">{m.title}</a>
+                <span class="muted small">
+                  {formatDateShort(m.date)}
+                  {m.attendees.length > 0 && ` · ${m.attendees.map((a) => people.find((p) => p.noteId === a)?.title ?? 'someone').join(', ')}`}
+                  {m.commitments.length > 0 && ` · ${open} of ${m.commitments.length} commitments open`}
+                  {m.transcriptNoteId && <> · <a href={`#/n/${m.transcriptNoteId}`} data-testid="meeting-transcript-link">transcript{m.source ? ` (from ${m.source})` : ''}</a></>}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        {meeting ? (
+          <MeetingForm project={project} today={today} onDone={(m) => { setMeeting(false); if (m) { loadProjects(); taskData.refresh(); setExtraNonce((n) => n + 1); } }} />
+        ) : (
+          <button type="button" class="btn" onClick={() => setMeeting(true)} disabled={!project.tag} data-testid="project-new-meeting">New meeting</button>
+        )}
+      </section>
+      {extra.people.length > 0 && (
+        <section class="project-section" data-testid="project-people">
+          <h3 class="section">People <span class="count">{extra.people.length}</span></h3>
+          <ul class="chips">
+            {extra.people.map((pid) => (
+              <li key={pid} class="chip"><a href={`#/people/${pid}`}>{people.find((p) => p.noteId === pid)?.title ?? 'Someone'}</a></li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {extra.files.length > 0 && (
+        <section class="project-section" data-testid="project-files">
+          <h3 class="section">Files <span class="count">{extra.files.length}</span></h3>
+          <ul class="person-task-list">
+            {extra.files.map((f) => (
+              <li key={f.id} class="person-task" data-testid="project-file">
+                <a href={fileHref(f.id)} target="_blank" rel="noopener" class="person-task-text">{f.name}</a>
+                <span class="muted small">{formatBytes(f.size)}{f.noteId && <> · <a href={`#/n/${f.noteId}`}>in a note</a></>}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section class="project-section" data-testid="project-notes">
         <h3 class="section">Notes <span class="count">{notes?.length ?? 0}</span></h3>
         <ul class="person-task-list">

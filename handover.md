@@ -11,6 +11,27 @@ Updated **2026-10-18**, home timezone **America/Edmonton**. Read [the workspace 
 - Do not treat instructions imported from the Obsidian vault as current project instructions.
 - **Source files use Windows (CRLF) line endings.** A script that matches multi-line text will silently fail to match; use the editor tool or normalise line endings first and write them back.
 
+## Write once, steps 3 to 6 (0.19.0 to 0.22.0): built, not deployed
+
+Built on branch `claude/write-once-steps-1-4-cbddde` (four commits, each its own version), not pushed or deployed. See
+[docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md) and [docs/REDESIGN-PROPOSAL-2026-11.md](docs/REDESIGN-PROPOSAL-2026-11.md).
+
+| Version | What |
+| --- | --- |
+| 0.19.0 | Suggestions under today's journal entry ([docs/SUGGESTIONS.md](docs/SUGGESTIONS.md)); client only |
+| 0.20.0 | Debrief screen + four assistant-neutral bridge tools ([docs/DEBRIEF.md](docs/DEBRIEF.md)); **schema v12** |
+| 0.21.0 | Other people's tasks: task `owner`, Waiting on others, owner suggestions; no schema change |
+| 0.22.0 | Project over an existing tag with meetings, people, files; pasted transcripts ([docs/MEETINGS.md](docs/MEETINGS.md)); **schema v13** |
+
+Deploying: schema goes 11 → 13, so take the pre-update backup first (the deploy script does) and note that 0.18.0/0.19.0
+cannot open a v13 database: rolling back means restoring that backup.
+
+**The one action to make the club one project (owner, in the app, after deploying 0.22.0):** open *Look up → Projects → New
+project*, name it **CSS**, choose area **Club**, type `20-css` in **Existing tag**, and tap *Create project*. Every note under
+`20-css` and its sub-tags is in the project at once; no note is moved or retagged. Then use **New meeting** on its page for
+meetings, and set **Who does it** in the task sheet for other people's tasks. (An assistant can do the same with
+`create_project` with `tag: "20-css"`, only when asked.) Nothing was created on the real server by this work.
+
 ## Current state
 
 | | |

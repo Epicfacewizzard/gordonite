@@ -1,6 +1,7 @@
 // Projects (see docs/PROJECTS.md): a small record per project, with the tag whose notes are in it. Which tasks are in a
 // project, and who they wait on, is read from the notes themselves (shared/projects.js), so nothing here copies a task.
 import { tx } from './db.js';
+import { listMeetings } from './meetings.js';
 import { HttpError } from './errors.js';
 import { checkId } from './ids.js';
 import { ensureTag } from './tags.js';
@@ -145,11 +146,15 @@ export function addNotesToProject(db, store, id, noteIds) {
 }
 
 /** One project with its notes, its tasks (open, waiting, done) and the people its tasks are with. */
-export function projectDetails(db, store, id) {
+export function projectDetails(db, store, id, files = null) {
   const project = getProjectRecord(db, id);
   const live = listProjects(db);
   const notes = project.tag ? store.listNotes({ tag: project.tag, sub: true, limit: 100, sort: 'updated' }).notes : [];
   const tasks = store.listTasks().filter((t) => projectOfTask(t, live)?.id === project.id);
+  // Meetings and files of the project's notes (0.22.0), so one page has everything. Read from the notes; nothing is copied.
+  const meetings = project.tag ? listMeetings(db, store, { tag: project.tag }) : [];
+  const projectFiles = files ? notes.flatMap((n) => files.list({ noteId: n.id, limit: 50 }).attachments).slice(0, 100) : [];
+  const attendees = meetings.flatMap((m) => m.attendees);
   return {
     project: { ...project, noteCount: live.find((p) => p.id === project.id)?.noteCount ?? notes.length },
     notes,
@@ -160,7 +165,9 @@ export function projectDetails(db, store, id) {
       waiting: tasks.filter(isWaiting).sort(byWaitingLongest),
       doneCount: tasks.filter((t) => t.checked).length,
     },
-    people: [...new Set(tasks.filter((t) => (t.person || t.owner) && !t.checked && !t.dismissedAt).flatMap((t) => [t.person, t.owner].filter(Boolean)))],
+    meetings,
+    files: projectFiles,
+    people: [...new Set([...tasks.filter((t) => (t.person || t.owner) && !t.checked && !t.dismissedAt).flatMap((t) => [t.person, t.owner].filter(Boolean)), ...attendees])],
   };
 }
 

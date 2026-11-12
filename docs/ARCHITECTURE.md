@@ -10,6 +10,7 @@ note_versions(id, note_id, revision, doc, doc_format, kind, created_at)
 meta(key, value)
 mood_entries(id, score, note, day, logged_at, created_at, deleted_at)
 suggestions(id, day, note_id, kind, data, source, status, created_at, resolved_at)   -- v12, assistant proposals for the Debrief (docs/DEBRIEF.md)
+meetings(note_id, transcript_note_id, date, source, attendees, created_at)   -- v13, docs/MEETINGS.md
 attachments(id, sha256, name, mime, size, kind, original_sha256/name/mime/size, note_id, source, created_at, deleted_at)
 ```
 

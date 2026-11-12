@@ -130,7 +130,7 @@ export function registerAssistantRoutes({ route, assistant, links, db, config, f
   // Projects and Waiting on (0.15.0, docs/PROJECTS.md). A task's project, person and waiting are set with update_task.
   route('GET', '/api/assistant/projects', async ({ res, query }) => sendJson(res, 200, { projects: listProjects(db, { removed: query.get('removed') === '1' }), areaFolders: areaFolders(db) }));
   route('POST', '/api/assistant/projects', async ({ res, body }) => sendJson(res, 200, { project: createProject(db, body) }));
-  route('GET', '/api/assistant/projects/:id', async ({ res, params }) => sendJson(res, 200, projectDetails(db, store, params.id)));
+  route('GET', '/api/assistant/projects/:id', async ({ res, params }) => sendJson(res, 200, projectDetails(db, store, params.id, files)));
   route('PUT', '/api/assistant/projects/:id', async ({ res, params, body }) => {
     const { removed, ...rest } = body ?? {};
     if (removed !== undefined && typeof removed !== 'boolean') throw new HttpError(400, 'bad_project', '"removed" must be true or false');

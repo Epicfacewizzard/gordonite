@@ -21,10 +21,11 @@ import { registerTagRoutes } from './routes/tags.js';
 import { registerNoteRoutes } from './routes/notes.js';
 import { registerFileRoutes } from './routes/files.js';
 import { registerPortabilityRoutes } from './routes/portability.js';
+import { registerMeetingRoutes } from './routes/meetings.js';
 import { registerSuggestionRoutes } from './routes/suggestions.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.21.0';
+export const APP_VERSION = '0.22.0';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);
@@ -60,6 +61,7 @@ export function createApp({ config, db, log = console, convertHeic }) {
   registerPeopleRoutes(context);
   registerProjectRoutes(context);
   registerSuggestionRoutes(context);
+  registerMeetingRoutes(context);
   registerLinkRoutes(context);
   registerTagRoutes(context);
   registerNoteRoutes(context);

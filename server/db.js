@@ -210,6 +210,20 @@ export const MIGRATIONS = [
   );
   CREATE INDEX suggestions_day ON suggestions (day, status);
   `,
+  // v13: meetings (see docs/MEETINGS.md). A meeting is two ordinary notes (the minutes, and the transcript pasted from
+  // outside) and this record: which note is the minutes (note_id), which is its transcript, the day, where the transcript
+  // came from, and who was there (a JSON list of People note ids). Neither note id is a foreign key: a meeting outlives
+  // a trashed note, and nothing here changes a note or a tag.
+  `
+  CREATE TABLE meetings (
+    note_id            TEXT PRIMARY KEY,
+    transcript_note_id TEXT,
+    date               TEXT NOT NULL,
+    source             TEXT NOT NULL DEFAULT '',
+    attendees          TEXT NOT NULL DEFAULT '[]',
+    created_at         TEXT NOT NULL
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

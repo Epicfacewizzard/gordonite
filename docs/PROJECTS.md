@@ -102,3 +102,8 @@ them" and `waitingSince` "waiting for their reply"; the three are independent). 
 or by the assistant (`update_task owner`). An owned task is left out of the owner's own lists and counts and shows under
 **Waiting on others** on Tasks, in **Waiting on others** on the project page (`projectDetails().tasks.others`) and under **They
 said they would** on the person's page. Ticking it records that they did it. See [RELEASE-NOTES.md](RELEASE-NOTES.md).
+
+## One page over an existing tag (0.22.0)
+
+A project can adopt an existing tag (and the tags under it) without any note being moved or retagged, and its page also
+lists meetings, people and files. See [MEETINGS.md](MEETINGS.md).
