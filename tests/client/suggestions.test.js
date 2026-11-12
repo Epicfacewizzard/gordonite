@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMentionMatcher } from '../../shared/mentions.js';
-import { suggest, looksLikeATask, dateWrittenIn, makeLineATask, suggestionKey, undismissed, paragraphsOf } from '../../shared/suggestions.js';
+import { cleanProposal, suggest, looksLikeATask, dateWrittenIn, makeLineATask, suggestionKey, undismissed, paragraphsOf } from '../../shared/suggestions.js';
 import { validateDoc } from '../../shared/doc.js';
 
 const NOTE_DATE = '2026-11-09'; // a Monday
@@ -88,4 +88,35 @@ test('making a line a task keeps its words and marks, carries the date and makes
   assert.deepEqual(item.content[0], bold);
   assert.equal(makeLineATask(before, 'Something else', { noteDate: NOTE_DATE }), null);
   assert.equal(JSON.stringify(before.content[1]), JSON.stringify(bold), 'the original is untouched');
+});
+
+// ----- 0.21.0: someone else's commitment -----
+const known = [{ id: 'sam', title: 'Sam Lee' }, { id: 'ro', title: 'Robin Ortiz' }];
+const ownerRun = (line) => suggest({ doc: doc(line), noteDate: NOTE_DATE, matcher, people: known });
+
+test('a known person and "will ..." offers their task, not mine; the date written is carried', () => {
+  const [s, ...rest] = ownerRun('Sam Lee will send the budget by Friday');
+  assert.equal(rest.length, 0, 'no second suggestion for my own task');
+  assert.deepEqual([s.kind, s.personId, s.name, s.due], ['owner', 'sam', 'Sam Lee', '2026-11-13']);
+  assert.equal(ownerRun('Robin promised to bring the cups')[0].personId, 'ro');
+  assert.equal(ownerRun('Sam Lee needs to confirm the venue')[0].kind, 'owner');
+});
+
+test('not a commitment: a question, "will be", a denial or an unknown person', () => {
+  assert.equal(ownerRun('Will Sam Lee send the budget?').length, 0);
+  assert.equal(ownerRun('Sam Lee will be at the fair').length, 0);
+  assert.equal(ownerRun('Sam Lee will not need to send it').length, 0);
+  assert.deepEqual(kinds(ownerRun('Priya will send the budget')), ['person:Priya'], 'unknown: only Add person');
+});
+
+test('my own wording still offers my task even when a person is named', () => {
+  assert.deepEqual(ownerRun('Need to email Sam Lee about the venue').map((s) => s.kind), ['task']);
+});
+
+test('making an owner task stores the owner id; a proposal may name an owner', () => {
+  const after = makeLineATask(doc('Sam Lee will send the budget by Friday'), 'Sam Lee will send the budget by Friday', { noteDate: NOTE_DATE, id: 'task-id-0002', owner: 'sam-person-0001' });
+  assert.equal(validateDoc(after), null);
+  assert.deepEqual(after.content[0].content[0].attrs, { checked: false, id: 'task-id-0002', owner: 'sam-person-0001', due: '2026-11-13' });
+  assert.equal(cleanProposal({ kind: 'task', text: 'Send budget', ownerId: 'sam-person-0001' }).ownerId, 'sam-person-0001');
+  assert.throws(() => cleanProposal({ kind: 'task', text: 'x', ownerId: 'no' }), /ownerId/);
 });

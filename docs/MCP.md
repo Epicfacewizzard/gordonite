@@ -104,6 +104,8 @@ Six tools and three new `update_task` fields; the rules are in [PROJECTS.md](PRO
 | `add_notes_to_project` | gives notes the project's tag; reports added, already in it, failed |
 | `list_waiting` | open tasks waiting on a reply, longest first; filter by `person` or `projectId` |
 
+`update_task` also takes `owner` (0.21.0: a People noteId when the task is that person's to do; null = the owner's own again).
+
 `update_task`: `project` (a project id, null = its note's project), `person` (a People noteId, null takes them off and
 stops waiting), `waiting` (true = since today, or since `waitingSince`; false = they replied). Waiting needs a person.
 The bridge has 61 tools in all (the four Debrief tools below arrived in 0.20.0).

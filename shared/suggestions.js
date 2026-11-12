@@ -4,6 +4,7 @@
 //
 //   task    a line that reads like something to do ("need to", "have to", "remind me", "by Friday")
 //   person  a capitalised name that matches nobody in People ("met Priya", "Priya said")
+//   owner   a known person's commitment ("Sam will send the budget"): a task that is theirs, not the owner's
 //
 // A rule only reads ordinary paragraphs at the top of the page; lines that are already tasks, headings, list items,
 // files or [[links]] are left alone. A suggestion has a `key` that names it for the line it came from, so a dismissed
@@ -15,6 +16,8 @@ const RELATIVE_DAY = 'monday|tuesday|wednesday|thursday|friday|saturday|sunday|m
 // Wording that reads as "something I have to do". The first group is the commitment; NEGATED ones are skipped.
 const TO_DO = new RegExp(`(?<![\\w'’])(?:need to|have to|got to|gotta|must|remind me|remember to|don['’]?t forget|do not forget|to do:|todo:|by (?:${RELATIVE_DAY})\\b)`, 'i');
 const NEGATED = /\b(?:no need to|not need to|don['’]?t need to|do not need to|didn['’]?t need to|doesn['’]?t need to|won['’]?t need to|don['’]?t have to|do not have to|didn['’]?t have to|never have to|no longer need to)\b/i;
+// What a known person's name is followed by when it is their commitment: "Sam will send", "Sam promised to call".
+const COMMITS = /^\s*(?:will|['’]ll|is going to|are going to|promised to|promises to|agreed to|offered to|said (?:he|she|they)(?:['’]ll| will| would)|would|needs to|has to|must)\s+(?!be\b|also\b|not\b|probably\b)\p{L}/iu;
 const LONG_ENOUGH = 8;
 const TOO_LONG = 400;
 
@@ -120,19 +123,30 @@ function nameCandidates(line) {
  *   noteDate   YYYY-MM-DD, for dates written in a line
  *   matcher    the people matcher (shared/mentions.js) or null while the people list is not known; with no matcher no
  *              person is ever suggested (a name cannot be told from a person we merely have not loaded yet)
+ *   people     [{ id, title }] the people the matcher knows, to name the owner in an "owner" suggestion
  *   knownNames lower-case names that are not to be suggested again (people just added on this device)
- * Returns [{ key, kind: 'task' | 'person', line, name?, due?, dueTime? }] in document order.
+ * Returns [{ key, kind: 'task' | 'person' | 'owner', line, name?, personId?, due?, dueTime? }] in document order.
  */
-export function suggest({ doc, noteDate, matcher = null, knownNames = [] }) {
+export function suggest({ doc, noteDate, matcher = null, people = [], knownNames = [] }) {
   const out = [];
   const known = new Set(knownNames.map((n) => n.toLowerCase()));
   const offered = new Set();
   for (const { text } of paragraphsOf(doc)) {
-    if (looksLikeATask(text)) {
+    const mentioned = matcher ? matcher(text) : [];
+    // Someone else's commitment: a known person, then "will ..." (a question or a denial is not one).
+    let ownerOffered = false;
+    if (!/\?\s*$/.test(text) && !NEGATED.test(text) && text.length >= LONG_ENOUGH && text.length <= TOO_LONG) {
+      const hit = mentioned.find((m) => COMMITS.test(text.slice(m.to)));
+      const person = hit && people.find((p) => p.id === hit.id);
+      if (hit && person) {
+        out.push({ key: suggestionKey('owner', text, person.title), kind: 'owner', line: text, personId: person.id, name: person.title, ...(dateWrittenIn(text, noteDate) ?? {}) });
+        ownerOffered = true;
+      }
+    }
+    if (!ownerOffered && looksLikeATask(text)) {
       out.push({ key: suggestionKey('task', text), kind: 'task', line: text, ...(dateWrittenIn(text, noteDate) ?? {}) });
     }
     if (!matcher) continue;
-    const mentioned = matcher(text);
     const links = [...text.matchAll(/\[\[[^\]\n]+\]\]/g)].map((m) => [m.index, m.index + m[0].length]);
     for (const c of nameCandidates(text)) {
       const lower = c.name.toLowerCase();
@@ -158,8 +172,9 @@ export const undismissed = (suggestions, dismissed) => {
  * The task a line becomes: the paragraph's own words as a task item, carrying the date written in it. `due` /
  * `dueTime` are optional overrides. The task needs an id; the editor gives its own when it makes one.
  */
-export function taskFromParagraph(paragraph, { due = null, dueTime = null, id = uuid() } = {}) {
+export function taskFromParagraph(paragraph, { due = null, dueTime = null, id = uuid(), owner = null } = {}) {
   const attrs = { checked: false, id };
+  if (owner) attrs.owner = owner;
   if (due) attrs.due = due;
   if (due && dueTime) attrs.dueTime = dueTime;
   return { type: 'taskList', content: [{ type: 'taskItem', attrs, content: [paragraph] }] };
@@ -169,12 +184,12 @@ export function taskFromParagraph(paragraph, { due = null, dueTime = null, id = 
  * A copy of the document where the first top-level paragraph reading `line` is a task instead (the line's words kept,
  * the date written in it carried as the task's own date). Null when no such paragraph is there any more.
  */
-export function makeLineATask(doc, line, { noteDate, id, due = undefined } = {}) {
+export function makeLineATask(doc, line, { noteDate, id, due = undefined, owner = null } = {}) {
   const wanted = normalLine(line);
   const at = (doc?.content ?? []).findIndex((n) => n.type === 'paragraph' && normalLine(inlineText(n)) === wanted);
   if (at < 0) return null;
   const date = due ? { due, dueTime: null } : dateWrittenIn(wanted, noteDate);
-  const task = taskFromParagraph(doc.content[at], { ...(date ?? {}), id });
+  const task = taskFromParagraph(doc.content[at], { ...(date ?? {}), id, owner });
   const content = [...doc.content];
   content.splice(at, 1, task);
   return { ...doc, content };
@@ -213,6 +228,10 @@ export function cleanProposal(raw) {
     out.text = str(raw.text, 300, 'text', { required: true });
     const line = str(raw.line, 400, 'line');
     if (line) out.line = line; // the journal line to turn into this task; without it the task is added to the entry
+    if (raw.ownerId != null) {
+      if (typeof raw.ownerId !== 'string' || !ID.test(raw.ownerId)) throw new Error('"ownerId" must be a People note id');
+      out.ownerId = raw.ownerId; // the task is that person's to do, not the owner's
+    }
     if (raw.due != null) {
       if (typeof raw.due !== 'string' || !DATE.test(raw.due) || Number.isNaN(Date.parse(`${raw.due}T00:00:00Z`))) throw new Error('"due" must be a date like 2026-11-13');
       out.due = raw.due;

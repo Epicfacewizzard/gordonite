@@ -98,3 +98,23 @@ test('update_project changes fields, removes and brings back; an existing tag ma
   assert.ok((await call('list_projects')).projects.some((p) => p.id === project.id));
   await refused('create_project', { name: 'x', area: 'club', tag: '../bad' }, /Tag names/);
 });
+
+test('an agent gives a task an owner (someone else\'s commitment); it shows under the project\'s others and the person\'s owns, and clears again', async () => {
+  const sam = (await call('create_note', { title: 'Sam Owner', markdown: 'Venue contact', tags: ['05-people/css'] })).id;
+  const plan = await call('create_note', { title: 'Owner plan', markdown: '- [ ] Send the budget\n- [ ] My own thing', tags: ['20-css/owner-plan'] });
+  const { project } = await call('create_project', { name: 'Owner Fair', area: 'club', tag: '20-css/owner-plan' });
+  const note = await call('get_note', { noteId: plan.id });
+  const budget = note.tasks.find((t) => t.text === 'Send the budget');
+  await call('update_task', { noteId: plan.id, taskId: budget.id, owner: sam });
+  assert.equal((await call('get_note', { noteId: plan.id })).tasks.find((t) => t.id === budget.id).owner, sam);
+  const details = await call('get_project', { projectId: project.id });
+  assert.deepEqual(details.tasks.others.map((t) => t.text), ['Send the budget']);
+  assert.deepEqual(details.tasks.open.map((t) => t.text), ['My own thing']);
+  assert.ok(details.people.includes(sam));
+  assert.deepEqual((await call('get_person', { noteId: sam })).owns.map((t) => t.text), ['Send the budget']);
+  const debrief = await call('get_debrief');
+  assert.ok(!debrief.open.some((t) => t.text === 'Send the budget') && debrief.othersOpen.some((t) => t.text === 'Send the budget'));
+  await refused('update_task', { noteId: plan.id, taskId: budget.id, owner: plan.id }, /person/i);
+  await call('update_task', { noteId: plan.id, taskId: budget.id, owner: null });
+  assert.equal((await call('get_project', { projectId: project.id })).tasks.others.length, 0);
+});

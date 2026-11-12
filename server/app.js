@@ -24,7 +24,7 @@ import { registerPortabilityRoutes } from './routes/portability.js';
 import { registerSuggestionRoutes } from './routes/suggestions.js';
 import { registerBackupRoutes } from './routes/backups.js';
 
-export const APP_VERSION = '0.20.0';
+export const APP_VERSION = '0.21.0';
 
 export function createApp({ config, db, log = console, convertHeic }) {
   const store = new Store(db, config);

@@ -30,21 +30,23 @@ export function buildDebrief({ db, store, links, config }, day) {
         const p = people.find((x) => x.id === m.id);
         if (p && p.id !== note.id) named.set(p.id, { id: p.id, title: p.title });
       }
-      for (const s of suggest({ doc: note.doc, noteDate: day, matcher })) rule.push({ noteId: note.id, kind: s.kind, line: s.line, ...(s.name ? { name: s.name } : {}), ...(s.due ? { due: s.due } : {}) });
+      for (const s of suggest({ doc: note.doc, noteDate: day, matcher, people })) rule.push({ noteId: note.id, kind: s.kind, line: s.line, ...(s.name ? { name: s.name } : {}), ...(s.personId ? { personId: s.personId } : {}), ...(s.due ? { due: s.due } : {}) });
     }
   }
 
   const tasks = store.listTasks();
   const open = (t) => !t.checked && !t.dismissedAt;
-  const brief = (t) => ({ noteId: t.noteId, taskId: t.taskId, text: t.text, due: t.due, ...(t.person ? { personId: t.person } : {}) });
+  const brief = (t) => ({ noteId: t.noteId, taskId: t.taskId, text: t.text, due: t.due, ...(t.person ? { personId: t.person } : {}), ...(t.owner ? { ownerId: t.owner } : {}) });
   return {
     day,
     today,
     written,
     people: [...named.values()],
     tasksMade: tasks.filter((t) => t.date === day).map((t) => ({ ...brief(t), checked: t.checked })),
-    open: tasks.filter((t) => open(t) && !t.hidden).map(brief),
-    overdue: tasks.filter((t) => open(t) && !t.hidden && t.due && t.due < today).map(brief),
+    // The owner's own tasks; other people's commitments (a task with an ownerId) are listed apart.
+    open: tasks.filter((t) => open(t) && !t.hidden && !t.owner).map(brief),
+    overdue: tasks.filter((t) => open(t) && !t.hidden && !t.owner && t.due && t.due < today).map(brief),
+    othersOpen: tasks.filter((t) => open(t) && !t.hidden && t.owner).map(brief),
     // What the built-in rules would offer for that day's writing. The owner's dismissals are kept on their phone, not here.
     ruleSuggestions: rule,
     // What an assistant has already filed for the owner to accept or dismiss in the app.

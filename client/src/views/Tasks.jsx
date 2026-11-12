@@ -222,7 +222,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
               where={`${t.tags[0] ?? 'No tag'} · ${formatDateShort(t.date)}`}
               tags={t.tags}
               today={today}
-              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt, repeat: t.repeatFrom === 'set' ? t.repeat : null, completions: t.completions, project: t.project, person: t.person, waitingSince: t.waitingSince }}
+              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt, repeat: t.repeatFrom === 'set' ? t.repeat : null, completions: t.completions, project: t.project, person: t.person, owner: t.owner, waitingSince: t.waitingSince }}
               onChange={(patch) => apply(t, patch)}
               onDelete={() => apply(t, null)}
               onDone={close}
@@ -298,6 +298,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
       {section('overdue', 'Overdue', buckets.overdue)}
       {showToday && section('today', 'Due today', buckets.today)}
       {!compact && section('waiting', 'Waiting on', buckets.waiting)}
+      {!compact && section('others', 'Waiting on others', buckets.others)}
       {showUpcoming && section('upcoming', compact ? 'Coming up' : 'Upcoming', upcomingShown)}
       {compact && showUndated && section('anytime', 'No date', undatedShown)}
       {compact && showUndated && undatedMore > 0 && (

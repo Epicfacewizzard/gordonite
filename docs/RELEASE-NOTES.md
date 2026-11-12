@@ -1,5 +1,29 @@
 # Release notes
 
+## 0.21.0 — Other people's tasks
+
+Version **0.21.0** (feature). **No schema change.** A task gains one optional attribute, `owner` (a People note id), stored on
+the task item in the note exactly like `person` and `project`; notes without it are valid and behave as before (the
+document format number is unchanged, `shared/doc.js` just checks the new attribute). Step 5 of "Direction 2: write once".
+Going back to 0.20.0 keeps the attribute in the notes (an older editor would drop it on the next edit of that task, which
+makes it the owner's own again).
+
+**Added**
+
+- **Whose task it is.** In the task sheet, **Who does it** sits under When: **Me**, the people named in the task's words
+  (one tap each) and a list of everyone else. A task with an owner leaves the owner's own lists (Today's To do, overdue,
+  due today, upcoming, no date, and the open count) and is listed under **Waiting on others** on Tasks with a
+  "Sam Lee's task" chip, on the project page (**Waiting on others**), and on that person's page (**They said they would**).
+  **Me** brings it back; nothing is stored for the owner's own tasks.
+- **Suggestions**: a known person followed by "will", "promised to", "agreed to", "offered to", "needs to", "has to" or
+  "must" ("Sam will send the budget by Friday") offers **Make this Sam's task** (carrying the date), in place of Make this a
+  task. Questions, "will be" and denials are skipped.
+- **Assistant**: `update_task` takes `owner` (a People noteId; null = the owner's again); `get_person` lists `owns`;
+  `get_project` has `tasks.others`; `get_debrief` keeps others' tasks out of `open`/`overdue` and lists them as
+  `othersOpen`; `file_suggestions` tasks may carry `ownerId`.
+- Tests: `tests/client/suggestions.test.js`, `tests/client/task-groups.test.js`, `tests/server/mcp-projects.test.js`,
+  `tests/e2e/owners.test.js`.
+
 ## 0.20.0 — Debrief, and assistant tidy-up suggestions
 
 Version **0.20.0** (feature; **schema v12**). The note document format is untouched. One new table, `suggestions`, holds

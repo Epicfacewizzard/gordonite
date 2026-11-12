@@ -26,6 +26,8 @@ export function bucketOf(t, { today, now, touched = new Set(), pinned = null }) 
   if (t.dismissedAt) return 'dismissed';
   if (t.checked && !touched.has(taskKey(t))) return 'done';
   if (isHiddenNow(t, today)) return 'hidden';
+  // Someone else's commitment (0.21.0): never in the owner's own lists, only under "Waiting on others".
+  if (t.owner) return 'others';
   if (!hasStarted(t.start, t.startTime, today, now)) return 'later';
   if (isOverdue(t.due, t.dueTime, today, now)) return 'overdue';
   if (t.due === today) return 'today';
@@ -35,15 +37,16 @@ export function bucketOf(t, { today, now, touched = new Set(), pinned = null }) 
   return 'anytime';
 }
 
-/** The rows divided into sections, each in its order: { overdue, today, waiting, upcoming, anytime, later, hidden, done, dismissed }. */
+/** The rows divided into sections, each in its order: { overdue, today, waiting, others, upcoming, anytime, later, hidden, done, dismissed }. */
 export function groupTasks(tasks, ctx) {
-  const buckets = { overdue: [], today: [], waiting: [], upcoming: [], anytime: [], later: [], hidden: [], done: [], dismissed: [] };
+  const buckets = { overdue: [], today: [], waiting: [], others: [], upcoming: [], anytime: [], later: [], hidden: [], done: [], dismissed: [] };
   for (const t of tasks ?? []) buckets[bucketOf(t, ctx)].push(t);
   buckets.overdue.sort(byPriorityThen(byDate('due')));
   buckets.today.sort(byPriorityThen(byDate('due')));
   buckets.upcoming.sort(byPriorityThen(byDate('due')));
   buckets.later.sort(byDate('start'));
   buckets.waiting.sort(byWaitingLongest);
+  buckets.others.sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || byDate('due')(a, b)); // dated first
   buckets.anytime.sort(byPriorityThen(() => 0)); // sort is stable: the rest keep their order
   return buckets;
 }

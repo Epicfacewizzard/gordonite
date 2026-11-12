@@ -99,6 +99,11 @@ export function waitingLabel(since, today) {
   return n === 0 ? 'waiting since today' : `waiting ${n} ${n === 1 ? 'day' : 'days'}`;
 }
 
+/** A task that is someone else's to do (a People note id in `owner`); none means it is the owner's own. */
+export const isOthers = (t) => !!t.owner;
+/** An open task of the owner's own: not someone else's, not done, not dismissed. */
+export const isMineOpen = (t) => !t.owner && !t.checked && !t.dismissedAt;
+
 /** An open task that is waiting on someone: not done, not dismissed, with a waiting day. */
 export const isWaiting = (t) => !!t.waitingSince && !t.checked && !t.dismissedAt;
 

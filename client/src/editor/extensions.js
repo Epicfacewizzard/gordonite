@@ -224,6 +224,7 @@ const TaskItemWithDates = TaskItem.extend({
       // Projects and Waiting on (docs/PROJECTS.md). Not copied to a new task made by pressing Enter.
       project: { default: null, keepOnSplit: false, parseHTML: (el) => el.getAttribute('data-project') || null, renderHTML: (attrs) => (attrs.project ? { 'data-project': attrs.project } : {}) },
       person: { default: null, keepOnSplit: false, parseHTML: (el) => el.getAttribute('data-person') || null, renderHTML: (attrs) => (attrs.person ? { 'data-person': attrs.person } : {}) },
+      owner: { default: null, keepOnSplit: false, parseHTML: (el) => el.getAttribute('data-owner') || null, renderHTML: (attrs) => (attrs.owner ? { 'data-owner': attrs.owner } : {}) },
       waitingSince: { default: null, keepOnSplit: false, parseHTML: (el) => el.getAttribute('data-waiting-since') || null, renderHTML: (attrs) => (attrs.waitingSince ? { 'data-waiting-since': attrs.waitingSince } : {}) },
       hidden: {
         default: false,

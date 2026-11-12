@@ -7,6 +7,7 @@ import { RepeatEditor, CompletionList } from './TaskRepeat.jsx';
 import { repeatZone, findRepeatPhrase } from '../../../shared/repeat.js';
 import { useProjects } from '../projects-data.js';
 import { usePeople } from './PersonProfile.jsx';
+import { useMentions, peopleInText } from '../mentions.js';
 import { AREAS, AREA_LABEL, projectOfNote, waitingLabel } from '../../../shared/projects.js';
 
 /**
@@ -88,11 +89,44 @@ export const whenChoices = (today) => [
   ['none', 'No date', null],
 ];
 
+/**
+ * Whose task it is (0.21.0): "Me" (the default), the people named in the task's words as one tap each, and a list of
+ * everyone else. Setting someone takes the task out of the owner's own lists and puts it under "Waiting on others", on
+ * the project page and on that person's page; "Me" brings it back. Stored as the task's `owner` attribute.
+ */
+function OwnerField({ text, owner, change, uid }) {
+  const { people } = usePeople();
+  const mentions = useMentions();
+  const named = peopleInText(text, mentions).map((id) => people.find((p) => p.noteId === id)).filter(Boolean).slice(0, 3);
+  const current = owner ? people.find((p) => p.noteId === owner) : null;
+  const shown = [...(current && !named.some((p) => p.noteId === owner) ? [current] : []), ...named];
+  return (
+    <div class="field owner-field" data-testid="field-owner">
+      <span class="when-label">Who does it</span>
+      <div class="pills">
+        <button type="button" class="pill" aria-pressed={!owner} onClick={() => change({ owner: null })} data-testid="owner-me">
+          Me
+        </button>
+        {shown.map((p) => (
+          <button key={p.noteId} type="button" class="pill" aria-pressed={owner === p.noteId} onClick={() => change({ owner: owner === p.noteId ? null : p.noteId })} data-testid="owner-person" title={p.title}>
+            {p.title}
+          </button>
+        ))}
+        {owner && !current && <button type="button" class="pill" aria-pressed="true" onClick={() => change({ owner: null })} data-testid="owner-person">Someone not in People now</button>}
+        <select aria-label="Someone else does it" value="" onChange={(e) => e.currentTarget.value && change({ owner: e.currentTarget.value })} data-testid="owner-select" id={`task-owner-${uid}`}>
+          <option value="">Someone else…</option>
+          {people.map((p) => <option key={p.noteId} value={p.noteId}>{p.title}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags = null, uid = 'sheet', onChange, onDone, onDelete, onMove, fold = false, lead = null }) {
   const [more, setMore] = useState(false);
   const [moveMessage, setMoveMessage] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [values, setValues] = useState({ dueTime: picked.dueTime ?? null, startTime: picked.startTime ?? null, due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null, project: picked.project ?? null, person: picked.person ?? null, waitingSince: picked.waitingSince ?? null });
+  const [values, setValues] = useState({ dueTime: picked.dueTime ?? null, startTime: picked.startTime ?? null, due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null, project: picked.project ?? null, person: picked.person ?? null, owner: picked.owner ?? null, waitingSince: picked.waitingSince ?? null });
   const phrases = findDatePhrases(text, noteDate);
   const typed = { due: null, start: null, dueWords: '', startWords: '' };
   for (const p of phrases) {
@@ -148,6 +182,7 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags
   const effectiveDue = values.due ?? typed.due ?? null;
   const rest = (
     <>
+      {!fold && <OwnerField text={text} owner={values.owner} change={change} uid={uid} />}
       <TaskLinks values={values} change={change} today={today} tags={tags} uid={uid} />
       {onMove && <div class="row"><button type="button" class="btn" data-testid="task-move-up" onClick={() => setMoveMessage(onMove(-1) ? null : 'Already first at this level.')}>Move up</button><button type="button" class="btn" data-testid="task-move-down" onClick={() => setMoveMessage(onMove(1) ? null : 'Already last at this level.')}>Move down</button></div>}
       {moveMessage && <p class="small muted" role="status">{moveMessage}</p>}
@@ -207,6 +242,7 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags
           </div>
         </div>
       )}
+      {fold && <OwnerField text={text} owner={values.owner} change={change} uid={uid} />}
       {(where || noteId) && (
         <p class="small muted">
           {where}

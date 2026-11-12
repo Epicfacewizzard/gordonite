@@ -30,16 +30,17 @@ export function useSuggestions(doc, noteDate, settle = 1200) {
   } catch {
     /* keep the live one */
   }
-  return undismissed(suggest({ doc: settledDoc, noteDate, matcher: mentions?.matcher ?? null, knownNames: addedNames() }), dismissedKeys());
+  return undismissed(suggest({ doc: settledDoc, noteDate, matcher: mentions?.matcher ?? null, people: mentions?.people ?? [], knownNames: addedNames() }), dismissedKeys());
 }
 
 /** Make the line a task: through the open editor (one undoable edit) or, with no editor, through the note's save session. */
 export function acceptTask(session, editor, s) {
-  if (editor && !editor.isDestroyed && session.provider) return makeLineATaskInEditor(editor, s.line, session.date);
+  const owner = s.kind === 'owner' ? s.personId : null;
+  if (editor && !editor.isDestroyed && session.provider) return makeLineATaskInEditor(editor, s.line, session.date, { owner });
   if (session.provider) return false;
   let done = false;
   session.editDoc((doc) => {
-    const next = makeLineATask(doc, s.line, { noteDate: session.date });
+    const next = makeLineATask(doc, s.line, { noteDate: session.date, owner });
     done = !!next;
     return next ?? doc;
   });
@@ -71,7 +72,7 @@ const snippet = (line) => (line.length > 70 ? `${line.slice(0, 67)}…` : line);
 /** One suggestion: the line it is about, one button to accept and one to dismiss. */
 export function SuggestionRow({ s, onAccept }) {
   const [busy, setBusy] = useState(false);
-  const label = s.kind === 'task' ? 'Make this a task' : `Add ${s.name} as a person`;
+  const label = s.kind === 'task' ? 'Make this a task' : s.kind === 'owner' ? `Make this ${s.name}’s task` : `Add ${s.name} as a person`;
   return (
     <li class="suggestion" data-testid="suggestion" data-kind={s.kind}>
       <span class="suggestion-line" title={s.line}>
@@ -112,7 +113,7 @@ export function Suggestions({ session, editor, today }) {
   const accept = async (s) => {
     setProblem(null);
     try {
-      const ok = s.kind === 'task' ? acceptTask(session, editor, s) : (await acceptPerson(s, today), true);
+      const ok = s.kind === 'task' || s.kind === 'owner' ? acceptTask(session, editor, s) : (await acceptPerson(s, today), true);
       if (!ok) setProblem('That line has changed, so nothing was done.');
     } catch (err) {
       setProblem(err.message);

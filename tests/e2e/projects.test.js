@@ -99,8 +99,12 @@ describe('projects and waiting on', () => {
       await putNote(app, { title: 'Loose ideas', tags: ['inbox'], doc: paragraphDoc('dragon') });
       await card.getByRole('link', { name: 'Snack Olympics' }).tap();
       await page.getByTestId('project-add-notes-btn').tap();
+      const searched = page.waitForResponse((r) => r.url().includes('q=Loose'));
       await page.getByTestId('project-note-search').fill('Loose');
-      await page.getByTestId('project-note-add').tap();
+      await searched;
+      await page.getByTestId('project-note-search').blur(); // closing the keyboard shifts the layout; tap once it has
+      await page.waitForTimeout(500);
+      await page.getByTestId('project-note-add').click();
       await page.getByTestId('project-notes').locator('a', { hasText: 'Loose ideas' }).waitFor();
       assert.deepEqual(page.errors ?? [], []);
     }));

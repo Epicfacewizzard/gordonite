@@ -140,3 +140,19 @@ describe('Done and Dismissed by date range', () => {
     assert.equal(withinRange(late, { from: '2026-10-13', to: '2026-10-13' }, tz).list.length, 1);
   });
 });
+
+test('someone else’s open task is only ever in "others", never in my sections or my count', async () => {
+  const { groupTasks, visibleSections } = await import('../../client/src/task-groups.js');
+  const base = { checked: false, tags: ['x'], date: '2026-11-01', noteId: 'n', hidden: false, start: null };
+  const rows = [
+    { ...base, taskId: 'a', text: 'mine late', due: '2026-11-01' },
+    { ...base, taskId: 'b', text: 'theirs late', due: '2026-11-01', owner: 'p1' },
+    { ...base, taskId: 'c', text: 'theirs undated', due: null, owner: 'p1' },
+    { ...base, taskId: 'd', text: 'theirs done', due: null, owner: 'p1', checked: true },
+  ];
+  const buckets = groupTasks(rows, { today: '2026-11-12', now: '10:00' });
+  assert.deepEqual(buckets.overdue.map((t) => t.text), ['mine late']);
+  assert.deepEqual(buckets.others.map((t) => t.text), ['theirs late', 'theirs undated']);
+  assert.deepEqual(buckets.done.map((t) => t.text), ['theirs done']);
+  assert.equal(visibleSections(buckets, { level: 'all', compact: false, today: '2026-11-12' }).openCount, 1);
+});

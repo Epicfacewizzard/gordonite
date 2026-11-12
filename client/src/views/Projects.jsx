@@ -16,7 +16,7 @@ function useProjectTasks(projectId) {
   const { projects } = useProjects();
   const mine = (data.tasks() ?? []).filter((t) => projectOfTask(t, projects)?.id === projectId);
   const live = mine.filter((t) => !t.checked && !t.dismissedAt);
-  return { open: live.filter((t) => !isWaiting(t)), waiting: live.filter(isWaiting).sort(byWaitingLongest), done: mine.filter((t) => t.checked) };
+  return { open: live.filter((t) => !isWaiting(t) && !t.owner), others: live.filter((t) => t.owner), waiting: live.filter(isWaiting).sort(byWaitingLongest), done: mine.filter((t) => t.checked) };
 }
 
 function NewProject({ areaFolders, onDone }) {
@@ -212,6 +212,10 @@ export function ProjectPage({ id, config }) {
       <section class="project-section" data-testid="project-waiting">
         <h3 class="section">Waiting on <span class="count">{tasks.waiting.length}</span></h3>
         {tasks.waiting.length === 0 ? <p class="muted small">Nothing is waiting for a reply.</p> : <ul class="person-task-list">{tasks.waiting.map(row)}</ul>}
+      </section>
+      <section class="project-section" data-testid="project-others">
+        <h3 class="section">Waiting on others <span class="count">{tasks.others.length}</span></h3>
+        {tasks.others.length === 0 ? <p class="muted small">No one else has a task here.</p> : <ul class="person-task-list">{tasks.others.map(row)}</ul>}
       </section>
       <section class="project-section" data-testid="project-open">
         <h3 class="section">Open tasks <span class="count">{tasks.open.length}</span></h3>

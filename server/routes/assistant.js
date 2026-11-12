@@ -123,7 +123,7 @@ export function registerAssistantRoutes({ route, assistant, links, db, config, f
   route('GET', '/api/assistant/people/:noteId', async ({ res, params }) => {
     // With the open tasks that are with this person (docs/PROJECTS.md), waiting ones first.
     const tasks = store.listTasks().filter((t) => t.person === params.noteId && !t.checked && !t.dismissedAt);
-    sendJson(res, 200, { ...records.person(params.noteId), tasks: [...tasks.filter((t) => t.waitingSince), ...tasks.filter((t) => !t.waitingSince)] });
+    sendJson(res, 200, { ...records.person(params.noteId), owns: store.listTasks().filter((t) => t.owner === params.noteId && !t.checked && !t.dismissedAt), tasks: [...tasks.filter((t) => t.waitingSince), ...tasks.filter((t) => !t.waitingSince)] });
   });
   route('PUT', '/api/assistant/people/:noteId', async ({ res, params, body }) => sendJson(res, 200, records.editPerson(params.noteId, body.profile)));
   route('POST', '/api/assistant/people/:noteId/log', async ({ res, params, body }) => sendJson(res, 200, records.logPerson(params.noteId, body)));

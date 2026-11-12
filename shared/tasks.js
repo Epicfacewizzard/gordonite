@@ -15,6 +15,7 @@
 //   project   a project id: the task's own project instead of its note's (docs/PROJECTS.md)
 //   person    a People note id: who the task is with
 //   waitingSince YYYY-MM-DD  waiting for that person's reply since this day
+//   owner     a People note id: whose task it is when it is not the owner's own (their commitment; none = mine)
 // A date typed in the text ("due fri", see taskdates.js) is used when no date was picked;
 // a picked date always wins.
 import { addDays, formatDateShort } from './dates.js';
@@ -38,7 +39,7 @@ export const taskText = (item) =>
 
 /**
  * What one task (a taskItem node as JSON) is right now, with dates typed in its text taken into account:
- * { text, checked, due, start, hidden, hideUntil, priority, project, person, waitingSince, dueFrom, startFrom } where due/start are the effective
+ * { text, checked, due, start, hidden, hideUntil, priority, project, person, owner, waitingSince, dueFrom, startFrom } where due/start are the effective
  * dates and dueFrom/startFrom say where each came from: 'set' (picked), 'text' (typed) or null.
  */
 export function describeTask(item, noteDate) {
@@ -62,6 +63,7 @@ export function describeTask(item, noteDate) {
     project: a.project ?? null,
     person: a.person ?? null,
     waitingSince: a.waitingSince ?? null,
+    owner: a.owner ?? null,
     dueFrom: a.due ? 'set' : typed.due ? 'text' : null,
     startFrom: a.start ? 'set' : typed.start ? 'text' : null,
     ...repeatOf(a, text),
@@ -133,6 +135,7 @@ export function taskRecords({ id, doc, date, tags, revision = 0 }) {
     project: t.project,
     person: t.person,
     waitingSince: t.waitingSince,
+    owner: t.owner,
     dueFrom: t.dueFrom,
     startFrom: t.startFrom,
     repeat: t.repeat,
@@ -145,7 +148,7 @@ export function taskRecords({ id, doc, date, tags, revision = 0 }) {
 }
 
 // Attributes that are only stored when they mean something, so untouched tasks stay exactly as before.
-const OPTIONAL = { dueTime: (v) => !v, startTime: (v) => !v, due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v, project: (v) => !v, person: (v) => !v, waitingSince: (v) => !v, dismissedAt: (v) => !v, completedAt: (v) => !v, repeat: (v) => !v, completions: (v) => !v?.length };
+const OPTIONAL = { dueTime: (v) => !v, startTime: (v) => !v, due: (v) => !v, start: (v) => !v, hidden: (v) => !v, hideUntil: (v) => !v, priority: (v) => !v, project: (v) => !v, person: (v) => !v, owner: (v) => !v, waitingSince: (v) => !v, dismissedAt: (v) => !v, completedAt: (v) => !v, repeat: (v) => !v, completions: (v) => !v?.length };
 
 function tidyAttrs(attrs) {
   const next = { ...attrs };

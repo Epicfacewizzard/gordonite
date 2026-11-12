@@ -137,7 +137,7 @@ export function validateDoc(doc, format = DOC_FORMAT, { structure = true } = {})
       if (a.repeat != null && !isValidRepeat(a.repeat)) return 'taskItem.repeat must be a repeat rule';
       if (a.completions != null && (!Array.isArray(a.completions) || a.completions.length > MAX_COMPLETIONS || !a.completions.every(isValidCompletion))) return 'taskItem.completions must be a list of completions';
       // Projects and Waiting on (docs/PROJECTS.md): a project id, a People note id, and the day waiting began.
-      for (const k of ['project', 'person']) {
+      for (const k of ['project', 'person', 'owner']) {
         if (a[k] != null && (typeof a[k] !== 'string' || !ATTACHMENT_ID.test(a[k]))) return `taskItem.${k} must be an id`;
       }
       if (a.waitingSince != null && !isValidDateString(a.waitingSince)) return 'taskItem.waitingSince must be a YYYY-MM-DD date';

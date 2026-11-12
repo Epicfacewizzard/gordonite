@@ -299,6 +299,13 @@ export class AssistantNotes {
         }
         clean.person = v;
         if (v === null) clean.waitingSince = null;
+      } else if (k === 'owner') {
+        // Whose task it is when it is someone else's (a People note). null makes it the owner's own again.
+        if (v !== null) {
+          const person = this.store.getNote(checkId(v, 'owner note id'));
+          if (!person || person.deletedAt || !isPersonTags(person.tags.map((t) => t.path))) throw new HttpError(404, 'person_not_found', 'No such person. list_people lists them (use their noteId)');
+        }
+        clean.owner = v;
       } else if (k === 'waiting') {
         if (typeof v !== 'boolean') throw new HttpError(400, 'bad_task', '"waiting" must be true or false');
         clean.waitingSince = v ? (patch.waitingSince ?? this.#today()) : null;
@@ -311,7 +318,7 @@ export class AssistantNotes {
         clean.content = [{ type: 'paragraph', content: inlineToNodes(v.trim()) }];
       }
     }
-    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use text, checked, due, start, dueTime, startTime, hidden, hideUntil, priority, repeat, skip, undoCompletion, project, person, waiting or waitingSince)');
+    if (Object.keys(clean).length === 0) throw new HttpError(400, 'bad_task', 'Nothing to change (use text, checked, due, start, dueTime, startTime, hidden, hideUntil, priority, repeat, skip, undoCompletion, project, person, owner, waiting or waitingSince)');
     if (clean.waitingSince) {
       const task = findTask(note.doc, taskId);
       if (task && !(clean.person ?? task.attrs?.person)) throw new HttpError(400, 'bad_task', 'Waiting needs a person: give person (a People noteId) too');

@@ -9,10 +9,10 @@ so they work on the phone and offline. **Nothing changes unless a button is tapp
 | **Make this a task** | a plain paragraph says "need to", "have to", "got to", "gotta", "must", "remind me", "remember to", "don't forget" or "by Friday" (also "by tomorrow", "by EOD"). Questions, denials ("don't need to") and lines under 8 characters are skipped | The paragraph becomes a checkbox task, its words and bold/italic kept. A date written in it ("by Friday", "due Oct 12") is carried as the task's own due date, read by the existing date parser (`shared/taskdates.js`) |
 | **Add *Name* as a person** | a capitalised name that matches nobody in People, when it follows a cue ("met", "with", "told", "asked", "emailed"…), is followed by one ("Priya said", "Priya will"), or is two or three capitalised words in mid-sentence ("Priya Rao"). Days, months, sentence starters and a name that is already a person (full name, nickname, unique first name) are skipped | A new note named as written is created in `05-people` (saved on the phone first like any note), and the name links itself once the people list has it (plain-name linking, [LINKS.md](LINKS.md)) |
 
-Only top-level paragraphs are read: lines that are already tasks, headings, list items and files are left alone, and so are
-names inside `[[ ]]`. A line that mentions a known person and a commitment of theirs ("Sam will send the budget") is not
-suggested in 0.19.0; 0.21.0 adds it (see [RELEASE-NOTES.md](RELEASE-NOTES.md)).
+| **Make this *Name*'s task** (0.21.0) | a known person's name followed by "will", "promised to", "agreed to", "offered to", "needs to", "has to" or "must" (not "will be", not a question) | The line becomes a task whose `owner` is that person, with any date written in it. Offered instead of Make this a task for that line |
 
+Only top-level paragraphs are read: lines that are already tasks, headings, list items and files are left alone, and so are
+names inside `[[ ]]`. 
 **Dismissing.** *Dismiss* hides that suggestion for that line. This is remembered on the device (`localStorage`, key
 `hq-suggestions-dismissed`, a hash of the line, never its text), so it works offline. If the line is rewritten into
 something else the suggestion can come back. A person added from a suggestion is also remembered

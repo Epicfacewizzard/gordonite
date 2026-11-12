@@ -50,10 +50,10 @@ async function acceptProposal(p, { dailyTag, day }) {
   if (session.provider) throw new Error('Close the journal entry on Today first.');
   const wanted = p.line ? normalLine(p.line) : null;
   session.editDoc((doc) => {
-    const converted = wanted ? makeLineATask(doc, wanted, { noteDate: session.date, due: p.due ?? undefined }) : null;
+    const converted = wanted ? makeLineATask(doc, wanted, { noteDate: session.date, due: p.due ?? undefined, owner: p.ownerId ?? null }) : null;
     if (converted) return converted;
     const paragraph = { type: 'paragraph', content: [{ type: 'text', text: p.text }] };
-    return { ...doc, content: [...(doc.content ?? []).filter((n, i, all) => !(i === all.length - 1 && n.type === 'paragraph' && !n.content?.length)), taskFromParagraph(paragraph, { due: p.due ?? null })] };
+    return { ...doc, content: [...(doc.content ?? []).filter((n, i, all) => !(i === all.length - 1 && n.type === 'paragraph' && !n.content?.length)), taskFromParagraph(paragraph, { due: p.due ?? null, owner: p.ownerId ?? null })] };
   });
   return true;
 }
@@ -196,7 +196,7 @@ export function DebriefView({ config }) {
   const tasks = data.tasks() ?? [];
   const live = (t) => !t.dismissedAt && !t.hidden;
   const made = tasks.filter((t) => t.date === day && live(t));
-  const openTasks = tasks.filter((t) => !t.checked && live(t) && !(t.hideUntil && t.hideUntil > day) && !(t.start && t.start > day));
+  const openTasks = tasks.filter((t) => !t.checked && !t.owner && live(t) && !(t.hideUntil && t.hideUntil > day) && !(t.start && t.start > day));
   const overdue = openTasks.filter((t) => isOverdue(t.due, t.dueTime, today, now));
   const others = openTasks.filter((t) => !overdue.includes(t) && t.date !== day);
   const shownOthers = showAll ? others : others.slice(0, MORE);
@@ -218,7 +218,7 @@ export function DebriefView({ config }) {
   const acceptRule = async (s) => {
     setProblem(null);
     try {
-      if (s.kind === 'task') {
+      if (s.kind === 'task' || s.kind === 'owner') {
         if (!journal || !acceptTask(journal, null, s)) throw new Error('That line has changed, so nothing was done. Close the journal entry on Today and try again.');
       } else {
         await acceptPerson(s, day);

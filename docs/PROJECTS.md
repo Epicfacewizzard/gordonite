@@ -94,3 +94,11 @@ Not recognised as scheduling: clock times, reminders, recurring tasks, next week
 arbitrary sentences. For a note dated 2026-10-05, Email Kelvin at 6pm tmr is due 2026-10-06 but has no
 scheduled hour. Email Kelvin tmr at 6pm has no due date, because tmr is not at the end; due tmr at 6pm
 does recognise the date because it has an explicit due keyword.
+
+## Other people's tasks (0.21.0)
+
+A task may carry `owner`, a People note id: it is that person's commitment, not the owner's own (`person` still means "with
+them" and `waitingSince` "waiting for their reply"; the three are independent). It is set in the task sheet (**Who does it**)
+or by the assistant (`update_task owner`). An owned task is left out of the owner's own lists and counts and shows under
+**Waiting on others** on Tasks, in **Waiting on others** on the project page (`projectDetails().tasks.others`) and under **They
+said they would** on the person's page. Ticking it records that they did it. See [RELEASE-NOTES.md](RELEASE-NOTES.md).

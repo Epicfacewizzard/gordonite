@@ -154,11 +154,13 @@ export function projectDetails(db, store, id) {
     project: { ...project, noteCount: live.find((p) => p.id === project.id)?.noteCount ?? notes.length },
     notes,
     tasks: {
-      open: tasks.filter((t) => !t.checked && !t.dismissedAt && !isWaiting(t)),
+      open: tasks.filter((t) => !t.checked && !t.dismissedAt && !isWaiting(t) && !t.owner),
+      // Other people's commitments (0.21.0): open tasks whose owner is not the owner of the notes
+      others: tasks.filter((t) => t.owner && !t.checked && !t.dismissedAt),
       waiting: tasks.filter(isWaiting).sort(byWaitingLongest),
       doneCount: tasks.filter((t) => t.checked).length,
     },
-    people: [...new Set(tasks.filter((t) => t.person && !t.checked && !t.dismissedAt).map((t) => t.person))],
+    people: [...new Set(tasks.filter((t) => (t.person || t.owner) && !t.checked && !t.dismissedAt).flatMap((t) => [t.person, t.owner].filter(Boolean)))],
   };
 }
 
