@@ -1,5 +1,25 @@
 # Release notes
 
+## 0.23.0 — Quick daily-note switching and roomier browsing
+
+Today has a compact switcher for favourite daily tags, with the selected tag highlighted. The last selection is kept on
+this device; Settings still supplies the default. Switching opens the selected tag's entry for today without moving or
+copying text, or creating a note until writing starts. Each note keeps its own pending edits in the existing save queue.
+
+Look up keeps its notes/people/tasks search, with cards leading straight to Notes, People, Projects, Tags and Files.
+Recent people and active projects are short previews instead of full directories. Desktop browsing pages and Today
+use the available window width with comfortable gutters; individual writing and Settings pages keep a readable width.
+The switcher and browse cards adapt to phone screens and both colour themes. No schema or network-access changes.
+
+The configured journal stays in the switcher even after choosing another tag. Local revision-zero drafts are prioritised
+if another device created today's entry meanwhile; both versions remain visible through the existing conflict flow.
+
+**Checked:** `npm test` 433/433; focused Today, switcher, Look up and redesign browser tests 26/26 on the final build.
+The full browser suite before the final corrections was 196/198: the two new switcher cases exposed the missing default
+shortcut and an incorrect preview selector. After correcting these, all 26 affected browser cases passed; the full suite
+was not repeated. Desktop 1440px, phone 390px, and desktop dark-theme screenshots checked using fictional content; no
+sideways scrolling. Not tested on a physical phone. Built on `codex/today-switcher-lookup`; not pushed or deployed.
+
 ## 0.22.2 — Two flaky browser tests made reliable
 
 Version **0.22.2** (tests only; no app code, schema or data change). Two e2e tests failed intermittently or reproducibly for

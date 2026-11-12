@@ -12,6 +12,7 @@ import { HabitsWidget } from './Habits.jsx';
 import { useMentions, peopleInText } from '../mentions.js';
 import { plainText } from '../../../shared/doc.js';
 import { Suggestions } from './Suggestions.jsx';
+import { dailyTagChoices, readTodayTagId, writeTodayTagId } from '../today-selection.js';
 
 // The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
 // context (today's date, config, tags, the chosen daily tag) and draws its own part. To add one, write the
@@ -174,7 +175,7 @@ function AlsoToday({ others }) {
 // (created on the first keystroke, like in a stream). Under it: the people named today and the other notes dated today.
 // Under those, the last couple of days' entries of that tag (EarlierNotes), greyed until tapped: a tap opens that
 // day for editing right there, and only one note is ever open for editing. A button brings in older days.
-function TodayNoteWidget({ config, today, dailyTag, phone = false }) {
+function TodayNoteWidget({ config, today, dailyTag, phone = false, choices = [], onChooseTag }) {
   useSession();
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
   const [earlier, setEarlier] = useState(null); // this tag's first page of notes, for the earlier days under today's
@@ -195,9 +196,14 @@ function TodayNoteWidget({ config, today, dailyTag, phone = false }) {
         res.notes.forEach((n) => sync.adopt(n));
         const existing = res.notes.find((n) => n.date === today && n.kind === 'daily');
         // A tag with its daily entry switched off has nothing to write in here.
-        const session = existing ? sync.get(existing.id) : res.tag.daily ? sync.draft(dailyTag, today) : null;
+        const draft = [...sync.sessions.values()].find((s) => s.kind === 'daily' && s.date === today && s.tags.includes(dailyTag) && s.revision === 0 && s.hasUnsaved && !s.discarded);
+        // A locally pending draft may have a different ID from a note created elsewhere while offline.
+        // Keep the draft open so typing is never replaced by adopting the server's ID; its save path
+        // will surface the normal server conflict if the slot already exists.
+        const keepDraft = Boolean(draft);
+        const session = draft ?? (existing ? sync.get(existing.id) : res.tag.daily ? sync.draft(dailyTag, today) : null);
         setEarlier({ notes: res.notes, hasMore: res.hasMore });
-        setState({ status: session ? 'ready' : 'off', id: session?.id ?? null, error: null });
+        setState({ status: session ? 'ready' : 'off', id: session?.id ?? null, error: null, collision: Boolean(keepDraft && existing && existing.id !== draft.id) });
       } catch (err) {
         if (cancelled) return;
         if (err instanceof NetworkError) {
@@ -239,6 +245,25 @@ function TodayNoteWidget({ config, today, dailyTag, phone = false }) {
         <h2 class="section">{phone ? 'Today' : 'Today’s note'}</h2>
         {!phone && <a class="link" href="#/debrief" data-testid="today-debrief">Debrief</a>}
       </div>
+      {choices.length > 0 && (
+        <nav class="today-switcher" aria-label="Today’s daily tag" data-testid="today-switcher">
+          {choices.map((choice) => (
+            <button
+              type="button"
+              class="daily-tag-choice"
+              data-testid="daily-tag-choice"
+              aria-pressed={choice.path === dailyTag}
+              title={choice.path}
+              key={choice.id}
+              onClick={() => {
+                if (choice.path === dailyTag) return;
+                editing?.captureNow();
+                onChooseTag?.(choice);
+              }}
+            >{choice.label}</button>
+          ))}
+        </nav>
+      )}
       {state.status === 'error' && (
         <div class="banner error" role="alert" data-testid="load-error">
           <span>Can’t reach the server: {state.error}. Text already typed on this phone is safe.</span>
@@ -246,6 +271,11 @@ function TodayNoteWidget({ config, today, dailyTag, phone = false }) {
             Retry
           </button>
         </div>
+      )}
+      {state.collision && (
+        <p class="banner error" role="alert" data-testid="today-draft-collision">
+          This device has an unsent draft for this tag, and a separate entry now exists on the server. Your draft is kept open; saving will show a conflict to resolve.
+        </p>
       )}
       {state.status === 'off' && (
         <p class="muted" data-testid="note-off">
@@ -336,28 +366,50 @@ export function TodayView({ config }) {
   const wide = useWideScreen();
   const today = useToday(config.tz);
   const [tags, setTags] = useState([]);
-  // The journal tag is one setting kept on the server, changed in Settings. Asked for again each time this opens.
+  const [preferredId, setPreferredId] = useState(null);
+  const [preferenceError, setPreferenceError] = useState(null);
+  // Server setting is the fallback; the optional device choice is stored by stable tag ID.
   const [dailyTag, setDailyTag] = useState(config.dailyTag ?? 'daily-jots');
 
   useEffect(() => {
     api.tags().then((r) => setTags(r.tags)).catch(() => {});
     api.config().then((c) => setDailyTag(c.dailyTag ?? 'daily-jots')).catch(() => {});
     try {
+      setPreferredId(readTodayTagId(localStorage));
       localStorage.removeItem('hq-daily-tag-unsent'); // a pick kept by an older version, which no longer exists
     } catch {
-      /* storage unavailable: nothing was kept */
+      setPreferenceError('This device could not read your saved Today tag preference.');
     }
   }, []);
 
-  const context = { config, today, tags, dailyTag };
+  const preferredTag = preferredId && tags.find((t) => t.id === preferredId && (t.daily || t.path === dailyTag));
+  const selectedTag = preferredTag?.path ?? dailyTag;
+  const choices = dailyTagChoices(tags, selectedTag, dailyTag);
+  useEffect(() => {
+    if (preferredId && tags.length && !tags.some((t) => t.id === preferredId && (t.daily || t.path === dailyTag))) {
+      setPreferredId(null);
+    }
+  }, [preferredId, tags, dailyTag]);
+  const chooseTag = (tag) => {
+    setPreferredId(tag.id);
+    try {
+      writeTodayTagId(tag.id, localStorage);
+      setPreferenceError(null);
+    } catch {
+      setPreferenceError('Today changed, but this device could not save the preference.');
+    }
+  };
+
+  const context = { config, today, tags, dailyTag: selectedTag, choices, onChooseTag: chooseTag };
   if (!wide) {
     return (
       <div class="today today-phone" data-testid="today">
         <h2 class="today-date" data-testid="today-date">
           {longDate(today)}
         </h2>
+        {preferenceError && <p class="banner error" role="alert" data-testid="today-preference-error">{preferenceError}</p>}
         <TodoWidget config={config} />
-        <TodayNoteWidget key={`note:${dailyTag}`} {...context} phone />
+        <TodayNoteWidget key={`note:${selectedTag}`} {...context} phone />
         <PinnedWidget tags={tags} />
         <MoreRow {...context} />
       </div>
@@ -370,6 +422,7 @@ export function TodayView({ config }) {
       <h2 class="today-date" data-testid="today-date">
         {longDate(today)}
       </h2>
+      {preferenceError && <p class="banner error" role="alert" data-testid="today-preference-error">{preferenceError}</p>}
       <div class="dashboard-grid" style={gridFor(shown)}>
         {['top', ...COLUMNS].map((region) => {
           const here = shown.filter((w) => w.region === region);
@@ -379,7 +432,7 @@ export function TodayView({ config }) {
                 {here.map(({ id }) => {
                   const Widget = WIDGETS.get(id);
                   // the note starts fresh when its tag changes, so one tag's entry is never shown under another's name
-                  return <Widget key={id === 'note' ? `note:${dailyTag}` : id} {...context} />;
+                  return <Widget key={id === 'note' ? `note:${selectedTag}` : id} {...context} />;
                 })}
               </div>
             )

@@ -349,7 +349,7 @@ export function App() {
   return (
     <>
       <Header route={route} />
-      <main class={`page${tabbar ? ' has-tabbar' : ''}${route === '/' || route === '/people' || route.startsWith('/people/') ? ' wide' : ''}`}>
+      <main class={`page${tabbar ? ' has-tabbar' : ''}${['/', '/lookup', '/notes', '/tags', '/tasks', '/projects', '/files', '/people'].includes(route) || route.startsWith('/people/') || route.startsWith('/projects/') ? ' wide' : ''}`}>
         <OfflineBar />
         {route === '/' && <WaitingShares />}
         {view}

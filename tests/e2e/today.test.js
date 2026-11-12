@@ -86,7 +86,7 @@ describe('the Dashboard (the Today screen)', () => {
       await page.goto(`${app.url}/#/`);
       await todayNote(page).waitFor();
       assert.equal(app.notes().length, 0, 'nothing is created by opening Today');
-      assert.equal(await page.getByTestId('daily-tag-choice').count(), 0, 'no row of tags to switch between');
+      assert.equal(await page.getByTestId('daily-tag-choice').count(), 1, 'the configured journal stays available even when it is not starred');
 
       await todayNote(page).tap();
       await page.keyboard.type('Wrote this from Today');

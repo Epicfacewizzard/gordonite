@@ -1,5 +1,14 @@
 # Gordonite handover
 
+## Latest local work: 0.23.0 (2026-11-12)
+
+Built on `codex/today-switcher-lookup`, not pushed or deployed: favourite daily-tag switcher above today's note,
+device-local selection by stable tag ID, category cards under Look up search, and wider desktop browsing layouts.
+Settings supplies the default journal; it stays available in the switcher. No schema changes. Final checks: 433/433
+unit/API tests, 26/26 affected browser tests, and phone/desktop/light/dark screenshots. Full-suite details and limits are
+in `docs/RELEASE-NOTES.md` under 0.23.0. The older deployment tables below are historical; the last verified deployment
+in the prior chat was 0.22.2 (release `9f61b0d`).
+
 Updated **2026-10-18**, home timezone **America/Edmonton**. Read [the workspace guide](docs/WORKSPACE.md) for the current two local branches, archives and recovery instructions. The older deployment sections below are historical; see `docs/RELEASE-NOTES.md` for per-release details.
 
 ## Read first

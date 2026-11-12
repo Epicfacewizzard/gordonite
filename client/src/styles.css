@@ -1624,7 +1624,7 @@ body:not([data-editing]) .today .toolbar {
 .mood-refused li { flex-wrap: wrap; }
 
 /* Dashboard layout: a band on top, then left / center / right columns (stacked on a phone) */
-.page.wide { max-width: 72rem; }
+.page.wide { max-width: none; width: 100%; }
 .dashboard-grid { display: grid; gap: 12px 24px; grid-template-columns: minmax(0, 1fr); }
 .dash-region > .widget:last-child { margin-bottom: 0; }
 @media (min-width: 860px) {
@@ -1876,6 +1876,32 @@ body:not([data-editing]) .today .toolbar {
 .lookup-empty { padding: 10px 12px; margin: 0; }
 .lookup-more { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 20px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .lookup-more a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-weight: 600; text-decoration: none; }
+
+/* Room to browse on a desktop; writing-only pages retain their readable width. */
+@media (min-width: 860px) {
+  .page.wide { padding: 24px clamp(24px, 3vw, 64px) 48px; }
+  .dashboard-grid { gap: 24px 32px; }
+  .lookup-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 24px; align-items: start; }
+}
+.lookup-destinations { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 14px; margin: 24px 0 28px; }
+.lookup-destination { display: flex; align-items: center; gap: 14px; padding: 22px 18px; min-height: 108px; min-width: 0; border: 1px solid var(--line); border-radius: 16px; color: var(--text); background: var(--surface); text-decoration: none; box-shadow: 0 2px 6px rgb(0 0 0 / .025); transition: border-color .15s, box-shadow .15s; }
+.lookup-destination:hover { border-color: var(--accent); box-shadow: 0 4px 14px rgb(0 0 0 / .06); }
+.lookup-destination:focus-visible, .today-switcher button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.lookup-destination-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; background: var(--ok-bg); color: var(--accent); border-radius: 12px; }
+.lookup-destination-icon svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+svg.lookup-destination-icon { padding: 10px; }
+.lookup-view-all { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: .85rem; font-weight: 600; text-decoration: none; }
+.lookup-destination-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.lookup-destination-copy b { font-size: 1.05rem; }
+.lookup-destination-copy .small { line-height: 1.35; }
+.today-switcher { display: flex; gap: 6px; max-width: 100%; overflow-x: auto; padding: 4px 2px 10px; margin: 0 0 8px; }
+.today-switcher button { flex: none; min-height: 44px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font: inherit; cursor: pointer; }
+.today-switcher button[aria-pressed='true'] { color: var(--accent-contrast); border-color: var(--accent); background: var(--accent); font-weight: 650; }
+@media (max-width: 559px) {
+  .lookup-destinations { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+  .lookup-destination { flex-direction: column; align-items: flex-start; padding: 16px; gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .lookup-destination { transition: none; } }
 .task-details .task-inline-edit > .link-plain { display: none; }
 
 /* Suggestions under the journal entry (views/Suggestions.jsx): the line, one tap to accept, one to dismiss */

@@ -1,5 +1,10 @@
 # Redesign proposal: everyday flows (2026-11-11)
 
+**Update 2026-11-12 (0.23.0):** the owner approved restoring favourite daily-tag switching directly above today's note.
+The selected note is remembered on this device; the journal setting remains the default. This supersedes the single-tag
+restriction in the earlier proposal. Look up now leads with search and cards for Notes, People, Projects, Tags and Files,
+with short recent previews. Desktop browsing uses the window width; standalone writing pages remain narrower.
+
 Status: **proposal; steps 1 to 6 of Direction 2 are built (on branch `claude/write-once-steps-1-4-cbddde`, 0.19.0 to 0.22.0, not yet deployed).** 0.17.0: plain names link themselves, Today is one journal,
 People today, Also today. 0.18.0: the visible screens (three tabs Today / Tasks / Look up, a To do list over the journal,
 the task sheet with one-tap When choices, the person card with Everything written, Look up); see `docs/RELEASE-NOTES.md`.

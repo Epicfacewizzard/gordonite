@@ -202,7 +202,7 @@ describe('a person page and Look up', () => {
       assert.deepEqual(page.errors, []);
     }));
 
-  test('Look up: Met recently, Projects, then people by who was talked to last; typing searches notes, people and tasks', () =>
+  test('Look up: browse cards, recent people and projects; typing searches notes, people and tasks', () =>
     withPhone(browser, async ({ page, app }) => {
       await makePerson(app, { title: 'Recent Rae', text: 'Met at the fair', profile: { role: 'Fair volunteer' } });
       const olga = await makePerson(app, { title: 'Old Olga', text: 'Long-time friend', profile: { lastTalked: addDays(today(), -40) } });
@@ -219,7 +219,8 @@ describe('a person page and Look up', () => {
       assert.equal(await page.getByTestId('lookup-projects').getByTestId('lookup-project').count(), 1);
       assert.match(await page.getByTestId('lookup-projects').innerText(), /Lunar Gala/);
       assert.doesNotMatch(await page.getByTestId('lookup-met').innerText(), /Olga|Otto/, 'only the new face is under Met recently');
-      assert.deepEqual(await page.getByTestId('lookup-people').locator('b').allInnerTexts(), ['Older Otto', 'Old Olga'], 'the rest by who was talked to most recently');
+      await page.getByTestId('lookup-all-people').waitFor();
+      assert.equal(await page.getByTestId('lookup-people').count(), 0, 'the full people directory has its own destination');
       await page.getByTestId('lookup-input').fill('lantern');
       await page.getByTestId('lookup-notes-found').waitFor();
       assert.match(await page.getByTestId('lookup-notes-found').innerText(), /Gala plan/);

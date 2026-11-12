@@ -7,10 +7,7 @@ import { PEOPLE_TAG, matchesSearch, sortPeople } from '../../../shared/people.js
 import { AREA_LABEL } from '../../../shared/projects.js';
 import { addDays, dateInTz, formatDateLabel } from '../../../shared/dates.js';
 
-// Look up: one search box over notes, people and tasks; with the box empty, the people met in the last 30 days, the
-// projects, and everyone else by who was talked to most recently. Nothing here is stored: it is all read from the
-// people list, the projects list, the task list and the notes search that already exist. Notes, Tags, Files and Trash
-// are linked at the bottom.
+// Look up keeps cross-category search and offers direct paths into the main collections.
 
 const MET_DAYS = 30;
 
@@ -132,21 +129,18 @@ export function LookupView({ config }) {
     const met = all
       .filter((p) => (recent?.get(p.noteId) ?? '') >= since)
       .sort((a, b) => recent.get(b.noteId).localeCompare(recent.get(a.noteId)) || (a.title || '').localeCompare(b.title || ''));
-    const metIds = new Set(met.map((p) => p.noteId));
-    const rest = all
-      .filter((p) => !metIds.has(p.noteId))
-      .sort((a, b) => (b.lastTalked || '').localeCompare(a.lastTalked || '') || (b.updatedAt || '').localeCompare(a.updatedAt || '') || (a.title || '').localeCompare(b.title || ''));
     const active = projects.filter((p) => p.status === 'active' || !p.status);
     body = (
       <>
         {met.length > 0 && (
-          <Group label="Met recently" count={met.length} id="met">
-            {met.map((p) => <PersonRow key={p.noteId} p={p} today={today} extra={`met ${formatDateLabel(recent.get(p.noteId), today)}`} />)}
+          <Group label="Met recently" id="met">
+            {met.slice(0, 4).map((p) => <PersonRow key={p.noteId} p={p} today={today} extra={`met ${formatDateLabel(recent.get(p.noteId), today)}`} />)}
+            {met.length > 4 && <a class="lookup-view-all" href="#/people" data-testid="lookup-met-view-all">View all {met.length} people</a>}
           </Group>
         )}
         {active.length > 0 && (
-          <Group label="Projects" count={active.length} id="projects">
-            {active.map((p) => (
+          <Group label="Projects" id="projects">
+            {active.slice(0, 4).map((p) => (
               <a key={p.id} class="lookup-row" href={`#/projects/${p.id}`} data-testid="lookup-project">
                 <span class="lookup-initials" aria-hidden="true">
                   {p.name.slice(0, 2)}
@@ -158,19 +152,29 @@ export function LookupView({ config }) {
                 <span class="lookup-chev" aria-hidden="true">›</span>
               </a>
             ))}
+            {active.length > 4 && <a class="lookup-view-all" href="#/projects" data-testid="lookup-projects-view-all">View all {active.length} projects</a>}
           </Group>
         )}
-        <Group label="People" count={rest.length} id="people">
-          {rest.map((p) => <PersonRow key={p.noteId} p={p} today={today} />)}
-          {rest.length === 0 && people.loaded && (
-            <p class="muted small lookup-empty">
-              No one else yet. <a href={`#/new?tag=${encodeURIComponent(PEOPLE_TAG)}`}>Add a person</a>
-            </p>
-          )}
-        </Group>
       </>
     );
   }
+
+  const destinations = (
+    <nav class="lookup-destinations" aria-label="Browse categories" data-testid="lookup-destinations">
+      {[
+        { label: 'Notes', detail: 'Read and find your writing', href: '#/notes', testid: 'lookup-notes', icon: <><path d="M5 3.5h9l5 5v12H5z" /><path d="M14 3.5v5h5M8 13h8M8 17h6" /></> },
+        { label: 'People', detail: 'Keep up with people you know', href: '#/people', testid: 'lookup-all-people', icon: <><circle cx="9" cy="8" r="3" /><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20zM16 5.5a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 3.5 4.8V20h-3" /></> },
+        { label: 'Projects', detail: 'See what you are working on', href: '#/projects', testid: 'lookup-all-projects', icon: <><rect x="3" y="5" width="18" height="15" rx="2" /><path d="M8 5V3h8v2M3 11h18M10 11v2h4v-2" /></> },
+        { label: 'Tags', detail: 'Browse notes by topic', href: '#/tags', testid: 'lookup-tags', icon: <><path d="M20 13 12 21l-9-9V3h9z" /><circle cx="7.5" cy="7.5" r="1" /></> },
+        { label: 'Files', detail: 'Find attached files', href: '#/files', testid: 'lookup-files', icon: <><path d="M5 3h9l5 5v13H5z" /><path d="M14 3v5h5M8 14h8M8 17h5" /></> },
+      ].map((item) => (
+        <a class="lookup-destination" href={item.href} data-testid={item.testid} key={item.label}>
+          <svg class="lookup-destination-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{item.icon}</svg>
+          <span class="lookup-destination-copy"><b>{item.label}</b><span class="muted small">{item.detail}</span></span>
+        </a>
+      ))}
+    </nav>
+  );
 
   return (
     <div class="lookup" data-testid="lookup">
@@ -178,15 +182,11 @@ export function LookupView({ config }) {
         <span aria-hidden="true">⌕</span>
         <input type="search" value={q} onInput={(e) => setQ(e.currentTarget.value)} placeholder="Search notes, people and tasks" aria-label="Search" autocomplete="off" data-testid="lookup-input" />
       </label>
-      {body}
-      <nav class="lookup-more" aria-label="More places" data-testid="lookup-more">
-        <a href="#/people" data-testid="lookup-all-people">All people</a>
-        <a href="#/projects" data-testid="lookup-all-projects">All projects</a>
-        <a href="#/notes" data-testid="lookup-notes">Notes</a>
-        <a href="#/tags" data-testid="lookup-tags">Tags</a>
-        <a href="#/files" data-testid="lookup-files">Files</a>
+      {!term && destinations}
+      <div class="lookup-results">{body}</div>
+      {!term && <nav class="lookup-more" aria-label="More places" data-testid="lookup-more">
         <a href="#/trash" data-testid="lookup-trash">Trash</a>
-      </nav>
+      </nav>}
     </div>
   );
 }
