@@ -105,6 +105,8 @@ suggestion writes an ordinary task (with an optional due date) or an ordinary Pe
 
 ## 0.18.0 — Three tabs, a journal-first Today, a task sheet, a person card and Look up
 
+Deployed 2026-11-12 as release `3d2704b`; `/api/health` reported `0.18.0`. Pre-update backup `hq-manual-20261112-065039.sqlite`, rollback image `gordonite:rollback-before-3d2704b`.
+
 Version **0.18.0** (feature, client only). **No schema change, no new stored data, and the note document format is
 untouched:** every screen below is drawn from what already exists, so going back to 0.17.0 is the image swap only. This is
 step 2 of "Direction 2: write once" ([REDESIGN-PROPOSAL-2026-11.md](REDESIGN-PROPOSAL-2026-11.md), sketch in
