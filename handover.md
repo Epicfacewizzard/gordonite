@@ -16,8 +16,8 @@ Updated **2026-10-18**, home timezone **America/Edmonton**. Read [the workspace 
 | | |
 | --- | --- |
 | Repository | `https://github.com/Epicfacewizzard/gordonite.git`, branch `main` |
-| Version on `origin/main` | **0.16.6** (2026-10-26; release commit `04a3680`) |
-| Waiting to be deployed | Nothing |
+| Version on `origin/main` | **0.17.0** (2026-11-11; release commit `22003c9`) |
+| Waiting to be deployed | **0.17.0** (the server runs 0.16.6). No schema change. See `docs/RELEASE-NOTES.md` and `docs/REDESIGN-PROPOSAL-2026-11.md` (0.17.0 is step 1 of "Direction 2") |
 | Version running on the server | **0.16.5** (`f31da8d`, deployed 2026-10-18 by the owner with `scripts/deploy-casaos.ps1`; `/api/health` reported `0.16.5`, assistant key still set). Schema **v11** (the server was already on 0.16.0, so no schema change). Brings the 4-digit PIN login, fingerprint / face unlock (passkeys; only on `https://gordonite.duckdns.org`, not on the IP address), strikethrough, start dates filling in 09:00 and the cleanup. Pre-update backup `hq-manual-20261019-042039.sqlite`; rollback image `gordonite:rollback-before-f31da8d`. The OneDrive checkout is on `f31da8d` too. Fingerprint unlock has not yet been tried on the S24 |
 | Habit tracker beta | Archived locally with the CRM preview and old Android jot experiment; see [docs/WORKSPACE.md](docs/WORKSPACE.md). Remote cleanup needs explicit approval |
 | HTTPS address | `https://gordonite.duckdns.org` (2026-10-15): DuckDNS name → `192.168.1.50`, Nginx Proxy Manager on the server (admin `http://192.168.1.50:81`) with a Let's Encrypt certificate by DNS challenge; reachable only on the LAN or WireGuard. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#b1-free-duckdns-name-option-b-without-buying-a-domain). `http://192.168.1.50:8082` still works |

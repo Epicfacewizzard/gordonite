@@ -1,0 +1,772 @@
+<title>Gordonite Workflows Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: a phone-sized app on the left, a guide on the right that names each workflow, what is clumsy today, and what to try. */
+:root {
+  --bg: #fbfaf7; --surface: #ffffff; --sunk: #efede7; --line: #e4e1da;
+  --fg: #1d1f22; --muted: #666b72;
+  --accent: #2f6f5e; --on-accent: #ffffff; --accent-soft: #e5f1ec;
+  --bad: #b3261e; --bad-soft: #fde8e6;
+  --warn: #8a5a00; --warn-soft: #fff3d6;
+  --draft: #6a4bb0; --draft-soft: #ece6f8;
+  --shadow: 0 10px 40px rgba(30, 40, 36, .16);
+  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #16171a; --surface: #1e2024; --sunk: #0f1012; --line: #2d3036;
+  --fg: #e8e6e1; --muted: #9ba0a7;
+  --accent: #6fbfa8; --on-accent: #0e1512; --accent-soft: #1b2f28;
+  --bad: #ff8a80; --bad-soft: #3d1f1d;
+  --warn: #f0c36b; --warn-soft: #3a2f14;
+  --draft: #b7a2f2; --draft-soft: #2a2342;
+  --shadow: 0 10px 40px rgba(0, 0, 0, .5);
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #16171a; --surface: #1e2024; --sunk: #0f1012; --line: #2d3036;
+  --fg: #e8e6e1; --muted: #9ba0a7;
+  --accent: #6fbfa8; --on-accent: #0e1512; --accent-soft: #1b2f28;
+  --bad: #ff8a80; --bad-soft: #3d1f1d;
+  --warn: #f0c36b; --warn-soft: #3a2f14;
+  --draft: #b7a2f2; --draft-soft: #2a2342;
+  --shadow: 0 10px 40px rgba(0, 0, 0, .5);
+  color-scheme: dark }
+
+html, body { height: 100%; }
+body { background: var(--sunk); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.4; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea, input { font: inherit; color: inherit; }
+
+.wrap { height: 100%; display: flex; gap: 28px; justify-content: center; align-items: stretch;
+  padding-block: 20px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* ---------- phone ---------- */
+.phone { position: relative; width: 400px; max-width: 100%; flex: none; display: flex; flex-direction: column; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 26px; overflow: hidden; box-shadow: var(--shadow); min-height: 0; max-height: 880px; }
+.top { display: flex; align-items: center; gap: 8px; padding: 12px 16px 8px; min-height: 52px; }
+.top h1 { font-family: var(--display); font-size: 21px; font-weight: 600; margin: 0; flex: 1; min-width: 0; text-wrap: balance; letter-spacing: -.01em; }
+.top .sub { display: block; font-family: var(--ui); font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.iconbtn { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); font-size: 20px; flex: none; }
+.iconbtn:hover { background: var(--sunk); color: var(--fg); }
+.iconbtn[disabled] { opacity: .3; cursor: default; }
+.saved { width: 9px; height: 9px; border-radius: 50%; background: #2e9e5b; flex: none; }
+#screen { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 16px 20px; display: flex; flex-direction: column; gap: 18px; }
+
+.capbar { margin: 0 12px 8px; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--muted); }
+.capbar b { color: var(--accent); font-size: 20px; line-height: 1; font-weight: 500; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr 64px 1fr 1fr; align-items: center; border-top: 1px solid var(--line); background: var(--surface); padding: 6px 6px 8px; }
+.tabs button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); padding: 4px 0; border-radius: 10px; }
+.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.tabs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tabs .plus { width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: var(--on-accent); justify-self: center; justify-content: center; font-size: 28px; line-height: 1; padding: 0; }
+
+/* ---------- shared pieces ---------- */
+.label { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; }
+.label .n { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.label.bad { color: var(--bad); }
+.label button { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--accent); }
+.group { display: flex; flex-direction: column; }
+.list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.list > * + * { border-top: 1px solid var(--line); }
+.task { display: flex; align-items: flex-start; }
+.tick { width: 46px; height: 46px; flex: none; display: grid; place-items: center; }
+.tick i { width: 21px; height: 21px; border-radius: 50%; border: 2px solid var(--muted); display: grid; place-items: center; font-style: normal; font-size: 13px; color: var(--on-accent); }
+.task.done .tick i { background: var(--accent); border-color: var(--accent); }
+.tbody { flex: 1; min-width: 0; padding: 11px 12px 11px 0; display: flex; flex-direction: column; gap: 4px; }
+.task.done .ttext { text-decoration: line-through; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 5px 8px; font-size: 12.5px; color: var(--muted); align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.chip.bad { background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.chip.today { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.chip.proj { background: var(--accent-soft); color: var(--accent); }
+.chip.draft { background: var(--draft-soft); color: var(--draft); font-weight: 600; }
+.chip.ok { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; width: 100%; }
+.row .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.row .chev { color: var(--muted); flex: none; }
+.av { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 700; display: grid; place-items: center; flex: none; }
+.av.big { width: 52px; height: 52px; font-size: 18px; }
+.small { font-size: 12.5px; color: var(--muted); }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pills.scroll { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; }
+.pill { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13.5px; white-space: nowrap; }
+.pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn { display: inline-flex; justify-content: center; align-items: center; padding: 9px 14px; border-radius: 11px; border: 1px solid var(--line); background: var(--surface); font-weight: 600; font-size: 14px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.mini { padding: 5px 10px; font-size: 12.5px; border-radius: 9px; flex: none; }
+.btn.block { width: 100%; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.card.draft { border: 1.5px dashed var(--draft); }
+.card h3, .card h2 { margin: 0; font-size: 15px; }
+.entry { padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
+.entry .when { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.scratch { width: 100%; min-height: 74px; border: 0; background: transparent; resize: none; padding: 10px 14px; outline: none; display: block; }
+.pin { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); width: 100%; }
+.pin strong { font-family: var(--display); font-size: 16px; color: var(--accent); }
+.note-line { font-size: 13px; color: var(--muted); padding: 0 2px; }
+.linkish { color: var(--accent); font-weight: 600; }
+.seg { display: flex; gap: 4px; background: var(--sunk); padding: 3px; border-radius: 11px; }
+.seg button { flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.search input { flex: 1; border: 0; background: transparent; outline: none; min-width: 0; }
+.prose { display: flex; flex-direction: column; gap: 8px; }
+.prose p, .prose ul { margin: 0; }
+.prose ul { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.mono { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; white-space: pre-wrap; color: var(--muted); }
+mark { background: var(--warn-soft); color: var(--warn); border-radius: 3px; padding: 0 2px; }
+s { color: var(--muted); }
+
+/* ---------- sheets ---------- */
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.42); display: flex; align-items: flex-end; z-index: 5; }
+.sheet { width: 100%; max-height: 92%; overflow-y: auto; background: var(--bg); border-radius: 20px 20px 0 0; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.sheet::before { content: ""; width: 38px; height: 4px; border-radius: 2px; background: var(--line); align-self: center; flex: none; }
+.sheet textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; resize: none; font-size: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > span { font-size: 12px; font-weight: 600; color: var(--muted); }
+.inp { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; font-size: 16px; }
+.newp { border: 1.5px solid var(--accent); }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.facts .card { padding: 10px 12px; gap: 3px; }
+.facts h3 { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+details.more { border-top: 1px solid var(--line); padding-top: 10px; }
+details.more summary { color: var(--accent); font-weight: 600; cursor: pointer; }
+details.more .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 132px; background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: 12px; font-size: 13.5px; z-index: 6; text-align: center; }
+
+/* ---------- AI chat ---------- */
+.bubble { max-width: 88%; padding: 9px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.bubble.me { align-self: flex-end; background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.toolcall { align-self: flex-start; font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 3px 9px; font-family: ui-monospace, Consolas, monospace; }
+
+/* ---------- guide ---------- */
+.guide { width: 400px; max-width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 6px 4px; }
+.guide h2 { font-family: var(--display); font-size: 22px; margin: 0; letter-spacing: -.01em; }
+.guide p { margin: 0; color: var(--muted); }
+.flows { display: flex; flex-direction: column; gap: 4px; }
+.flows button { display: flex; gap: 10px; padding: 8px 10px; border-radius: 10px; align-items: baseline; }
+.flows button:hover { background: var(--surface); }
+.flows button[aria-pressed="true"] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-weight: 600; }
+.flows .k { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; width: 14px; flex: none; }
+.gcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.gcard h3 { margin: 0; font-size: 12px; letter-spacing: .07em; text-transform: uppercase; }
+.gcard h3.b { color: var(--bad); } .gcard h3.n { color: var(--accent); } .gcard h3.t { color: var(--muted); }
+.gcard ul, .gcard ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; font-size: 14px; }
+.guidebar { display: none; }
+.gclose { display: none; }
+
+@media (max-width: 860px) {
+  body { background: var(--bg); }
+  .wrap { padding-block: 0; padding-left: 0; padding-right: 0; gap: 0; flex-direction: column; }
+  .guidebar { display: flex; align-items: center; gap: 10px; padding-block: 7px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--sunk); font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .guidebar span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .phone { width: 100%; flex: 1; border: 0; border-radius: 0; box-shadow: none; max-height: none; }
+  .guide { display: none; position: fixed; inset: 0; z-index: 20; width: auto; background: var(--sunk); padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .guide.open { display: flex; }
+  .gclose { display: inline-flex; align-self: flex-end; }
+}
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .16s ease-out; } @keyframes up { from { transform: translateY(24px); opacity: .6; } } }
+</style>
+
+<div class="wrap">
+  <div class="guidebar"><span id="gbtext">Prototype · sample content</span><button class="btn mini" data-act="guide-open">Walkthroughs</button></div>
+  <div class="phone" id="phone">
+    <div class="top" id="top"></div>
+    <div id="screen"></div>
+    <button class="capbar" id="capbar" data-act="capture"><b>+</b><span>Capture a thought, task or conversation…</span></button>
+    <nav class="tabs" id="tabs" aria-label="Main"></nav>
+    <div id="overlay"></div>
+  </div>
+  <aside class="guide" id="guide"></aside>
+</div>
+
+<script>
+/* ============ sample data (fictional) ============ */
+const BASE = new Date(2026, 10, 11); // Wed Nov 11, 2026
+const dt = (off) => new Date(2026, 10, 11 + off);
+const fmt = (off) => dt(off).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+const rel = (off) => off === 0 ? 'today' : off === 1 ? 'tomorrow' : off === -1 ? 'yesterday' : fmt(off);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const initials = (n) => n.split(' ').map((x) => x[0]).join('').slice(0, 2);
+
+const fresh = () => ({
+  people: {
+    maya: { name: 'Maya Okafor', al: ['Mags'], facts: { Likes: ['matcha'], Dates: ['Birthday Mar 3'] }, loose: [{ d: -2, text: 'training for a half marathon' }, { d: -9, text: 'doesn’t eat pork' }, { d: -12, text: 'sister visiting the first week of Dec' }, { d: -20, text: 'allergic to cats' }], role: 'VP Events', talked: -2, log: [{ d: -2, how: 'Coffee', text: 'Lantern photo corner for the gala; she will ask the venue about hanging things.' }, { d: -30, how: 'Text', text: 'Swapped notes on the welcome week schedule.' }] },
+    priya: { name: 'Priya Shah', al: ['Pri'], facts: { Likes: ['bubble tea, half sugar'] }, loose: [], role: 'Treasurer', talked: -9, log: [{ d: -9, how: 'Call', text: 'Reimbursement forms go to her by Friday.' }] },
+    dev: { name: 'Dev Raman', al: ['Devon'], facts: {}, loose: [], role: 'Marketing', talked: -6, log: [{ d: -6, how: 'In person', text: 'Poster sizes for the gala; he prefers A3.' }] },
+    lucas: { name: 'Lucas Bennett', al: ['Luke'], facts: {}, loose: [], role: 'Junior exec', talked: -14, log: [] },
+    theo: { name: 'Theo Nakamura', al: ['Theodore'], facts: {}, loose: [], role: 'Partner club contact', talked: -21, log: [{ d: -21, how: 'In person', text: 'Met at the volunteer fair. Wants to do a joint fundraiser.' }] },
+    hannah: { name: 'Hannah Kim', al: ['Han'], facts: { Other: ['has a cat named Tofu'] }, loose: [], role: 'Clinical group', talked: -1, log: [{ d: -1, how: 'In person', text: 'Studied pharmacology before clinical. Her cat Tofu is sick, ask how he is.' }] },
+  },
+  projects: {
+    css: { name: 'CSS', kind: 'Club', pinned: true, sections: ['Events', 'Sponsors', 'Marketing', 'Finance'], people: ['maya', 'priya', 'dev', 'lucas', 'theo'] },
+    patho: { name: 'Patho II', kind: 'School', sections: [], people: ['hannah'] },
+    condo: { name: 'Condo', kind: 'Personal', sections: [], people: [] },
+  },
+  tasks: [
+    { id: 't1', text: 'Send Lunar Gala room booking form to Maya', due: -2, from: -2, owner: 'me', project: 'css', section: 'Events', person: 'maya' },
+    { id: 't2', text: 'Reply to Theo about the joint fundraiser', due: null, from: -1, owner: 'me', project: 'css', section: 'Sponsors', person: 'theo' },
+    { id: 't3', text: 'Finish patho case study draft', due: 0, from: -1, owner: 'me', project: 'patho' },
+    { id: 't4', text: 'Draft agenda for Thursday exec meeting', due: 0, from: 0, owner: 'me', project: 'css' },
+    { id: 't5', text: 'Book condo inspection', due: 2, from: -3, owner: 'me', project: 'condo' },
+    { id: 't6', text: 'Review sponsor package wording', due: 3, from: -5, owner: 'me', project: 'css', section: 'Sponsors' },
+    { id: 't7', text: 'Read ch. 14 (renal)', due: null, from: -4, owner: 'me', project: 'patho' },
+    { id: 't0', text: 'Submit clinical hours log', due: 0, from: -1, owner: 'me', project: null, done: true },
+    { id: 'c1', text: 'Send the Lunar Gala budget v2', due: -1, from: -7, owner: 'priya', project: 'css', section: 'Finance', meeting: 'm2' },
+    { id: 'c2', text: 'Poster draft for the Lunar Gala', due: 2, from: -7, owner: 'dev', project: 'css', section: 'Marketing', meeting: 'm2' },
+    { id: 'c3', text: 'Confirm catering quote with Golden Lotus', due: 1, from: -7, owner: 'maya', project: 'css', section: 'Events', meeting: 'm2' },
+    { id: 'c4', text: 'Collect volunteer sign-ups', due: 7, from: -7, owner: 'lucas', project: 'css', section: 'Events', meeting: 'm2' },
+  ],
+  entries: [ // the daily pages
+    { id: 'e1', day: 0, time: '8:42', text: 'Slept badly. Clinical was fine though: got the IV start on the first try.' },
+    { id: 'e2', day: 0, time: '10:15', text: 'Idea: lantern photo corner for the gala. Ask Maya if the venue allows hanging things.', project: 'css', section: 'Events' },
+    { id: 'e3', day: 0, time: '12:30', text: 'Budget v2 is coming tonight; she is waiting on the catering quote.', project: 'css', person: 'priya', how: 'In person' },
+    { id: 'e4', day: -1, time: '9:05', text: 'Plan: patho reading in the morning, gala sync at 5.' },
+    { id: 'e5', day: -1, time: '21:40', text: 'Gala sync ran long. Gave Claude the transcript; notes are in CSS as a draft.', project: 'css' },
+    { id: 'e6', day: -2, time: '7:55', text: 'Week goals: case study draft, gala room booked, one proper day off.' },
+    { id: 'u1', day: -2, time: '16:20', text: 'Look into the pharm flashcard deck Hannah mentioned', capture: true },
+    { id: 'u2', day: -3, time: '13:02', text: 'Parking receipt, $14 (photo)', capture: true, file: true },
+    { id: 'u3', day: -4, time: '19:30', text: 'Gift idea for mom: the blue teapot', capture: true },
+  ],
+  meetings: [
+    { id: 'm3', title: 'Lunar Gala planning sync', day: -1, project: 'css', section: 'Events', status: 'draft', by: 'Claude', who: ['maya', 'priya', 'dev'],
+      summary: 'Ticket sales and decorations for the Lunar Gala (Sat Nov 28, MacHall B). Venue deposit is due before sales open.',
+      decisions: ['Ticket sales open Mon Nov 16', 'Decorations spend is capped at $150'],
+      actions: [
+        { text: 'Email the venue to hold Nov 20 as a backup date', owner: 'me', due: 2, section: 'Events' },
+        { text: 'Post the ticket link in the members channel', owner: 'me', due: 5, section: 'Marketing' },
+        { text: 'Price lanterns and string lights under the $150 cap', owner: 'maya', due: 3, section: 'Events' },
+        { text: 'Add ticket QR code to the poster', owner: 'dev', due: 2, section: 'Marketing' },
+      ],
+      confirm: [
+        { q: 'A name sounded like “Devon”. Who took the poster QR code?', opts: ['Dev Raman', 'Someone else'], pick: null },
+        { q: 'The venue deposit amount was unclear in the recording.', opts: ['$450', '$415'], pick: null },
+      ],
+      transcript: '[00:03:12] MAYA: so if sales open the sixteenth we need the deposit in before that\n[00:03:20] PRIYA: it is four fif— four fifteen? I will check the invoice\n[00:04:02] YOU: can we hold the twentieth as a backup, just in case\n[00:04:10] MAYA: I can price lanterns, keep it under one fifty\n[00:05:31] ?: Devon can put the QR on the poster\n…',
+      file: 'gala-sync-2026-11-10.txt' },
+    { id: 'm2', title: 'Exec meeting', day: -7, project: 'css', status: 'accepted', by: 'Claude', who: ['maya', 'priya', 'dev', 'lucas'],
+      summary: 'Confirmed the Lunar Gala date and room. Budget v1 reviewed; v2 needed with catering.', decisions: ['Lunar Gala is Sat Nov 28 in MacHall B'], actions: [], confirm: [],
+      transcript: '[00:01:02] PRIYA: budget v1 is in the drive, catering is still a guess\n[00:02:40] MAYA: MacHall B is confirmed for the twenty-eighth\n…', file: 'exec-2026-11-04.txt' },
+    { id: 'm1', title: 'Exec meeting', day: -14, project: 'css', status: 'accepted', by: 'Claude', who: ['maya', 'priya', 'dev'],
+      summary: 'Set ticket prices and the sponsor outreach list.', decisions: ['Tickets: $12 members, $15 non-members'], actions: [], confirm: [], transcript: '[00:00:40] DEV: twelve and fifteen feels right\n…', file: 'exec-2026-10-28.txt' },
+    { id: 'm4', title: 'Exec meeting', day: 1, project: 'css', status: 'upcoming', who: ['maya', 'priya', 'dev', 'lucas'], summary: '', decisions: [], actions: [], confirm: [], agenda: null },
+  ],
+  decisions: [
+    { id: 'd1', text: 'Lunar Gala is Sat Nov 28 in MacHall B', day: -7, project: 'css', meeting: 'm2' },
+    { id: 'd2', text: 'Tickets: $12 members, $15 non-members', day: -14, project: 'css', meeting: 'm1' },
+  ],
+  notes: [
+    { id: 'n1', title: 'Lunar Gala run-of-show', day: -3, project: 'css', section: 'Events', body: 'Doors 6:00. Lion dance 6:30. Dinner 7:00. Raffle 8:15. Clean-up crew stays until 10.' },
+    { id: 'n2', title: 'Sponsor outreach tracker', day: -6, project: 'css', section: 'Sponsors', body: 'Golden Lotus: catering discount, waiting on quote. Jade Tea House: yes to a raffle basket. Theo’s club: joint fundraiser idea, reply owed.' },
+    { id: 'n3', title: 'Poster brief', day: -8, project: 'css', section: 'Marketing', body: 'A3, red and gold, date and room large, QR code bottom right.' },
+    { id: 'n4', title: 'Reimbursement how-to', day: -22, project: 'css', section: 'Finance', body: 'Keep the receipt, fill the form, send to Priya by Friday of the same week.' },
+    { id: 'n5', title: 'Renal case study outline', day: -2, project: 'patho', body: 'AKI vs CKD table. Lab trends. Nursing priorities.' },
+  ],
+  files: [
+    { id: 'f1', title: 'Lunar Gala budget v1.xlsx', day: -8, project: 'css', section: 'Finance' },
+    { id: 'f2', title: 'MacHall booking confirmation.pdf', day: -7, project: 'css', section: 'Events' },
+    { id: 'f3', title: 'Sponsor package 2026.pdf', day: -20, project: 'css', section: 'Sponsors' },
+  ],
+  review: [], // extra drafts made by the AI walkthrough
+  scratch: '',
+});
+
+let DB = fresh();
+const S = { tab: 'today', stack: [], day: 0, ptab: 'overview', section: 'All', tfilter: 'all', q: '', ftype: 'All', sheet: null, toast: null, flow: 0, ai: 0, mtab: 'summary', showDone: false };
+
+/* ============ helpers ============ */
+const P = (id) => DB.people[id];
+const task = (id) => DB.tasks.find((t) => t.id === id);
+const mine = () => DB.tasks.filter((t) => t.owner === 'me');
+const theirs = (pid) => DB.tasks.filter((t) => t.owner !== 'me' && (!pid || t.project === pid));
+const route = () => S.stack[S.stack.length - 1] || { v: S.tab };
+const push = (r) => { S.stack.push(r); S.sheet = null; };
+let nid = 100;
+
+function dueChip(t) {
+  if (t.due === null || t.due === undefined) return '';
+  if (t.done) return `<span class="chip">${rel(t.due)}</span>`;
+  if (t.due < 0) return `<span class="chip bad">${t.due === -1 ? 'due yesterday' : 'due ' + fmt(t.due)}</span>`;
+  if (t.due === 0) return '<span class="chip today">due today</span>';
+  return `<span class="chip">due ${rel(t.due)}</span>`;
+}
+const projChip = (t) => t.project ? `<span class="chip proj">${DB.projects[t.project].name}${t.section ? ' · ' + t.section : ''}</span>` : '';
+
+function taskRow(t, o = {}) {
+  const carried = o.carried && t.from < S.day ? `<span>from ${rel(t.from)}</span>` : '';
+  return `<div class="task${t.done ? ' done' : ''}">
+    <button class="tick" data-act="tick" data-id="${t.id}" aria-label="${t.done ? 'Completed' : 'Mark done'}: ${esc(t.text)}"><i>${t.done ? '✓' : ''}</i></button>
+    <button class="tbody" data-act="task" data-id="${t.id}"><span class="ttext">${esc(t.text)}</span>
+      <span class="meta">${dueChip(t)}${o.noProj ? (t.section ? `<span class="chip">${t.section}</span>` : '') : projChip(t)}${t.person && !o.noPerson ? `<span>with ${P(t.person).name.split(' ')[0]}</span>` : ''}${carried}</span></button></div>`;
+}
+function commitRow(t, o = {}) {
+  const p = P(t.owner);
+  return `<div class="task${t.done ? ' done' : ''}">
+    <button class="tick" data-act="tick" data-id="${t.id}" aria-label="Mark as done by ${p.name}"><i>${t.done ? '✓' : ''}</i></button>
+    <button class="tbody" data-act="task" data-id="${t.id}"><span class="ttext">${esc(t.text)}</span>
+      <span class="meta">${o.noName ? '' : `<span><b>${p.name.split(' ')[0]}</b></span>`}${dueChip(t)}${t.nudged !== undefined ? `<span class="chip ok">followed up ${rel(t.nudged)}</span>` : ''}</span></button>
+    ${!t.done && t.nudged === undefined && t.due !== null && t.due <= 1 ? `<button class="btn mini" style="margin:9px 10px 0 0" data-act="nudge" data-id="${t.id}">Followed up</button>` : ''}</div>`;
+}
+const list = (rows) => `<div class="list">${rows.join('')}</div>`;
+const group = (label, rows, cls = '') => rows.length ? `<section class="group"><h2 class="label ${cls}">${label} <span class="n">${rows.length}</span></h2>${list(rows)}</section>` : '';
+function entryRow(e) {
+  const ppl = e.people || (e.person ? [e.person] : []);
+  const who = ppl.length ? `<span class="chip">${e.about ? 'about' : e.met ? 'met' : 'talked to'} ${ppl.map((x) => esc(P(x).name.split(' ')[0])).join(', ')}${e.how ? ' · ' + e.how.toLowerCase() : ''}</span>` : '';
+  return `<div class="entry"><span class="when">${e.time}${who}${e.project ? `<span class="chip proj">${DB.projects[e.project].name}${e.section ? ' · ' + e.section : ''}</span>` : ''}${e.kind === 'task' ? '<span class="chip">task</span>' : ''}</span><span>${esc(e.text)}</span></div>`;
+}
+
+/* ============ screens ============ */
+function vToday() {
+  const d = S.day;
+  const open = mine().filter((t) => !t.done);
+  const ents = DB.entries.filter((e) => e.day === d).sort((a, b) => a.time.localeCompare(b.time, undefined, { numeric: true }));
+  if (d < 0) { // an earlier day: the page as written, with what is still open marked, not copied
+    const written = mine().filter((t) => t.from === d);
+    return `${written.length ? `<section class="group"><h2 class="label">Tasks written this day</h2>${list(written.map((t) => taskRow(t)))}
+      <p class="note-line" style="margin-top:6px">${written.filter((t) => !t.done).length} still open. They show on today’s page as well: the same task, with its date unchanged.</p></section>` : ''}
+      <section class="group"><h2 class="label">Page</h2>${list(ents.map(entryRow))}</section>
+      <button class="btn block" data-act="day" data-d="0">Back to today</button>`;
+  }
+  const carried = open.filter((t) => (t.due !== null && t.due < 0) || (t.due === null && t.from < 0 && t.from >= -3));
+  const today = open.filter((t) => t.due === 0);
+  const doneToday = mine().filter((t) => t.done && t.due === 0);
+  const css = DB.projects.css;
+  const cssMine = open.filter((t) => t.project === 'css' && t.due !== null && t.due <= 4).length;
+  const late = theirs('css').filter((t) => !t.done && t.due !== null && t.due < 0);
+  const drafts = reviewItems('css').length;
+  return `<button class="pin" data-act="project" data-id="css"><strong>${css.name}</strong>
+      <span class="grow small" style="flex:1">${cssMine} of yours due this week${late.length ? ` · <span style="color:var(--bad);font-weight:600">${late.length} overdue from others</span>` : ''}${drafts ? ` · ${drafts} to review` : ''}</span><span class="chev">›</span></button>
+    ${group('Carried over', carried.map((t) => taskRow(t, { carried: true })), carried.some((t) => t.due !== null && t.due < 0) ? 'bad' : '')}
+    ${group('Due today', [...today, ...doneToday].map((t) => taskRow(t)))}
+    <section class="group"><h2 class="label">Today’s page <button data-act="checkin">Mood · habits · skin</button></h2>
+      <div class="list">${ents.map(entryRow).join('')}<textarea class="scratch" id="scratch" placeholder="Keep writing here. Plans, journal, anything." aria-label="Today’s page">${esc(DB.scratch)}</textarea></div></section>
+    <p class="note-line">Coming up: ${open.filter((t) => t.due > 0 && t.due <= 3).map((t) => `${esc(t.text)} (${rel(t.due)})`).join(' · ') || 'nothing in the next three days'}. <button class="linkish" data-act="tab" data-tab="tasks">All tasks</button></p>`;
+}
+
+function vTasks() {
+  const all = mine().filter((t) => S.tfilter === 'all' || t.project === S.tfilter);
+  const open = all.filter((t) => !t.done);
+  const g = (f) => open.filter(f).map((t) => taskRow(t));
+  const done = all.filter((t) => t.done);
+  const nTheirs = theirs().filter((t) => !t.done).length;
+  return `<div class="pills scroll">${[['all', 'All'], ...Object.entries(DB.projects).map(([id, p]) => [id, p.name])].map(([id, n]) => `<button class="pill" aria-pressed="${S.tfilter === id}" data-act="tfilter" data-id="${id}">${n}</button>`).join('')}</div>
+    ${group('Overdue', g((t) => t.due !== null && t.due < 0), 'bad')}
+    ${group('Today', g((t) => t.due === 0))}
+    ${group('This week', g((t) => t.due > 0 && t.due <= 4))}
+    ${group('Later', g((t) => t.due > 4))}
+    ${group('No date', g((t) => t.due === null))}
+    ${done.length ? `<section class="group"><h2 class="label">Done <span class="n">${done.length}</span><button data-act="showdone">${S.showDone ? 'Hide' : 'Show'}</button></h2>${S.showDone ? list(done.map((t) => taskRow(t))) : ''}</section>` : ''}
+    <p class="note-line">Only your own tasks are listed here. ${nTheirs} things other people committed to are kept in their project. <button class="linkish" data-act="project" data-id="css" data-ptab="tasks">See CSS</button></p>`;
+}
+
+function vProjects() {
+  return `${list(Object.entries(DB.projects).map(([id, p]) => {
+    const o = mine().filter((t) => t.project === id && !t.done).length, th = theirs(id).filter((t) => !t.done).length;
+    return `<button class="row" data-act="project" data-id="${id}"><span class="av">${p.name.slice(0, 2)}</span><span class="grow"><b>${p.name}</b><span class="small">${p.kind} · ${o} of yours open${th ? ` · ${th} from others` : ''}</span></span><span class="chev">›</span></button>`;
+  }))}<button class="btn block" data-act="soon" data-msg="New project: a name, and optionally a folder of notes you already have.">New project</button>
+  <p class="note-line">A project holds its notes, files, meetings, tasks and people. Sections inside it (Events, Sponsors…) are optional.</p>`;
+}
+
+function reviewItems(pid) {
+  const ms = DB.meetings.filter((m) => m.project === pid && m.status === 'draft').map((m) => ({ kind: 'meeting', id: m.id, title: `Meeting notes: ${m.title}`, sub: `${rel(m.day)} · ${m.decisions.length} decisions, ${m.actions.length} action items${m.confirm.some((c) => !c.pick) ? ' · ' + m.confirm.filter((c) => !c.pick).length + ' to confirm' : ''}` }));
+  return [...ms, ...DB.review.filter((r) => r.project === pid)];
+}
+
+function vProject(r) {
+  const id = r.id, p = DB.projects[id];
+  const tabs = ['overview', 'tasks', 'meetings', 'notes', 'people'];
+  const inSec = (x) => S.section === 'All' || x.section === S.section;
+  const secs = p.sections.length ? `<div class="pills scroll">${['All', ...p.sections].map((s) => `<button class="pill" aria-pressed="${S.section === s}" data-act="section" data-id="${s}">${s}</button>`).join('')}</div>` : '';
+  let body = '';
+  if (S.ptab === 'overview') {
+    const next = DB.meetings.filter((m) => m.project === id && m.status === 'upcoming')[0];
+    const rv = reviewItems(id);
+    const my = mine().filter((t) => t.project === id && !t.done && t.due !== null && t.due <= 4).sort((a, b) => a.due - b.due);
+    const th = theirs(id).filter((t) => !t.done && t.due !== null && t.due <= 4).sort((a, b) => a.due - b.due);
+    const decs = DB.decisions.filter((d) => d.project === id).sort((a, b) => b.day - a.day);
+    body = `${rv.length ? `<section class="group"><h2 class="label" style="color:var(--draft)">To review <span class="n">${rv.length}</span></h2>${rv.map((x) => `<div class="card draft"><span class="meta"><span class="chip draft">Draft · from Claude</span></span><b>${esc(x.title)}</b><span class="small">${esc(x.sub)}</span>
+        <div class="pills">${x.kind === 'meeting' ? `<button class="btn mini primary" data-act="meeting" data-id="${x.id}">Open and review</button>` : `<button class="btn mini primary" data-act="accept-review" data-id="${x.id}">Accept</button><button class="btn mini" data-act="discard-review" data-id="${x.id}">Discard</button>`}</div></div>`).join('<div style="height:8px"></div>')}</section>` : ''}
+      ${next ? `<section class="group"><h2 class="label">Next meeting</h2><button class="card" data-act="meeting" data-id="${next.id}"><b>${next.title} · ${rel(next.day)}</b><span class="small">${next.agenda ? next.agenda.length + ' agenda items drafted' : 'No agenda yet'} · ${th.filter((t) => t.due <= next.day).length} commitments due by then</span></button></section>` : ''}
+      ${group('Yours this week', my.map((t) => taskRow(t, { noProj: true })))}
+      ${group('Others this week', th.map((t) => commitRow(t)), th.some((t) => t.due < 0) ? 'bad' : '')}
+      <section class="group"><h2 class="label">Decisions</h2>${list(decs.map((d) => `<div class="entry"><span>${d.superseded ? `<s>${esc(d.text)}</s>` : esc(d.text)}</span><span class="when">${rel(d.day)}${d.meeting ? ` · ${DB.meetings.find((m) => m.id === d.meeting).title}` : ''}${d.superseded ? ' · replaced' : ''}${d.corrects ? ' · correction' : ''}</span></div>`))}</section>
+      <button class="btn block" data-act="copy-brief">Copy briefing for an AI chat</button>`;
+  } else if (S.ptab === 'tasks') {
+    const my = mine().filter((t) => t.project === id && !t.done && inSec(t)).sort((a, b) => (a.due ?? 99) - (b.due ?? 99));
+    const byOwner = {};
+    theirs(id).filter((t) => inSec(t)).forEach((t) => (byOwner[t.owner] ||= []).push(t));
+    body = `${secs}${group('Yours', my.map((t) => taskRow(t, { noProj: true })))}
+      ${Object.entries(byOwner).map(([o, ts]) => `<section class="group"><h2 class="label">${P(o).name} <span class="n">${ts.filter((t) => !t.done).length} open</span><button data-act="person" data-id="${o}">Open</button></h2>${list(ts.sort((a, b) => (a.due ?? 99) - (b.due ?? 99)).map((t) => commitRow(t, { noName: true })))}</section>`).join('')}
+      <p class="note-line">Other people’s commitments never enter your own lists. Tick one when they have done it; “Followed up” records that you asked.</p>`;
+  } else if (S.ptab === 'meetings') {
+    const ms = DB.meetings.filter((m) => m.project === id).sort((a, b) => b.day - a.day);
+    body = list(ms.map((m) => `<button class="row" data-act="meeting" data-id="${m.id}"><span class="grow"><b>${m.title}</b><span class="meta"><span>${rel(m.day)}</span>${m.status === 'draft' ? '<span class="chip draft">Draft · to review</span>' : m.status === 'upcoming' ? `<span class="chip">upcoming${m.agenda ? ' · agenda drafted' : ''}</span>` : '<span class="chip ok">accepted</span>'}${m.file ? '<span>transcript attached</span>' : ''}</span></span><span class="chev">›</span></button>`)) +
+      `<p class="note-line">Each meeting keeps its summary, decisions, action items and the transcript it came from in one place.</p>`;
+  } else if (S.ptab === 'notes') {
+    const caps = DB.entries.filter((e) => e.project === id && inSec(e) && !e.person).map((e) => ({ title: e.text, day: e.day, section: e.section, cap: true }));
+    const items = [...DB.notes.filter((n) => n.project === id && inSec(n)).map((n) => ({ ...n, note: true })), ...DB.files.filter((f) => f.project === id && inSec(f)).map((f) => ({ ...f, file: true })), ...caps].sort((a, b) => b.day - a.day);
+    body = `${secs}${list(items.map((x) => `<button class="row" ${x.note ? `data-act="note" data-id="${x.id}"` : x.cap ? 'data-act="day" data-d="' + x.day + '"' : 'data-act="soon" data-msg="Opens the file, as the Files screen does now."'}><span class="grow"><span>${x.file ? '📎 ' : ''}${esc(x.title)}</span><span class="small">${x.cap ? 'from your daily page · ' : ''}${rel(x.day)}${x.section ? ' · ' + x.section : ''}</span></span><span class="chev">›</span></button>`))}`;
+  } else {
+    body = list(p.people.map((pid) => { const q = P(pid); const n = DB.tasks.filter((t) => t.owner === pid && t.project === id && !t.done).length;
+      return `<button class="row" data-act="person" data-id="${pid}"><span class="av">${initials(q.name)}</span><span class="grow"><b>${q.name}</b><span class="small">${q.role} · last talked ${rel(q.talked)}${n ? ` · ${n} open commitments` : ''}</span></span><span class="chev">›</span></button>`; }));
+  }
+  return `<div class="seg" role="tablist">${tabs.map((t) => `<button aria-pressed="${S.ptab === t}" data-act="ptab" data-id="${t}">${t === 'notes' ? 'Notes & files' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>${body}`;
+}
+
+function vMeeting(r) {
+  const m = DB.meetings.find((x) => x.id === r.id);
+  if (m.status === 'upcoming') {
+    const due = theirs(m.project).filter((t) => !t.done && t.due !== null && t.due <= m.day);
+    return `<p class="small">${fmt(m.day)} · with ${m.who.map((w) => P(w).name.split(' ')[0]).join(', ')}</p>
+      ${m.agenda ? `<div class="card draft"><span class="meta"><span class="chip draft">Draft agenda · from Claude</span></span><div class="prose"><ul>${m.agenda.map((a) => `<li>${esc(a)}</li>`).join('')}</ul></div></div>` : `<div class="card"><b>No agenda yet</b><span class="small">Ask an AI “what should we cover on Thursday?” and it drafts one here from open commitments and unconfirmed items. Or write your own.</span><button class="btn mini" style="align-self:flex-start" data-act="ai">See that conversation</button></div>`}
+      ${group('Due from others by then', due.map((t) => commitRow(t)))}`;
+  }
+  const draft = m.status === 'draft';
+  const head = `<p class="meta"><span>${fmt(m.day)}</span>${draft ? '<span class="chip draft">Draft · from Claude</span>' : '<span class="chip ok">Accepted</span>'}<span>with ${m.who.map((w) => P(w).name.split(' ')[0]).join(', ')}</span></p>
+    <div class="seg"><button aria-pressed="${S.mtab === 'summary'}" data-act="mtab" data-id="summary">Summary</button><button aria-pressed="${S.mtab === 'source'}" data-act="mtab" data-id="source">Transcript</button></div>`;
+  if (S.mtab === 'source') return `${head}<div class="card"><span class="small">📎 ${m.file} · the text the summary was made from, kept with it</span><div class="mono">${esc(m.transcript)}</div></div>`;
+  const left = m.confirm.filter((c) => !c.pick).length;
+  return `${head}
+    <div class="card"><div class="prose"><p>${esc(m.summary)}</p></div></div>
+    ${m.confirm.length ? `<section class="group"><h2 class="label" style="color:var(--warn)">To confirm <span class="n">${left} left</span></h2>${m.confirm.map((c, i) => `<div class="card"><span>${esc(c.q)}</span><div class="pills">${c.opts.map((o) => `<button class="pill" aria-pressed="${c.pick === o}" data-act="confirm" data-id="${m.id}" data-i="${i}" data-o="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('<div style="height:8px"></div>')}</section>` : ''}
+    <section class="group"><h2 class="label">Decisions</h2>${list(m.decisions.map((d) => `<div class="entry">${esc(d)}</div>`))}</section>
+    ${m.actions.length ? `<section class="group"><h2 class="label">Action items</h2>${list(m.actions.map((a) => `<div class="entry"><span>${esc(a.text)}</span><span class="when"><b>${a.owner === 'me' ? 'You' : P(a.owner).name.split(' ')[0]}</b> · due ${rel(a.due)} · ${a.owner === 'me' ? 'goes to your tasks' : 'stays in CSS as their commitment'}</span></div>`))}</section>` : ''}
+    ${draft ? `<div class="pills"><button class="btn primary" style="flex:1" data-act="accept-meeting" data-id="${m.id}">Accept</button><button class="btn" data-act="soon" data-msg="Opens the note in the editor. Your edits are kept and the draft label stays until you accept.">Edit</button></div>
+      <p class="note-line">Until you accept, none of this is in your task list or the project’s decisions. The AI can also accept it for you when you say so in the chat.</p>` : ''}`;
+}
+
+function vPerson(r) {
+  const p = P(r.id);
+  const owes = DB.tasks.filter((t) => t.owner === r.id && !t.done);
+  const with_ = mine().filter((t) => t.person === r.id && !t.done);
+  return `<div class="row" style="padding:0"><span class="av big">${initials(p.name)}</span><span class="grow"><b style="font-size:17px">${p.name}</b><span class="small">${[esc(p.role), 'last talked ' + rel(p.talked), p.via ? 'met through ' + P(p.via).name.split(' ')[0] : '', p.al?.length ? 'also called ' + p.al.join(', ') : ''].filter(Boolean).join(' · ')}</span></span></div>
+    <div class="pills"><button class="btn primary" style="flex:1" data-act="capture" data-kind="talk" data-person="${r.id}">We talked…</button><button class="btn" style="flex:1" data-act="capture" data-kind="talk" data-mode="fact" data-person="${r.id}">Remember…</button></div>
+    ${about(r.id)}
+    ${group(`${p.name.split(' ')[0]} committed to`, owes.map((t) => commitRow(t, { noName: true })))}
+    ${group('Your tasks with them', with_.map((t) => taskRow(t, { noPerson: true })))}
+    <section class="group"><h2 class="label">Conversations</h2>${p.log.length ? list(p.log.map((l) => `<div class="entry"><span class="when">${rel(l.d)} · ${l.how}</span><span>${esc(l.text)}</span></div>`)) : '<p class="note-line">Nothing logged yet.</p>'}</section>
+    <button class="btn block" data-act="soon" data-msg="Role, birthday, contact, things to remember: the details you already have, filled in whenever you like.">Details</button>`;
+}
+
+function about(id) {
+  const p = P(id), heads = FACT_HEADS.filter((h) => p.facts?.[h]?.length), loose = p.loose || [];
+  const sorted = heads.length ? `<section class="group"><h2 class="label">About</h2><div class="facts">${heads.map((h) => `<div class="card"><h3>${h}</h3>${p.facts[h].map((x) => `<span>${esc(x)}</span>`).join('')}</div>`).join('')}</div></section>` : '';
+  if (p.tidy) return sorted + `<div class="card draft"><span class="meta"><span class="chip draft">Draft · from Claude</span></span><b>Sort ${p.tidy.length} loose notes</b>
+    ${p.tidy.map((t, i) => `<div class="row" style="padding:4px 0"><span class="grow">${esc(t.text)}</span><button class="pill" data-act="tidy-head" data-id="${id}" data-i="${i}" aria-label="Change heading">${t.head}</button></div>`).join('')}
+    <span class="small">Tap a heading to change it.</span>
+    <div class="pills"><button class="btn mini primary" data-act="tidy-accept" data-id="${id}">Accept</button><button class="btn mini" data-act="tidy-discard" data-id="${id}">Discard</button></div></div>`;
+  return sorted + (loose.length ? `<section class="group"><h2 class="label">Loose notes <span class="n">${loose.length} unsorted</span><button data-act="tidy" data-id="${id}">Tidy up</button></h2>${list(loose.map((l) => `<div class="entry"><span>${esc(l.text)}</span><span class="when">${rel(l.d)}</span></div>`))}</section>` : '');
+}
+function vNote(r) { const n = DB.notes.find((x) => x.id === r.id); return `<p class="meta">${projChip(n)}<span>${fmt(n.day)}</span></p><div class="card"><div class="prose"><p>${esc(n.body)}</p></div></div><p class="note-line">Opens in the same editor as now.</p>`; }
+
+function index() {
+  const out = [];
+  DB.tasks.forEach((t) => out.push({ type: 'Tasks', title: t.text, sub: `${t.owner === 'me' ? 'yours' : P(t.owner).name}${t.done ? ' · done' : ''}`, day: t.due ?? t.from, project: t.project, people: [t.owner, t.person], act: `data-act="task" data-id="${t.id}"` }));
+  DB.entries.forEach((e) => out.push({ type: 'Notes', title: e.text, sub: e.person ? 'conversation' : e.capture ? 'capture' : 'daily page', day: e.day, project: e.project, people: [e.person], act: `data-act="day" data-d="${e.day}"` }));
+  DB.notes.forEach((n) => out.push({ type: 'Notes', title: n.title, sub: n.body, day: n.day, project: n.project, people: [], act: `data-act="note" data-id="${n.id}"` }));
+  DB.meetings.forEach((m) => out.push({ type: 'Meetings', title: m.title, sub: [m.summary, ...m.decisions].join(' '), day: m.day, project: m.project, people: m.who, act: `data-act="meeting" data-id="${m.id}"` }));
+  DB.files.forEach((f) => out.push({ type: 'Files', title: f.title, sub: 'file', day: f.day, project: f.project, people: [], act: 'data-act="soon" data-msg="Opens the file."' }));
+  Object.entries(DB.people).forEach(([id, p]) => out.push({ type: 'People', title: p.name, sub: [p.role, ...(p.al || []), ...Object.values(p.facts || {}).flat(), ...(p.loose || []).map((l) => l.text)].join(' '), day: p.talked, project: null, people: [id], act: `data-act="person" data-id="${id}"` }));
+  return out;
+}
+function vFind() {
+  const q = S.q.trim().toLowerCase();
+  const types = ['All', 'Notes', 'Tasks', 'People', 'Meetings', 'Files'];
+  const head = `<label class="search"><span aria-hidden="true">⌕</span><input id="q" type="search" placeholder="Words, a person, a project, a month…" value="${esc(S.q)}" aria-label="Search everything" autocomplete="off"></label>
+    <div class="pills scroll">${types.map((t) => `<button class="pill" aria-pressed="${S.ftype === t}" data-act="ftype" data-id="${t}">${t}</button>`).join('')}</div>`;
+  const uns = DB.entries.filter((e) => e.capture && !e.project && !e.person && !e.kept);
+  if (!q && S.ftype === 'All') {
+    return `${head}<button class="card" data-act="unsorted"><b>Unsorted captures · ${uns.length}</b><span class="small">Quick captures you have not filed anywhere yet. Sort them when you have a minute.</span></button>
+      <section class="group"><h2 class="label">Try</h2><div class="pills">${['priya', 'budget', 'gala', 'november', 'hannah'].map((w) => `<button class="pill" data-act="q" data-id="${w}">${w}</button>`).join('')}</div></section>
+      <section class="group"><h2 class="label">People</h2>${list(Object.entries(DB.people).sort((a, b) => b[1].talked - a[1].talked).map(([id, p]) => `<button class="row" data-act="person" data-id="${id}"><span class="av">${initials(p.name)}</span><span class="grow"><b>${p.name}</b><span class="small">${p.role} · last talked ${rel(p.talked)}</span></span><span class="chev">›</span></button>`))}</section>`;
+  }
+  const hit = (x) => { if (!q) return true; const hay = [x.title, x.sub, x.project ? DB.projects[x.project].name : '', ...x.people.filter((p) => p && p !== 'me').map((p) => P(p).name), dt(x.day).toLocaleDateString('en-CA', { month: 'long', weekday: 'long' })].join(' ').toLowerCase(); return q.split(/\s+/).every((w) => hay.includes(w)); };
+  const res = index().filter((x) => (S.ftype === 'All' || x.type === S.ftype) && hit(x)).sort((a, b) => b.day - a.day);
+  return `${head}<p class="note-line">${res.length} result${res.length === 1 ? '' : 's'}${q ? ` for “${esc(S.q)}”` : ''}, newest first</p>${res.length ? list(res.map((x) => `<button class="row" ${x.act}><span class="grow"><span>${esc(x.title)}</span><span class="meta"><span class="chip">${x.type.replace(/s$/, '').toLowerCase()}</span>${x.project ? `<span class="chip proj">${DB.projects[x.project].name}</span>` : ''}<span>${rel(x.day)}</span></span></span><span class="chev">›</span></button>`)) : ''}`;
+}
+function vUnsorted() {
+  const uns = DB.entries.filter((e) => e.capture && !e.project && !e.person && !e.kept);
+  if (!uns.length) return '<div class="card"><b>All sorted</b><span class="small">New captures that you do not file will collect here.</span></div>';
+  return uns.map((e) => `<div class="card"><span class="small">${rel(e.day)} · ${e.time}${e.file ? ' · photo' : ''}</span><span>${esc(e.text)}</span>
+    <div class="pills">${Object.entries(DB.projects).map(([id, p]) => `<button class="pill" data-act="file-to" data-id="${e.id}" data-p="${id}">${p.name}</button>`).join('')}<button class="pill" data-act="to-task" data-id="${e.id}">Make a task</button><button class="pill" data-act="keep" data-id="${e.id}">Keep in journal</button></div></div>`).join('') + '<p class="note-line">Filing adds the item to the project. It also stays on the day you wrote it.</p>';
+}
+
+const AI = [
+  { u: 'What do I need to do for CSS this week?', tool: 'gordonite · briefing', a: () => `Four things are yours: the room booking form for Maya (overdue since Monday), the agenda for tomorrow’s exec meeting (today), the venue backup date and the sponsor wording (by Saturday).<br><br>From others: <b>Priya’s budget v2 was due yesterday</b>; Maya’s catering quote is due tomorrow; Dev’s poster on Friday.<br><br>One thing is waiting for you: my draft notes from Tuesday’s gala sync, with two points I could not hear clearly.` },
+  { u: 'What should we cover at tomorrow’s meeting?', tool: 'gordonite · project CSS: commitments, decisions, unconfirmed items', a: () => `I’d cover: 1) budget v2, which is late and blocks the deposit; 2) the catering quote; 3) the poster and its QR code; 4) confirming the deposit amount ($450 or $415).<br><br>I saved that as a <b>draft agenda</b> on tomorrow’s meeting in CSS. It is only a draft; nothing was added to your tasks.`, fx: () => { DB.meetings.find((m) => m.id === 'm4').agenda = ['Budget v2 (Priya, overdue): blocks the venue deposit', 'Catering quote from Golden Lotus (Maya)', 'Poster and ticket QR code (Dev)', 'Confirm the deposit amount: $450 or $415']; } },
+  { u: 'Oh, and we changed member tickets to $10, not $12.', tool: 'gordonite · propose correction to decision “Tickets: $12 members…”', a: () => `Noted as a correction: “Tickets: $10 members, $15 non-members” would replace the Oct 28 decision, which stays on record as replaced. It is in <b>CSS → To review</b> until you confirm, because it changes something already accepted.`, fx: () => { DB.review.push({ kind: 'correction', id: 'r1', project: 'css', title: 'Correction: Tickets $10 members, $15 non-members', sub: 'Replaces the Oct 28 decision ($12 members). The old one is kept as replaced.' }); } },
+  { u: 'Yes, that’s right. And I need to update the ticket form by Friday.', tool: 'gordonite · accept correction · add task', a: () => `Done. The decision now reads $10 for members, and “Update the ticket form with the new member price” is on your list for Friday.`, fx: () => { acceptReview('r1'); DB.tasks.push({ id: 't' + nid++, text: 'Update the ticket form with the new member price', due: 2, from: 0, owner: 'me', project: 'css', section: 'Events' }); } },
+];
+function vAI() {
+  let h = '<p class="note-line">A new conversation in Claude on your laptop. No instructions pasted, no “remember to save”.</p>';
+  for (let i = 0; i < S.ai; i++) h += `<div class="bubble me">${AI[i].u}</div><div class="toolcall">${AI[i].tool}</div><div class="bubble">${AI[i].a()}</div>`;
+  if (S.ai < AI.length) h += `<button class="btn primary block" data-act="ai-next">${S.ai ? 'Next: ' : 'Ask: '}“${AI[S.ai].u}”</button>`;
+  else h += `<button class="btn primary block" data-act="project" data-id="css">See what changed in CSS</button>`;
+  h += `<div class="card"><b>What the AI may do without asking</b><div class="prose"><ul><li><b>Read</b> anything, starting from one briefing.</li><li><b>Save drafts</b>: meeting notes, agendas, suggested tasks. Labelled, kept out of your lists.</li><li><b>Accept</b> only when you say so here, or tap Accept in the app.</li><li><b>Correct</b> accepted material only as a proposal; the earlier version stays on record.</li></ul></div></div>`;
+  return h;
+}
+
+/* ============ sheets ============ */
+const WHEN = [[0, 'Today'], [1, 'Tomorrow'], [2, 'Fri'], [5, 'Next week'], [null, 'No date']];
+function sheetTask(id) {
+  const t = task(id), me = t.owner === 'me';
+  const owners = [...new Set(['me', t.owner, ...(t.project ? DB.projects[t.project].people : [])])];
+  return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-label="Task">
+    <textarea id="ttext" rows="2" aria-label="Task text">${esc(t.text)}</textarea>
+    <div class="field"><span>When</span><div class="pills">${WHEN.map(([d, n]) => `<button class="pill" aria-pressed="${t.due === d}" data-act="set-due" data-d="${d}">${n}</button>`).join('')}${t.due !== null && !WHEN.some(([d]) => d === t.due) ? `<button class="pill" aria-pressed="true">${fmt(t.due)}</button>` : ''}<button class="pill" data-act="soon" data-msg="Opens the phone’s date picker.">Pick…</button></div></div>
+    <div class="field"><span>Project</span><div class="pills">${[[null, 'None'], ...Object.entries(DB.projects).map(([k, p]) => [k, p.name])].map(([k, n]) => `<button class="pill" aria-pressed="${t.project === k}" data-act="set-proj" data-p="${k}">${n}</button>`).join('')}</div></div>
+    <div class="field"><span>Who does it</span><div class="pills">${owners.map((o) => `<button class="pill" aria-pressed="${t.owner === o}" data-act="set-owner" data-o="${o}">${o === 'me' ? 'Me' : P(o).name.split(' ')[0]}</button>`).join('')}</div>
+      ${me ? '' : `<span class="small" style="font-weight:400">This is ${P(t.owner).name.split(' ')[0]}’s commitment. It lives in ${t.project ? DB.projects[t.project].name : 'the project'} and on their page, not in your lists.</span>`}</div>
+    <details class="more"><summary>More</summary><div class="rows">${['Starts on…', 'Hide until…', 'Priority', 'Repeat…', 'Dismiss', 'Delete…'].map((x) => `<button class="btn mini" data-act="soon" data-msg="${x.replace('…', '')}: the same option as today, moved out of the way.">${x}</button>`).join('')}</div>
+      <p class="small" style="margin:10px 0 0">Written on ${fmt(t.from)}${t.meeting ? ' in a meeting' : ''}. <button class="linkish" data-act="day" data-d="${t.from}">Open that page</button></p></details>
+    <div class="pills"><button class="btn" data-act="tick" data-id="${t.id}">${t.done ? 'Mark not done' : 'Mark done'}</button><button class="btn primary" style="flex:1" data-act="close-btn">Done</button></div>
+  </div></div>`;
+}
+function matchPeople(q, skip = []) {
+  q = q.trim().toLowerCase(); if (!q) return [];
+  return Object.entries(DB.people).filter(([id]) => !skip.includes(id)).map(([id, p]) => {
+    const byName = p.name.toLowerCase().includes(q), al = (p.al || []).find((x) => x.toLowerCase().includes(q));
+    return byName || al ? { id, p, al: byName ? null : al } : null; }).filter(Boolean).slice(0, 4);
+}
+const personRow = (m, act) => `<button class="row" data-act="${act}" data-id="${m.id}"><span class="av">${initials(m.p.name)}</span><span class="grow"><b>${esc(m.p.name)}</b><span class="small">${[m.p.role, m.al ? 'also called ' + m.al : ''].filter(Boolean).join(' · ')}</span></span></button>`;
+function fileOptions(q) {
+  q = q.trim().toLowerCase(); if (!q) return [];
+  const all = Object.entries(DB.projects).flatMap(([id, p]) => [{ p: id, label: p.name }, ...p.sections.map((x) => ({ p: id, s: x, label: p.name + ' › ' + x }))]);
+  return all.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 5);
+}
+const fileLabel = (f) => DB.projects[f.p].name + (f.s ? ' › ' + f.s : '');
+function sheetCapture() {
+  const c = S.sheet;
+  const kinds = [['note', 'Note'], ['task', 'Task'], ['talk', 'Person']];
+  const first = (id) => P(id).name.split(' ')[0];
+  const hasWho = c.people.length || c.newName;
+  let who = '';
+  if (c.kind === 'talk') {
+    const found = matchPeople(c.pq, c.people), q = c.pq.trim();
+    const exact = Object.values(DB.people).some((p) => [p.name, ...(p.al || [])].some((x) => x.toLowerCase() === q.toLowerCase()));
+    const recent = Object.entries(DB.people).filter(([id]) => !c.people.includes(id)).sort((x, y) => y[1].talked - x[1].talked).slice(0, 3);
+    who = `<div class="field"><span>Who</span>
+      ${hasWho ? `<div class="pills">${c.people.map((id) => `<button class="pill" aria-pressed="true" data-act="cap-rm-person" data-id="${id}" aria-label="Remove ${esc(P(id).name)}">${esc(P(id).name)} ×</button>`).join('')}${c.newName ? `<button class="pill" aria-pressed="true" data-act="cap-rm-new" aria-label="Remove ${esc(c.newName)}">${esc(c.newName)} · new ×</button>` : ''}</div>` : ''}
+      <input class="inp" id="cpq" value="${esc(c.pq)}" placeholder="${hasWho ? 'Add someone else' : 'Name or nickname'}" autocomplete="off" aria-label="Find a person">
+      ${q ? `<div class="list">${found.map((m) => personRow(m, 'cap-add-person')).join('')}${!exact && !c.newName ? `<button class="row" data-act="cap-new-person"><span class="av">+</span><span class="grow"><b>Add “${esc(q)}” as a new person</b></span></button>` : ''}</div>`
+        : !hasWho ? `<div class="pills">${recent.map(([id, p]) => `<button class="pill" data-act="cap-add-person" data-id="${id}">${esc(p.name.split(' ')[0])}</button>`).join('')}</div>` : ''}</div>
+      ${c.newName ? `<div class="card newp"><b>New: ${esc(c.newName)}</b>
+        <div class="field"><span>Basic info</span><input class="inp" id="cinfo" value="${esc(c.info)}" autocomplete="off" aria-label="Basic info"></div>
+        <div class="field"><span>Met through</span>${c.via ? `<div class="pills"><button class="pill" aria-pressed="true" data-act="cap-via-clear">${esc(P(c.via).name)} ×</button></div>`
+          : `<input class="inp" id="cviaq" value="${esc(c.viaq)}" placeholder="Nobody" autocomplete="off" aria-label="Met through">${c.viaq.trim() ? `<div class="list">${matchPeople(c.viaq).map((m) => personRow(m, 'cap-via')).join('') || '<div class="entry small">No one by that name</div>'}</div>` : ''}`}</div></div>` : ''}
+      ${hasWho ? `<div class="seg"><button aria-pressed="${c.mode === 'talk'}" data-act="cap-mode" data-id="talk">We talked</button><button aria-pressed="${c.mode === 'fact'}" data-act="cap-mode" data-id="fact">Something to remember</button></div>` : ''}`;
+  }
+  const label = c.kind === 'talk' ? (c.mode === 'fact' ? 'About them' : c.newName && !c.people.length ? 'Where you met, what you talked about' : 'What was it about?') : c.kind === 'task' ? 'What needs doing?' : '';
+  const canFollow = c.kind === 'talk' && hasWho && c.mode === 'talk';
+  const them = c.people.length ? first(c.people[0]) : (c.newName || '').split(' ')[0];
+  const opts = fileOptions(c.fq), fq = c.fq.trim();
+  const quick = [...new Set([route().v === 'project' ? route().id : null, ...Object.keys(DB.projects).filter((k) => DB.projects[k].pinned), S.lastFile].filter(Boolean))].slice(0, 3);
+  return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-label="Capture">
+    <div class="seg">${kinds.map(([k, n]) => `<button aria-pressed="${c.kind === k}" data-act="cap-kind" data-id="${k}">${n}</button>`).join('')}</div>
+    ${who}
+    <div class="field">${label ? `<span>${label}</span>` : ''}<textarea id="ctext" rows="3" aria-label="${label || 'Note'}">${esc(c.text)}</textarea></div>
+    ${c.kind === 'task' ? `<div class="field"><span>When</span><div class="pills">${WHEN.map(([d, n]) => `<button class="pill" aria-pressed="${c.due === d}" data-act="cap-due" data-d="${d}">${n}</button>`).join('')}</div></div>` : ''}
+    ${canFollow ? (c.fu ? `<div class="field"><span>Something to follow up</span>
+        <div class="seg"><button aria-pressed="${c.fu.who === 'me'}" data-act="cap-fu-who" data-id="me">I will</button><button aria-pressed="${c.fu.who === 'them'}" data-act="cap-fu-who" data-id="them">${esc(them)} will</button></div>
+        <input class="inp" id="cfu" value="${esc(c.fu.text)}" autocomplete="off" aria-label="Follow-up">
+        <div class="pills">${WHEN.map(([d, n]) => `<button class="pill" aria-pressed="${c.fu.due === d}" data-act="cap-fu-due" data-d="${d}">${n}</button>`).join('')}<button class="pill" data-act="cap-fu-off">Remove</button></div></div>`
+      : '<button class="btn" data-act="cap-fu">+ Something to follow up</button>') : ''}
+    ${c.kind === 'talk' && c.mode === 'fact' ? '' : `<div class="field"><span>File under</span>${c.file ? `<div class="pills"><button class="pill" aria-pressed="true" data-act="cap-file-clear" aria-label="Remove">${esc(fileLabel(c.file))} ×</button></div>`
+      : `<input class="inp" id="cfq" value="${esc(c.fq)}" placeholder="Today’s page only" autocomplete="off" aria-label="File under a project or section">
+        ${fq ? `<div class="list">${opts.map((o) => `<button class="row" data-act="cap-file" data-p="${o.p}" data-s="${o.s || ''}"><span class="grow">${esc(o.label)}</span></button>`).join('')}${opts.some((o) => o.label.toLowerCase() === fq.toLowerCase()) ? '' : `<button class="row" data-act="cap-new-proj"><span class="grow"><b>New project “${esc(fq)}”</b></span></button>`}</div>`
+          : `<div class="pills">${quick.map((k) => `<button class="pill" data-act="cap-file" data-p="${k}" data-s="">${esc(DB.projects[k].name)}</button>`).join('')}</div>`}`}</div>`}
+    <button class="btn primary block" data-act="cap-save">Save</button>
+  </div></div>`;
+}
+
+/* loose facts about a person, sorted into headings (in the real app the AI proposes this; here a keyword sketch) */
+const FACT_HEADS = ['Likes', 'Dislikes', 'Allergies', 'Dates', 'Other'];
+function factHead(t) {
+  if (/allerg/i.test(t)) return 'Allergies';
+  if (/(doesn.t|does not|hates?|dislikes?|can.t stand|won.t|avoids?)/i.test(t)) return 'Dislikes';
+  if (/(birthday|anniversary|visiting|exam|graduat|\b(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|june?|july?|aug(ust)?|sept?(ember)?|oct(ober)?|nov(ember)?|dec(ember)?)\b|\b\d{1,2}(st|nd|rd|th)\b)/i.test(t)) return 'Dates';
+  if (/(likes?|loves?|into|favou?rite|training|enjoys?|fan of)/i.test(t)) return 'Likes';
+  return 'Other';
+}
+
+/* ============ actions ============ */
+function toast(msg) { S.toast = msg; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; render(); }, 2800); }
+function acceptReview(id) { const r = DB.review.find((x) => x.id === id); if (!r) return; DB.review = DB.review.filter((x) => x.id !== id);
+  if (r.kind === 'correction') { const old = DB.decisions.find((d) => d.id === 'd2'); old.superseded = true; DB.decisions.push({ id: 'd' + nid++, text: 'Tickets: $10 members, $15 non-members', day: 0, project: 'css', corrects: 'd2' }); } }
+const nowTime = () => '14:' + String(5 + DB.entries.filter((e) => e.day === 0).length * 7).padStart(2, '0');
+
+const ACT = {
+  tab: (d) => { S.tab = d.tab; S.stack = []; S.day = 0; },
+  back: () => { S.stack.pop(); },
+  day: (d) => { S.day = +d.d; S.tab = 'today'; S.stack = []; S.sheet = null; },
+  project: (d) => { S.stack = []; S.tab = 'projects'; push({ v: 'project', id: d.id }); S.ptab = d.ptab || 'overview'; S.section = 'All'; },
+  ptab: (d) => { S.ptab = d.id; }, section: (d) => { S.section = d.id; }, mtab: (d) => { S.mtab = d.id; },
+  meeting: (d) => { S.mtab = 'summary'; push({ v: 'meeting', id: d.id }); },
+  person: (d) => push({ v: 'person', id: d.id }),
+  note: (d) => push({ v: 'note', id: d.id }),
+  unsorted: () => push({ v: 'unsorted' }),
+  ai: () => { S.ai = 0; push({ v: 'ai' }); },
+  'ai-next': () => { AI[S.ai].fx?.(); S.ai++; setTimeout(() => { const s = document.getElementById('screen'); s.scrollTop = s.scrollHeight; }, 0); },
+  tfilter: (d) => { S.tfilter = d.id; }, ftype: (d) => { S.ftype = d.id; }, q: (d) => { S.q = d.id; },
+  showdone: () => { S.showDone = !S.showDone; },
+  tick: (d) => { const t = task(d.id); t.done = !t.done; if (t.done && S.sheet?.v === 'task') S.sheet = null; if (t.done) toast(t.owner === 'me' ? 'Done. Tap again to undo.' : `Marked as done by ${P(t.owner).name.split(' ')[0]}.`); },
+  nudge: (d) => { task(d.id).nudged = 0; toast('Noted that you followed up today.'); },
+  task: (d) => { S.sheet = { v: 'task', id: d.id }; },
+  close: (d, e) => { if (e.target.classList.contains('scrim')) S.sheet = null; else return false; },
+  'close-btn': () => { S.sheet = null; },
+  'set-due': (d) => { task(S.sheet.id).due = d.d === 'null' ? null : +d.d; },
+  'set-proj': (d) => { const t = task(S.sheet.id); t.project = d.p === 'null' ? null : d.p; t.section = undefined; if (t.owner !== 'me' && (!t.project || !DB.projects[t.project].people.includes(t.owner))) t.owner = 'me'; },
+  'set-owner': (d) => { const t = task(S.sheet.id); t.owner = d.o; if (d.o !== 'me') toast(`Moved to ${P(d.o).name.split(' ')[0]}’s commitments${t.project ? ' in ' + DB.projects[t.project].name : ''}.`); },
+  capture: (d) => { S.sheet = { v: 'capture', kind: d.kind || 'note', mode: d.mode || 'talk', text: '', file: route().v === 'project' ? { p: route().id } : null, fq: '', people: d.person ? [d.person] : [], pq: '', newName: null, info: '', via: null, viaq: '', fu: null, due: null }; S.sheet.focus = S.sheet.kind === 'talk' && !d.person ? 'cpq' : 'ctext'; },
+  'cap-kind': (d) => { const c = S.sheet; c.kind = d.id; c.focus = d.id === 'talk' && !c.people.length && !c.newName ? 'cpq' : 'ctext'; },
+  'cap-mode': (d) => { S.sheet.mode = d.id; S.sheet.focus = 'ctext'; },
+  'cap-add-person': (d) => { const c = S.sheet; c.people.push(d.id); c.pq = ''; c.focus = 'ctext'; },
+  'cap-rm-person': (d) => { const c = S.sheet; c.people = c.people.filter((x) => x !== d.id); },
+  'cap-new-person': () => { const c = S.sheet; c.newName = c.pq.trim(); c.pq = ''; c.focus = 'cinfo'; },
+  'cap-rm-new': () => { Object.assign(S.sheet, { newName: null, info: '', via: null, viaq: '' }); },
+  'cap-via': (d) => { S.sheet.via = d.id; S.sheet.viaq = ''; S.sheet.focus = 'ctext'; }, 'cap-via-clear': () => { S.sheet.via = null; },
+  'cap-due': (d) => { S.sheet.due = d.d === 'null' ? null : +d.d; },
+  'cap-file': (d) => { S.sheet.file = { p: d.p, s: d.s || undefined }; S.sheet.fq = ''; }, 'cap-file-clear': () => { S.sheet.file = null; },
+  'cap-new-proj': () => { const c = S.sheet, id = 'p' + nid++; DB.projects[id] = { name: c.fq.trim(), kind: 'Personal', sections: [], people: [] }; c.file = { p: id }; c.fq = ''; },
+  'cap-fu': () => { S.sheet.fu = { who: 'me', text: '', due: null }; S.sheet.focus = 'cfu'; }, 'cap-fu-off': () => { S.sheet.fu = null; },
+  'cap-fu-who': (d) => { S.sheet.fu.who = d.id; }, 'cap-fu-due': (d) => { S.sheet.fu.due = d.d === 'null' ? null : +d.d; },
+  'cap-save': () => { const c = S.sheet; let text = c.text.trim(); const proj = c.file?.p ?? null, section = c.file?.s;
+    if (c.kind !== 'talk') { if (!text) return toast('Nothing written yet.');
+      if (c.kind === 'task') { DB.tasks.push({ id: 't' + nid++, text, due: c.due, from: 0, owner: 'me', project: proj, section }); toast(c.due === 0 ? 'Task added to today.' : 'Task added. It is in Tasks' + (proj ? ' and ' + DB.projects[proj].name : '') + '.'); }
+      else { DB.entries.push({ id: 'e' + nid++, day: 0, time: nowTime(), text, project: proj, section, capture: true }); toast(proj ? `Saved to today and ${fileLabel(c.file)}.` : 'Saved to today’s page.'); } }
+    else { const people = [...c.people]; let made = null; const fact = c.mode === 'fact';
+      if (!people.length && !c.newName) return toast('Pick or add a person first.');
+      if (!text && (fact || !c.newName)) return toast('Nothing written yet.');
+      if (c.newName) { made = 'x' + nid++; DB.people[made] = { name: c.newName, al: [], role: c.info.trim(), talked: 0, via: c.via, log: [], facts: {}, loose: [] }; people.push(made); if (proj && !fact) DB.projects[proj].people.push(made); }
+      const names = people.length > 1 ? 'their pages' : P(people[0]).name.split(' ')[0] + '’s page';
+      if (fact) { people.forEach((id) => (P(id).loose ||= []).unshift({ d: 0, text }));
+        DB.entries.push({ id: 'e' + nid++, day: 0, time: nowTime(), text, people, person: people[0], about: true });
+        toast(`${made ? c.newName + ' added. ' : ''}Kept on ${names}, unsorted for now.`); }
+      else { if (!text) text = `Met ${c.newName}${c.via ? ' through ' + P(c.via).name.split(' ')[0] : ''}.`;
+        DB.entries.push({ id: 'e' + nid++, day: 0, time: nowTime(), text, project: proj, section, people, person: people[0], met: !!made && people.length === 1 });
+        people.forEach((id) => { const p = P(id); p.talked = 0; p.log.unshift({ d: 0, how: id === made ? 'Met' : 'Talked', text }); });
+        const fu = c.fu && c.fu.text.trim();
+        if (fu) DB.tasks.push(c.fu.who === 'me' ? { id: 't' + nid++, text: fu, due: c.fu.due, from: 0, owner: 'me', person: people[0], project: proj, section } : { id: 'c' + nid++, text: fu, due: c.fu.due, from: 0, owner: people[0], project: proj, section });
+        toast(`${made ? c.newName + ' added. ' : ''}Logged on today’s page and on ${names}.${fu ? (c.fu.who === 'me' ? ' Follow-up is in your tasks.' : ' Their follow-up is on their page.') : ''}`); } }
+    if (proj) S.lastFile = proj; S.sheet = null; },
+  tidy: (d) => { const p = P(d.id); p.tidy = (p.loose || []).map((l) => ({ text: l.text, head: factHead(l.text) })); },
+  'tidy-head': (d) => { const t = P(d.id).tidy[+d.i]; t.head = FACT_HEADS[(FACT_HEADS.indexOf(t.head) + 1) % FACT_HEADS.length]; },
+  'tidy-accept': (d) => { const p = P(d.id); p.facts ||= {}; p.tidy.forEach((t) => (p.facts[t.head] ||= []).push(t.text)); p.loose = []; p.tidy = null; toast('Sorted. The original lines stay in the page’s history.'); },
+  'tidy-discard': (d) => { P(d.id).tidy = null; },
+  confirm: (d) => { const c = DB.meetings.find((m) => m.id === d.id).confirm[+d.i]; c.pick = c.pick === d.o ? null : d.o; },
+  'accept-meeting': (d) => { const m = DB.meetings.find((x) => x.id === d.id); m.status = 'accepted';
+    m.actions.forEach((a) => DB.tasks.push({ id: (a.owner === 'me' ? 't' : 'c') + nid++, text: a.text, due: a.due, from: m.day, owner: a.owner, project: m.project, section: a.section, meeting: m.id }));
+    m.decisions.forEach((x) => DB.decisions.push({ id: 'd' + nid++, text: x, day: m.day, project: m.project, meeting: m.id }));
+    const mineN = m.actions.filter((a) => a.owner === 'me').length; toast(`Accepted. ${mineN} tasks added to your list, ${m.actions.length - mineN} commitments to CSS, ${m.decisions.length} decisions recorded.`); },
+  'accept-review': (d) => { acceptReview(d.id); toast('Accepted. The earlier decision is kept as replaced.'); },
+  'discard-review': (d) => { DB.review = DB.review.filter((x) => x.id !== d.id); toast('Draft discarded. Nothing else changed.'); },
+  'file-to': (d) => { const e = DB.entries.find((x) => x.id === d.id); e.project = d.p; toast(`Filed under ${DB.projects[d.p].name}.`); },
+  'to-task': (d) => { const e = DB.entries.find((x) => x.id === d.id); e.kept = true; DB.tasks.push({ id: 't' + nid++, text: e.text, due: null, from: e.day, owner: 'me', project: null }); toast('Now a task with no date.'); },
+  keep: (d) => { DB.entries.find((x) => x.id === d.id).kept = true; },
+  checkin: () => toast('Opens mood, habits and the skin log: the screens you have now, one tap from here.'),
+  soon: (d) => toast(d.msg),
+  'copy-brief': () => { const txt = 'CSS briefing, Wed Nov 11: mine due this week…'; (navigator.clipboard?.writeText(txt) || Promise.reject()).catch(() => {}); toast('Briefing copied. Paste it into any AI chat on your phone.'); },
+  'guide-open': () => { document.getElementById('guide').classList.add('open'); return false; },
+  'guide-close': () => { document.getElementById('guide').classList.remove('open'); return false; },
+  flow: (d) => { S.flow = +d.i; FLOWS[S.flow].go(); document.getElementById('guide').classList.remove('open'); },
+  reset: () => { DB = fresh(); Object.assign(S, { tab: 'today', stack: [], day: 0, sheet: null, ai: 0, q: '', ftype: 'All', tfilter: 'all' }); toast('Sample data reset.'); },
+};
+
+/* ============ guide ============ */
+const home = () => { S.tab = 'today'; S.stack = []; S.day = 0; S.sheet = null; };
+const FLOWS = [
+  { t: 'Open the app on your phone', go: home,
+    b: ['The Dashboard is six separate widgets. On a phone, tasks sit below the note, mood and habits.', 'Today’s note belongs to one tag at a time (yours is set to 20-css, with a switch to 10-school and daily-jots), so one day is split across up to three notes.'],
+    n: ['One page per day. What is still open comes first, then the day’s writing, with capture under your thumb.', 'An unfinished task stays where it was written and simply keeps showing. It is not copied and its date is not touched.'],
+    y: ['Tick “Finish patho case study draft”.', 'Tap ‹ at the top to see yesterday’s page, and how its open task is marked.', 'Tap the CSS strip to jump into the project.'] },
+  { t: 'Capture something', go: () => { home(); ACT.capture({}); },
+    b: ['A new task means opening a note, typing a line, then pressing the toolbar’s task button.', '“Talked to someone” means People → find the person → Log a conversation.', 'New note asks for a tag before you can type.'],
+    n: ['One button, one box. Say what kind it is with one tap, or just save it.', 'Person covers the cases: someone you know (found by name or nickname as you type), someone new (name, basic info, who you met them through), a follow-up that came out of it (yours or theirs), and something to remember about them.', 'Things to remember are thrown in loose. “Tidy up” on their page sorts them into likes, dislikes, allergies and dates as a draft you accept.', 'File under searches every project and section, or makes a new project. It can stay empty; unfiled captures wait under Find → Unsorted.'],
+    y: ['Person → type “mags”: Maya is found by her nickname. Write what it was about, add a follow-up, save.', 'Person → type “Sam Park” → Add as a new person. Basic info, then Met through “pri”.', 'Person → Maya → “Something to remember” → “loves dumplings” → save.', 'Find → Maya → Loose notes → Tidy up → Accept.', 'File under: type “spon” to pick CSS › Sponsors.'] },
+  { t: 'Open and edit a task', go: () => { home(); S.sheet = { v: 'task', id: 't1' }; },
+    b: ['At phone width a task row has six tap targets (tick, text, hide, date, priority, arrow) and the words get about 110 px.', 'The arrow unfolds a panel inside the list that measured 1,727 px tall, over two screens, with 28 controls.', 'Tapping the words edits them in place, which is easy to trigger by accident.'],
+    n: ['A row is a tick and the task. Tap it for one sheet: the words, when, which project, who does it.', 'Start date, hide, priority, repeat, dismiss and delete are all still there, under More.'],
+    y: ['Move the due date to Tomorrow.', 'Change “Who does it” to Maya and close: it leaves your lists and appears under CSS.'] },
+  { t: 'Use CSS as one project', go: () => ACT.project({ id: 'css' }),
+    b: ['Your server has no CSS project. CSS is the “Club” area folder (tag 20-css, about 65 notes in 13 sub-tags), and the only project is one named Test.', 'Projects were built as things inside an area, so “CSS as a project” had nowhere to go.', 'A project page lists waiting items, tasks and notes. Meetings, files, people and other people’s commitments are elsewhere or missing.'],
+    n: ['CSS is the project. It adopts the 20-css folder, so every existing note is in it on day one; sub-folders become sections.', 'Others’ commitments are tracked here by person and due date, apart from your own tasks.'],
+    y: ['Overview: see Priya’s overdue item and press “Followed up”.', 'Tasks tab: filter by the Events section.', 'People tab → Maya.'] },
+  { t: 'File a meeting from a transcript', go: () => { ACT.project({ id: 'css', ptab: 'meetings' }); ACT.meeting({ id: 'm3' }); },
+    b: ['A summary becomes an ordinary note under 20-css/meetings. The transcript is a separate note or file with no link back.', 'Action items for other people either become your tasks or stay buried in prose.', 'Points the AI was unsure of look the same as everything else.'],
+    n: ['A meeting keeps summary, decisions, action items and its transcript together.', 'AI-written notes arrive as a draft. Unclear points are listed for you to settle.', 'On Accept, your items go to your tasks and other people’s go to the project.'],
+    y: ['Settle the two “To confirm” points.', 'Open the Transcript tab.', 'Press Accept, then look at Today and at CSS → Tasks.'] },
+  { t: 'Ask an AI in a fresh conversation', go: () => { S.tab = 'projects'; S.stack = [{ v: 'project', id: 'css' }]; ACT.ai(); },
+    b: ['The bridge offers 55 tools and no starting point, so each new chat needs telling what to look up.', 'Its rule is “only write when the user requests it”, so you have to keep asking it to save.'],
+    n: ['One briefing call at the start of every conversation: your week, each project’s commitments, what awaits review.', 'It saves drafts on its own, accepts only on your word, and corrects accepted material only by proposal.', 'Limit: this works from Claude or Codex on your laptop (home network or WireGuard). AI apps on the phone cannot reach your server without a public endpoint, so there the app offers “Copy briefing” instead.'],
+    y: ['Step through the four messages.', 'Then open CSS: the agenda, the corrected decision and the new task are there.'] },
+  { t: 'Find things and sort captures', go: () => { S.tab = 'find'; S.stack = []; S.q = ''; S.ftype = 'All'; S.sheet = null; },
+    b: ['Notes search, People search and Files (under Settings) are three separate places.', 'Nothing lists what you captured but never filed.'],
+    n: ['One search across notes, tasks, people, meetings and files, by word, person, project or month.', 'Unsorted is a short review queue: file, make a task, or keep in the journal.'],
+    y: ['Search “priya”, then “budget”.', 'Open Unsorted captures and file one under Patho II.'] },
+];
+function renderGuide() {
+  const f = FLOWS[S.flow];
+  document.getElementById('gbtext').textContent = `${S.flow + 1}/7 · ${f.t}`;
+  document.getElementById('guide').innerHTML = `<button class="btn mini gclose" data-act="guide-close">Close</button>
+    <div><h2>Gordonite, rethought</h2><p>A clickable sketch of the proposed everyday flows. Sample day: Wed Nov 11. Every name and note is made up. Nothing is saved.</p></div>
+    <div class="flows">${FLOWS.map((x, i) => `<button aria-pressed="${i === S.flow}" data-act="flow" data-i="${i}"><span class="k">${i + 1}</span><span>${x.t}</span></button>`).join('')}</div>
+    <div class="gcard"><h3 class="b">In the app today</h3><ul>${f.b.map((x) => `<li>${x}</li>`).join('')}</ul>
+      <h3 class="n">Proposed</h3><ul>${f.n.map((x) => `<li>${x}</li>`).join('')}</ul>
+      <h3 class="t">Try it</h3><ol>${f.y.map((x) => `<li>${x}</li>`).join('')}</ol></div>
+    <button class="btn" style="align-self:flex-start" data-act="reset">Reset sample data</button>`;
+}
+
+/* ============ render ============ */
+const ICON = { today: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', tasks: 'M4 4h16v16H4zM8.5 12.5l2.5 2.5 4.5-5', projects: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', find: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4' };
+let lastKey = '';
+function render() {
+  const r = route();
+  const titles = { today: S.day === 0 ? fmt(0).replace(',', '') : fmt(S.day).replace(',', ''), tasks: 'My tasks', projects: 'Projects', find: 'Find', unsorted: 'Unsorted captures', ai: 'Claude · new chat' };
+  let title = titles[r.v], sub = '';
+  if (r.v === 'today') sub = S.day === 0 ? 'Today' : rel(S.day) === fmt(S.day) ? `${-S.day} days ago` : 'Yesterday';
+  if (r.v === 'project') { title = DB.projects[r.id].name; sub = DB.projects[r.id].kind + ' project'; }
+  if (r.v === 'meeting') { const m = DB.meetings.find((x) => x.id === r.id); title = m.title; sub = DB.projects[m.project].name + ' · meeting'; }
+  if (r.v === 'person') { title = P(r.id).name; sub = 'Person'; }
+  if (r.v === 'note') { title = DB.notes.find((x) => x.id === r.id).title; sub = 'Note'; }
+  const back = S.stack.length ? '<button class="iconbtn" data-act="back" aria-label="Back">‹</button>' : '';
+  const dayNav = r.v === 'today' ? `<button class="iconbtn" data-act="day" data-d="${S.day - 1}" aria-label="Previous day" ${S.day <= -2 ? 'disabled' : ''}>‹</button><button class="iconbtn" data-act="day" data-d="${S.day + 1}" aria-label="Next day" ${S.day >= 0 ? 'disabled' : ''}>›</button>` : '';
+  document.getElementById('top').innerHTML = `${back}<h1>${sub ? `<span class="sub">${sub}</span>` : ''}${esc(title)}</h1>${dayNav}<span class="saved" title="Everything is saved" role="img" aria-label="Everything is saved"></span>`;
+  const V = { today: vToday, tasks: vTasks, projects: vProjects, find: vFind, project: vProject, meeting: vMeeting, person: vPerson, note: vNote, unsorted: vUnsorted, ai: vAI };
+  const scr = document.getElementById('screen');
+  const key = JSON.stringify(r) + S.day, top = scr.scrollTop;
+  const hadQ = document.activeElement?.id === 'q';
+  scr.innerHTML = V[r.v](r);
+  scr.scrollTop = key === lastKey ? top : 0; lastKey = key;
+  if (hadQ) { const q = document.getElementById('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  document.getElementById('capbar').hidden = r.v === 'ai' || r.v === 'find' || S.day !== 0 && r.v === 'today';
+  document.getElementById('tabs').innerHTML = [['today', 'Today'], ['tasks', 'Tasks'], null, ['projects', 'Projects'], ['find', 'Find']].map((t) => t ? `<button data-act="tab" data-tab="${t[0]}" ${S.tab === t[0] ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[t[0]]}"/></svg>${t[1]}</button>` : '<button class="plus" data-act="capture" aria-label="Capture">+</button>').join('');
+  const ov = document.getElementById('overlay');
+  const focusId = document.activeElement?.id, sel = document.activeElement?.selectionStart;
+  ov.innerHTML = (S.sheet ? (S.sheet.v === 'task' ? sheetTask(S.sheet.id) : sheetCapture()) : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '');
+  if (S.sheet) { const want = S.sheet.focus || focusId; S.sheet.focus = null; const c = want && ov.querySelector('#' + want);
+    if (c) { c.focus(); const at = want === focusId && sel != null ? sel : c.value.length; try { c.setSelectionRange(at, at); } catch {} } }
+  renderGuide();
+}
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act; if (!ACT[a]) return;
+  if (el.classList.contains('scrim') && e.target !== el) return; // clicks inside a sheet that hit no control
+  if (ACT[a](el.dataset, e) === false) return;
+  render();
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'ctext') S.sheet.text = e.target.value;
+  else if (e.target.id === 'cinfo') S.sheet.info = e.target.value;
+  else if (e.target.id === 'cfu') S.sheet.fu.text = e.target.value;
+  else if (e.target.id === 'cpq') { S.sheet.pq = e.target.value; render(); }
+  else if (e.target.id === 'cfq') { S.sheet.fq = e.target.value; render(); }
+  else if (e.target.id === 'cviaq') { S.sheet.viaq = e.target.value; render(); }
+  else if (e.target.id === 'ttext') task(S.sheet.id).text = e.target.value;
+  else if (e.target.id === 'scratch') DB.scratch = e.target.value;
+  else if (e.target.id === 'q') { S.q = e.target.value; render(); }
+});
+render();
+</script>

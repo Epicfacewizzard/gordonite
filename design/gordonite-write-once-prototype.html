@@ -1,0 +1,532 @@
+<title>Gordonite Write Once</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: a phone-sized app beside a short guide. The app is a thread you write into; every other screen is a view of that thread. */
+:root {
+  --bg: #fbfaf7; --surface: #ffffff; --sunk: #efede7; --line: #e4e1da;
+  --fg: #1d1f22; --muted: #666b72;
+  --accent: #2f6f5e; --on-accent: #ffffff; --accent-soft: #e5f1ec;
+  --bad: #b3261e; --bad-soft: #fde8e6;
+  --warn: #8a5a00; --warn-soft: #fff3d6;
+  --hint: #6a4bb0; --hint-soft: #ece6f8;
+  --shadow: 0 10px 40px rgba(30, 40, 36, .16);
+  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #16171a; --surface: #1e2024; --sunk: #0f1012; --line: #2d3036;
+  --fg: #e8e6e1; --muted: #9ba0a7;
+  --accent: #6fbfa8; --on-accent: #0e1512; --accent-soft: #1b2f28;
+  --bad: #ff8a80; --bad-soft: #3d1f1d;
+  --warn: #f0c36b; --warn-soft: #3a2f14;
+  --hint: #b7a2f2; --hint-soft: #2a2342;
+  --shadow: 0 10px 40px rgba(0, 0, 0, .5);
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #16171a; --surface: #1e2024; --sunk: #0f1012; --line: #2d3036;
+  --fg: #e8e6e1; --muted: #9ba0a7;
+  --accent: #6fbfa8; --on-accent: #0e1512; --accent-soft: #1b2f28;
+  --bad: #ff8a80; --bad-soft: #3d1f1d;
+  --warn: #f0c36b; --warn-soft: #3a2f14;
+  --hint: #b7a2f2; --hint-soft: #2a2342;
+  --shadow: 0 10px 40px rgba(0, 0, 0, .5);
+  color-scheme: dark }
+
+html, body { height: 100%; }
+body { background: var(--sunk); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.45; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea, input { font: inherit; color: inherit; }
+
+.wrap { height: 100%; display: flex; gap: 28px; justify-content: center; align-items: stretch;
+  padding-block: 20px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.phone { position: relative; width: 400px; max-width: 100%; flex: none; display: flex; flex-direction: column; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 26px; overflow: hidden; box-shadow: var(--shadow); min-height: 0; max-height: 880px; }
+.top { display: flex; align-items: center; gap: 8px; padding: 12px 16px 8px; min-height: 52px; }
+.top h1 { font-family: var(--display); font-size: 21px; font-weight: 600; margin: 0; flex: 1; min-width: 0; letter-spacing: -.01em; }
+.top .sub { display: block; font-family: var(--ui); font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.iconbtn { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); font-size: 20px; flex: none; }
+.iconbtn:hover { background: var(--sunk); color: var(--fg); }
+.iconbtn[disabled] { opacity: .3; cursor: default; }
+#screen { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 16px 18px; display: flex; flex-direction: column; gap: 16px; }
+
+.composer { display: flex; align-items: flex-end; gap: 8px; margin: 0 12px 8px; padding: 6px 6px 6px 14px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
+.composer textarea { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; resize: none; padding: 7px 0; font-size: 16px; max-height: 130px; }
+.send { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 18px; flex: none; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); background: var(--surface); padding: 6px 6px 8px; }
+.tabs button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); padding: 4px 0; }
+.tabs button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.tabs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.label { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; }
+.label .n { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.label button { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--accent); }
+.group { display: flex; flex-direction: column; }
+.list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.list > * + * { border-top: 1px solid var(--line); }
+.task { display: flex; align-items: flex-start; }
+.tick { width: 44px; height: 44px; flex: none; display: grid; place-items: center; }
+.tick i { width: 21px; height: 21px; border-radius: 50%; border: 2px solid var(--muted); display: grid; place-items: center; font-style: normal; font-size: 13px; color: var(--on-accent); }
+.task.done .tick i { background: var(--accent); border-color: var(--accent); }
+.tbody { flex: 1; min-width: 0; padding: 10px 12px 10px 0; display: flex; flex-direction: column; gap: 3px; }
+.task.done .ttext { text-decoration: line-through; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 5px 8px; font-size: 12.5px; color: var(--muted); align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--sunk); color: var(--muted); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.chip.today { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.chip.proj { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.chip.done { background: transparent; padding-left: 0; }
+.row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; width: 100%; }
+.row .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.chev { color: var(--muted); flex: none; }
+.av { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; display: grid; place-items: center; flex: none; }
+.av.big { width: 50px; height: 50px; font-size: 17px; }
+.small { font-size: 12.5px; color: var(--muted); }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13.5px; }
+.pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn { display: inline-flex; justify-content: center; align-items: center; padding: 9px 14px; border-radius: 11px; border: 1px solid var(--line); background: var(--surface); font-weight: 600; font-size: 14px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.mini { padding: 5px 11px; font-size: 12.5px; border-radius: 9px; flex: none; }
+.btn.block { width: 100%; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.card.key { background: var(--accent-soft); border-color: transparent; }
+.kv { display: grid; grid-template-columns: 82px 1fr; gap: 5px 10px; font-size: 14px; }
+.kv dt { color: var(--muted); font-size: 12.5px; padding-top: 1px; } .kv dd { margin: 0; min-width: 0; }
+.note-line { font-size: 13px; color: var(--muted); padding: 0 2px; margin: 0; }
+.linkish { color: var(--accent); font-weight: 600; }
+.search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.search input { flex: 1; border: 0; background: transparent; outline: none; min-width: 0; }
+
+/* the thread */
+.thread { display: flex; flex-direction: column; }
+.entry { padding: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.entry + .entry { border-top: 1px solid var(--line); }
+.entry .when { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.entry .txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+.entry.tr .txt { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; color: var(--muted); }
+.lnk { color: var(--accent); font-weight: 600; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); text-underline-offset: 3px; }
+.sugg { display: flex; flex-direction: column; gap: 5px; }
+.sg { display: flex; align-items: stretch; border: 1.5px dashed var(--hint); border-radius: 10px; background: var(--hint-soft); color: var(--hint); font-size: 13px; overflow: hidden; }
+.sg .yes { flex: 1; min-width: 0; padding: 6px 10px; font-weight: 600; }
+.sg .no { padding: 6px 11px; opacity: .7; border-left: 1px dashed var(--hint); }
+.noticed { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--hint-soft); color: var(--hint); width: 100%; font-weight: 600; }
+
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.42); display: flex; align-items: flex-end; z-index: 5; }
+.sheet { width: 100%; max-height: 92%; overflow-y: auto; background: var(--bg); border-radius: 20px 20px 0 0; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.sheet::before { content: ""; width: 38px; height: 4px; border-radius: 2px; background: var(--line); align-self: center; flex: none; }
+.sheet textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; resize: none; font-size: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > span { font-size: 12px; font-weight: 600; color: var(--muted); }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 128px; background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: 12px; font-size: 13.5px; z-index: 6; text-align: center; }
+
+.guide { width: 400px; max-width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 6px 4px; }
+.guide h2 { font-family: var(--display); font-size: 22px; margin: 0; letter-spacing: -.01em; }
+.guide p { margin: 0; color: var(--muted); }
+.flows { display: flex; flex-direction: column; gap: 4px; }
+.flows button { display: flex; gap: 10px; padding: 8px 10px; border-radius: 10px; align-items: baseline; }
+.flows button:hover { background: var(--surface); }
+.flows button[aria-pressed="true"] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-weight: 600; }
+.flows .k { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; width: 14px; flex: none; }
+.gcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.gcard h3 { margin: 0; font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.gcard h3.n { color: var(--accent); }
+.gcard ul, .gcard ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; font-size: 14px; }
+.guidebar, .gclose { display: none; }
+@media (max-width: 860px) {
+  body { background: var(--bg); }
+  .wrap { padding-block: 0; padding-left: 0; padding-right: 0; gap: 0; flex-direction: column; }
+  .guidebar { display: flex; align-items: center; gap: 10px; padding-block: 7px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--sunk); font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .guidebar span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .phone { width: 100%; flex: 1; border: 0; border-radius: 0; box-shadow: none; max-height: none; }
+  .guide { display: none; position: fixed; inset: 0; z-index: 20; width: auto; background: var(--sunk); padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .guide.open { display: flex; }
+  .gclose { display: inline-flex; align-self: flex-end; }
+}
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .16s ease-out; } @keyframes up { from { transform: translateY(24px); opacity: .6; } } }
+</style>
+
+<div class="wrap">
+  <div class="guidebar"><span id="gbtext"></span><button class="btn mini" data-act="guide-open">Walkthroughs</button></div>
+  <div class="phone">
+    <div class="top" id="top"></div>
+    <div id="screen"></div>
+    <div class="composer" id="composer"><textarea id="box" rows="1" aria-label="Write"></textarea><button class="send" data-act="send" aria-label="Save">↑</button></div>
+    <nav class="tabs" id="tabs" aria-label="Main"></nav>
+    <div id="overlay"></div>
+  </div>
+  <aside class="guide" id="guide"></aside>
+</div>
+
+<script>
+/* ============ helpers ============ */
+const dt = (off) => new Date(2026, 10, 11 + off); // day 0 = Wed Nov 11, 2026
+const fmt = (off) => dt(off).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }).replace(',', '');
+const rel = (off) => off === 0 ? 'today' : off === 1 ? 'tomorrow' : off === -1 ? 'yesterday' : fmt(off);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const initials = (n) => n.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase();
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const firstName = (id) => DB.people[id].name.split(' ')[0];
+let nid = 1, DB, S;
+
+/* ============ noticing: what the app reads out of plain writing ============
+   Names, nicknames and project words are matched exactly, with no AI.
+   New people, tasks, promises and facts are a keyword sketch here; in the real app an AI pass does this part. */
+const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+function readDue(text, day) {
+  const m = text.match(/\s*\b(?:by|on|before|for)?\s*\b(today|tonight|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+  if (!m) return { text, due: null };
+  const w = m[1].toLowerCase(); let due;
+  if (w === 'today' || w === 'tonight') due = day; else if (w === 'tomorrow') due = day + 1;
+  else { const diff = (DAYS.indexOf(w) - dt(day).getDay() + 7) % 7 || 7; due = day + diff; }
+  return { text: text.replace(m[0], '').trim(), due };
+}
+const variants = (p) => [p.name, p.name.split(' ')[0], ...(p.al || [])];
+function findPerson(name) { const n = name.toLowerCase(); return Object.keys(DB.people).find((id) => variants(DB.people[id]).some((v) => v.toLowerCase() === n)); }
+function analyze(text, day, ctx = {}) {
+  const people = new Set(ctx.person ? [ctx.person] : []), projects = new Set(ctx.project ? [ctx.project] : []), sugg = [];
+  for (const [id, p] of Object.entries(DB.people)) if (new RegExp('\\b(' + variants(p).map(escRe).join('|') + ')\\b').test(text)) people.add(id);
+  for (const [id, p] of Object.entries(DB.projects)) if (new RegExp('\\b(' + p.words.map(escRe).join('|') + ')\\b', 'i').test(text)) projects.add(id);
+  let last = ctx.person ? DB.people[ctx.person].name : null;
+  const allNames = () => [...Object.values(DB.people).flatMap(variants), ...sugg.filter((s) => s.kind === 'person').flatMap((s) => [s.name, s.name.split(' ')[0]])];
+  for (const sen of text.split(/(?<=[.!?\n])\s+/)) {
+    let introduced = null;
+    for (const m of sen.matchAll(/\b[Mm]et\s+(?:up with\s+)?([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/g)) {
+      if (findPerson(m[1]) || findPerson(m[1].split(' ')[0])) continue;
+      let cue = sen.slice(m.index + m[0].length).replace(/^[\s,:–-]+/, '').replace(/[.!?]+$/, '');
+      const via = cue.match(/,?\s*(?:through\s+([A-Z][a-z]+)|([A-Z][a-z]+) introduced us)/);
+      const viaId = via && findPerson(via[1] || via[2]);
+      if (via) cue = cue.replace(via[0], '').trim();
+      sugg.push({ kind: 'person', name: m[1], cue, via: viaId || null }); introduced = m[1];
+    }
+    const occ = [...sen.matchAll(new RegExp('\\b(' + allNames().map(escRe).join('|') + ')\\b', 'g'))];
+    const whoAt = (i, w) => /^(he|she|they)$/i.test(w) ? ([...occ].reverse().find((o) => o.index < i)?.[1] || last) : w;
+    for (const m of sen.matchAll(/\b([A-Z][a-z]+|[Hh]e|[Ss]he|[Tt]hey)\s+(?:will|said (?:he|she|they)(?:'d|’d| would)|is going to|promised to|offered to)\s+([^.!?]+)/g)) {
+      const who = whoAt(m.index, m[1]); if (!who || !allNames().some((n) => n.toLowerCase() === who.toLowerCase())) continue;
+      const d = readDue(m[2], day); sugg.push({ kind: 'theirs', who, text: cap(d.text), due: d.due });
+    }
+    for (const m of sen.matchAll(/\b(?:[Nn]eed to|[Hh]ave to|[Rr]emind me to|[Tt]odo:?|[Gg]otta|I should|I(?:'ll|’ll) need to)\s+([^.!?]+)/g)) {
+      const d = readDue(m[1], day); sugg.push({ kind: 'task', text: cap(d.text), due: d.due });
+    }
+    for (const m of sen.matchAll(/\b([A-Z][a-z]+)\s+(?:is |has |was )?(allergic to|loves|hates|likes|doesn['’]t eat|can['’]t have|birthday is)\s+([^.!?]+)/g)) {
+      if (!allNames().includes(m[1])) continue;
+      sugg.push({ kind: 'fact', who: m[1], text: (m[2] + ' ' + m[3]).split(/\s+(?:so|because|but)\s+|,/)[0] });
+    }
+    if (introduced) last = introduced; else if (occ.length) last = occ[occ.length - 1][1];
+  }
+  sugg.forEach((s) => { s.id = 's' + nid++; s.state = 'open'; });
+  return { people: [...people], projects: [...projects], sugg };
+}
+function addEntry(text, day, time, ctx) {
+  const a = analyze(text, day, ctx);
+  const e = { id: 'e' + nid++, day, time, text, ...a };
+  DB.entries.push(e); return e;
+}
+function sgLabel(s) {
+  const due = s.due != null ? ' · ' + rel(s.due) : '';
+  if (s.kind === 'person') return `New person: ${s.name}`;
+  if (s.kind === 'fact') return `About ${s.who}: ${s.text}`;
+  if (s.kind === 'task') return `Your task: ${s.text}${due}`;
+  if (s.kind === 'theirs') return `${s.who} will: ${s.text.charAt(0).toLowerCase() + s.text.slice(1)}${due}`;
+  if (s.kind === 'decision') return `Decided: ${s.text}`;
+  return s.q;
+}
+function ensurePerson(name, e) {
+  let id = findPerson(name) || findPerson(name.split(' ')[0]);
+  if (id) return id;
+  const pending = e.sugg.find((s) => s.kind === 'person' && [s.name, s.name.split(' ')[0]].includes(name));
+  if (pending && pending.state !== 'yes') return accept(pending, e);
+  return null;
+}
+function accept(s, e) {
+  if (s.state === 'yes') return;
+  s.state = 'yes';
+  const proj = e.projects[0] || null;
+  if (s.kind === 'person') { const id = 'p' + nid++; DB.people[id] = { name: s.name, al: [], cue: s.cue, facts: [], met: { day: e.day, via: s.via } }; e.people.push(id); return id; }
+  if (s.kind === 'fact') { const id = ensurePerson(s.who, e); if (id) DB.people[id].facts.push(s.text); }
+  if (s.kind === 'task') DB.tasks.push({ id: 't' + nid++, text: s.text, due: s.due, owner: 'me', project: proj, person: e.people.find((p) => new RegExp('\\b' + escRe(firstName(p)) + '\\b').test(s.text)), from: e.id });
+  if (s.kind === 'theirs') { const id = ensurePerson(s.who, e); if (id) DB.tasks.push({ id: 't' + nid++, text: s.text, due: s.due, owner: id, project: proj, from: e.id }); }
+  if (s.kind === 'decision') DB.projects[proj].decisions.unshift({ text: s.text, day: e.day });
+}
+
+/* ============ sample data (all fictional) ============ */
+function seed() {
+  nid = 1;
+  DB = { entries: [], tasks: [],
+    people: {
+      maya: { name: 'Maya Okafor', al: ['Mags'], cue: 'VP Events at CSS. Sat next to her at the first general meeting.', facts: ['likes matcha', 'training for a half marathon'], met: null },
+      priya: { name: 'Priya Shah', al: ['Pri'], cue: 'CSS treasurer.', facts: [], met: null },
+      dev: { name: 'Dev Raman', al: ['Devon'], cue: 'CSS marketing, built the website.', facts: [], met: null },
+      hannah: { name: 'Hannah Kim', al: ['Han'], cue: 'Clinical group partner.', facts: ['has a cat named Tofu'], met: null },
+      theo: { name: 'Theo Nakamura', al: [], cue: 'From the other club, met at the volunteer fair. Wants a joint fundraiser.', facts: [], met: { day: -21, via: null } },
+    },
+    projects: {
+      css: { name: 'CSS', kind: 'Club', words: ['CSS', 'gala', 'exec', 'sponsor', 'sponsors', 'poster', 'budget', 'mixer', 'fundraiser'], decisions: [{ text: 'Tickets: $12 members, $15 non-members', day: -14 }], next: { title: 'Exec meeting', day: 1 } },
+      patho: { name: 'Patho II', kind: 'School', words: ['patho', 'case study', 'renal'], decisions: [] },
+      condo: { name: 'Condo', kind: 'Personal', words: ['condo', 'inspection'], decisions: [] },
+    } };
+  const old = [
+    [-21, '15:10', 'Volunteer fair. Talked to Theo about a joint fundraiser with CSS, he is keen.'],
+    [-14, '19:30', 'Exec meeting. Tickets settled at $12 members, $15 non-members.'],
+    [-7, '19:20', 'Exec meeting: Lunar Gala confirmed for Nov 28 in MacHall B. Priya will send budget v2 by Tuesday. Dev will draft the poster by Friday.'],
+    [-2, '10:30', 'Coffee with Maya. Lantern photo corner for the gala, she will ask the venue about hanging things.'],
+    [-1, '9:05', 'Patho reading this morning, gala sync at 5. Need to finish the patho case study draft by Wednesday. Need to reply to Theo about the fundraiser.'],
+  ];
+  old.forEach(([d, t, x]) => { const e = addEntry(x, d, t); [...e.sugg].forEach((s) => accept(s, e)); });
+  DB.projects.css.decisions.unshift({ text: 'Lunar Gala is Sat Nov 28 in MacHall B', day: -7 });
+  DB.tasks.find((t) => /poster/.test(t.text)).due = 2;
+  DB.tasks.push({ id: 't' + nid++, text: 'Draft agenda for Thursday exec meeting', due: 0, owner: 'me', project: 'css' }, { id: 't' + nid++, text: 'Book condo inspection', due: 2, owner: 'me', project: 'condo' }, { id: 't' + nid++, text: 'Submit clinical hours log', due: 0, owner: 'me', project: null, done: true });
+  const tr = { id: 'e' + nid++, day: -1, time: '21:40', tr: true, title: 'Transcript · Lunar Gala planning sync · 38 min', people: ['maya', 'priya', 'dev'], projects: ['css'],
+    text: '[03:12] MAYA: if sales open the sixteenth we need the deposit in before that\n[03:20] PRIYA: it is four fif— four fifteen? I will check the invoice\n[04:02] YOU: can we hold the twentieth as a backup\n[04:10] MAYA: I can price lanterns, keep it under one fifty\n[05:31] ?: Devon can put the QR on the poster …',
+    sugg: [
+      { kind: 'decision', text: 'Ticket sales open Mon Nov 16' }, { kind: 'decision', text: 'Decorations capped at $150' },
+      { kind: 'task', text: 'Email the venue to hold Nov 20 as a backup date', due: 2 }, { kind: 'task', text: 'Post the ticket link in the members channel', due: 5 },
+      { kind: 'theirs', who: 'Maya', text: 'Price lanterns and string lights under $150', due: 3 }, { kind: 'theirs', who: 'Dev', text: 'Add the ticket QR code to the poster', due: 2 },
+      { kind: 'confirm', q: 'A name sounded like “Devon”. Was that Dev?', opts: ['Yes, Dev', 'Someone else'] }, { kind: 'confirm', q: 'Venue deposit: $450 or $415?', opts: ['$450', '$415'] },
+    ].map((s) => ({ ...s, id: 's' + nid++, state: 'open' })) };
+  DB.entries.push(tr);
+  addEntry('Slept badly. Clinical was fine though, got the IV start on the first try.', 0, '8:42');
+  addEntry('Ran into Priya, budget v2 is coming tonight. She is waiting on the catering quote.', 0, '12:30');
+  addEntry('CSS mixer last night. Met Sam Park, runs the photo club, Priya introduced us. He said he’d send photo rates by Friday. Also met Alex Chen, nursing second year, knows Hannah, tall with round glasses. Maya is allergic to cats so no cat cafe social. Need to send Maya the room booking form tomorrow.', 0, '13:10');
+  S = { tab: 'today', stack: [], day: 0, sheet: null, toast: null, flow: 0, q: '' };
+}
+
+/* ============ pieces ============ */
+const route = () => S.stack[S.stack.length - 1] || { v: S.tab };
+const openSugg = (e) => e.sugg.filter((s) => s.state === 'open');
+const mine = () => DB.tasks.filter((t) => t.owner === 'me');
+const byTime = (a, b) => b.day - a.day || b.time.localeCompare(a.time, undefined, { numeric: true });
+function linkify(text, ids) {
+  let h = esc(text); const vs = [];
+  ids.forEach((id) => variants(DB.people[id]).forEach((v) => vs.push([esc(v), id])));
+  if (!vs.length) return h;
+  vs.sort((a, b) => b[0].length - a[0].length);
+  return h.replace(new RegExp('\\b(' + vs.map((v) => escRe(v[0])).join('|') + ')\\b', 'g'), (m) => `<button class="lnk" data-act="person" data-id="${vs.find((v) => v[0] === m)[1]}">${m}</button>`);
+}
+function entryHtml(e, o = {}) {
+  const open = openSugg(e), done = e.sugg.filter((s) => s.state === 'yes');
+  return `<div class="entry${e.tr ? ' tr' : ''}"><span class="when">${o.day ? rel(e.day) + ' · ' : ''}${e.time}${e.projects.map((p) => `<button class="chip proj" data-act="project" data-id="${p}">${DB.projects[p].name}</button>`).join('')}</span>
+    ${e.title ? `<b>${esc(e.title)}</b>` : ''}<span class="txt">${e.tr ? esc(e.text) : linkify(e.text, e.people)}</span>
+    ${e.tr && open.length ? `<button class="noticed" data-act="debrief" data-entry="${e.id}"><span style="flex:1">${open.length} things to confirm from this</span><span>›</span></button>`
+      : open.length && !o.quiet ? `<div class="sugg">${open.map((s) => `<div class="sg"><button class="yes" data-act="yes" data-e="${e.id}" data-s="${s.id}">+ ${esc(sgLabel(s))}</button><button class="no" data-act="no" data-e="${e.id}" data-s="${s.id}" aria-label="Skip">×</button></div>`).join('')}</div>` : ''}
+    ${done.length ? `<span class="meta">${done.map((s) => `<span class="chip done">✓ ${esc(sgLabel(s))}</span>`).join('')}</span>` : ''}</div>`;
+}
+function dueChip(t) {
+  if (t.due == null) return '';
+  if (t.done) return `<span class="chip">${rel(t.due)}</span>`;
+  if (t.due < 0) return `<span class="chip bad">due ${rel(t.due)}</span>`;
+  if (t.due === 0) return '<span class="chip today">due today</span>';
+  return `<span class="chip">due ${rel(t.due)}</span>`;
+}
+function taskRow(t, o = {}) {
+  const who = t.owner !== 'me' && !o.noName ? `<b>${firstName(t.owner)}</b>` : '';
+  return `<div class="task${t.done ? ' done' : ''}"><button class="tick" data-act="tick" data-id="${t.id}" aria-label="${t.done ? 'Done' : 'Mark done'}: ${esc(t.text)}"><i>${t.done ? '✓' : ''}</i></button>
+    <button class="tbody" data-act="task" data-id="${t.id}"><span class="ttext">${esc(t.text)}</span><span class="meta">${who}${dueChip(t)}${t.project && !o.noProj ? `<span class="chip proj">${DB.projects[t.project].name}</span>` : ''}</span></button></div>`;
+}
+const list = (rows) => `<div class="list">${rows.join('')}</div>`;
+const group = (label, rows, extra = '') => rows.length ? `<section class="group"><h2 class="label">${label} <span class="n">${rows.length}</span>${extra}</h2>${list(rows)}</section>` : '';
+const lastSeen = (id) => DB.entries.filter((e) => e.people.includes(id)).sort(byTime)[0];
+
+/* ============ screens ============ */
+function vToday() {
+  const d = S.day, ents = DB.entries.filter((e) => e.day === d).sort((a, b) => -byTime(a, b));
+  let head = '';
+  if (d === 0) {
+    const now = mine().filter((t) => !t.done && ((t.due != null && t.due <= 0) || t.due == null)).sort((a, b) => (a.due ?? 1) - (b.due ?? 1));
+    const n = ents.reduce((k, e) => k + (e.tr ? 0 : openSugg(e).length), 0);
+    head = `${group('To do', now.slice(0, 3).map((t) => taskRow(t)), now.length > 3 ? `<button data-act="tab" data-tab="tasks">${now.length - 3} more</button>` : '')}
+      ${n ? `<button class="noticed" data-act="debrief" data-day="0"><span style="flex:1">Debrief today · ${n} things noticed</span><span>›</span></button>` : ''}`;
+  }
+  return `${head}<section class="group"><h2 class="label">${d === 0 ? 'Today' : fmt(d)}</h2><div class="thread">${ents.map((e) => entryHtml(e, { quiet: d === 0 && false })).join('') || '<p class="note-line">Nothing written.</p>'}</div></section>`;
+}
+function vDebrief(r) {
+  const ents = r.entry ? DB.entries.filter((e) => e.id === r.entry) : DB.entries.filter((e) => e.day === r.day && !e.tr);
+  const items = ents.flatMap((e) => e.sugg.map((s) => ({ s, e })));
+  const open = items.filter((x) => x.s.state === 'open');
+  const heads = [['person', 'New people'], ['fact', 'To remember'], ['task', 'Your tasks'], ['theirs', 'Other people’s'], ['decision', 'Decisions'], ['confirm', 'Not sure']];
+  const card = ({ s, e }) => s.kind === 'confirm'
+    ? `<div class="card"><span>${esc(s.q)}</span><div class="pills">${s.opts.map((o) => `<button class="pill" data-act="pick" data-e="${e.id}" data-s="${s.id}" data-o="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`
+    : `<div class="card"><b>${esc(s.kind === 'person' ? s.name : s.kind === 'fact' ? `${s.who}: ${s.text}` : s.kind === 'theirs' ? `${s.who}: ${s.text}` : s.text)}</b>
+        ${s.kind === 'person' ? `<span class="small">${esc(s.cue)}${s.via ? ` · met through ${firstName(s.via)}` : ''}</span>` : s.due != null ? `<span class="small">due ${rel(s.due)}</span>` : ''}
+        <div class="pills"><button class="btn mini primary" data-act="yes" data-e="${e.id}" data-s="${s.id}">${s.kind === 'person' ? 'Add' : s.kind === 'fact' ? 'Remember' : s.kind === 'theirs' ? 'Track' : s.kind === 'decision' ? 'Record' : 'Add task'}</button><button class="btn mini" data-act="no" data-e="${e.id}" data-s="${s.id}">Skip</button></div></div>`;
+  const yesable = open.filter((x) => x.s.kind !== 'confirm');
+  const seen = [...new Set(ents.flatMap((e) => e.people))];
+  const done = items.filter((x) => x.s.state === 'yes');
+  return `${r.entry ? '' : `<div class="card key"><b>${fmt(r.day)}</b><span>${ents.length} entries${seen.length ? ' · ' + seen.map((id) => `<button class="lnk" data-act="person" data-id="${id}">${firstName(id)}</button>`).join(', ') : ''}${mine().filter((t) => t.done && t.due === r.day).length ? ` · ${mine().filter((t) => t.done && t.due === r.day).length} task done` : ''}</span></div>`}
+    ${yesable.length > 1 ? `<button class="btn primary block" data-act="yes-all">Accept all ${yesable.length}</button>` : ''}
+    ${heads.map(([k, title]) => { const xs = open.filter((x) => x.s.kind === k); return xs.length ? `<section class="group"><h2 class="label">${title} <span class="n">${xs.length}</span></h2><div style="display:flex;flex-direction:column;gap:8px">${xs.map(card).join('')}</div></section>` : ''; }).join('')}
+    ${!open.length ? `<div class="card"><b>Nothing left to confirm</b>${done.length ? `<span class="small">${done.map((x) => '✓ ' + esc(sgLabel(x.s))).join('<br>')}</span>` : ''}</div>` : ''}
+    <p class="note-line">Skipping changes nothing. What you wrote stays exactly as written either way.</p>`;
+}
+function timeline(ents) { return `<section class="group"><h2 class="label">Everything written <span class="n">${ents.length}</span></h2><div class="thread">${ents.sort(byTime).map((e) => entryHtml(e, { day: true })).join('')}</div></section>`; }
+function vPerson(r) {
+  const p = DB.people[r.id], ents = DB.entries.filter((e) => e.people.includes(r.id)), last = [...ents].sort(byTime)[0];
+  const theirs = DB.tasks.filter((t) => t.owner === r.id && !t.done), yours = mine().filter((t) => t.person === r.id && !t.done);
+  const lastLine = last ? (last.tr ? last.title : last.text.split(/(?<=[.!?])\s+/).find((s) => variants(p).some((v) => s.includes(v))) || last.text.split(/(?<=[.!?])\s+/)[0]) : '';
+  return `<div class="row" style="padding:0"><span class="av big">${initials(p.name)}</span><span class="grow"><b style="font-size:17px">${esc(p.name)}</b><span class="small">${esc(p.cue || '')}</span></span></div>
+    <div class="card key"><dl class="kv">
+      ${p.met ? `<dt>Met</dt><dd>${rel(p.met.day)}${p.met.via ? `, through <button class="lnk" data-act="person" data-id="${p.met.via}">${firstName(p.met.via)}</button>` : ''}</dd>` : ''}
+      ${last ? `<dt>Last time</dt><dd>${cap(rel(last.day))}: ${esc(lastLine)}</dd>` : ''}
+      ${p.facts.length ? `<dt>Remember</dt><dd>${p.facts.map(esc).join(' · ')}</dd>` : ''}
+      ${theirs.length ? `<dt>They owe</dt><dd>${theirs.map((t) => esc(t.text) + (t.due != null ? ` (${rel(t.due)})` : '')).join(' · ')}</dd>` : ''}
+      ${yours.length ? `<dt>You owe</dt><dd>${yours.map((t) => esc(t.text) + (t.due != null ? ` (${rel(t.due)})` : '')).join(' · ')}</dd>` : ''}</dl></div>
+    ${group('Open between you', [...yours, ...theirs].map((t) => taskRow(t)))}
+    ${timeline(ents)}`;
+}
+function vProject(r) {
+  const p = DB.projects[r.id], ents = DB.entries.filter((e) => e.projects.includes(r.id));
+  const yours = mine().filter((t) => t.project === r.id && !t.done).sort((a, b) => (a.due ?? 99) - (b.due ?? 99));
+  const theirs = DB.tasks.filter((t) => t.owner !== 'me' && t.project === r.id && !t.done).sort((a, b) => (a.due ?? 99) - (b.due ?? 99));
+  const late = theirs.filter((t) => t.due != null && t.due < 0);
+  const ppl = [...new Set(ents.flatMap((e) => e.people))];
+  const pend = ents.filter((e) => e.tr && openSugg(e).length);
+  return `<div class="card key"><dl class="kv">
+      ${p.next ? `<dt>Next</dt><dd>${p.next.title}, ${rel(p.next.day)}</dd>` : ''}
+      <dt>Yours</dt><dd>${yours.length ? `${yours.length} open${yours[0].due != null ? `, next: ${esc(yours[0].text)} (${rel(yours[0].due)})` : ''}` : 'nothing open'}</dd>
+      ${theirs.length ? `<dt>Others</dt><dd>${theirs.length} open${late.length ? `, <b style="color:var(--bad)">${late.length} overdue</b>` : ''}</dd>` : ''}
+      ${p.decisions.length ? `<dt>Decided</dt><dd>${p.decisions.slice(0, 3).map((d) => esc(d.text)).join(' · ')}</dd>` : ''}
+      ${ppl.length ? `<dt>People</dt><dd>${ppl.map((id) => `<button class="lnk" data-act="person" data-id="${id}">${firstName(id)}</button>`).join(', ')}</dd>` : ''}</dl></div>
+    ${pend.map((e) => `<button class="noticed" data-act="debrief" data-entry="${e.id}"><span style="flex:1">${esc(e.title.split(' · ')[1])}: ${openSugg(e).length} things to confirm</span><span>›</span></button>`).join('')}
+    ${group('Yours', yours.map((t) => taskRow(t, { noProj: true })))}
+    ${group('Other people’s', theirs.map((t) => taskRow(t, { noProj: true })))}
+    ${timeline(ents)}`;
+}
+function vTasks() {
+  const open = mine().filter((t) => !t.done), g = (f) => open.filter(f).sort((a, b) => (a.due ?? 99) - (b.due ?? 99)).map((t) => taskRow(t));
+  const others = DB.tasks.filter((t) => t.owner !== 'me' && !t.done).sort((a, b) => (a.due ?? 99) - (b.due ?? 99));
+  return `${group('Overdue', g((t) => t.due != null && t.due < 0))}${group('Today', g((t) => t.due === 0))}${group('This week', g((t) => t.due > 0 && t.due <= 4))}${group('Later', g((t) => t.due > 4))}${group('No date', g((t) => t.due == null))}
+    ${group('Waiting on other people', others.map((t) => taskRow(t)))}
+    <p class="note-line">Every task points back to the sentence it came from. Tap one to change it.</p>`;
+}
+function vLook() {
+  const q = S.q.trim().toLowerCase();
+  const head = `<label class="search"><span aria-hidden="true">⌕</span><input id="q" type="search" value="${esc(S.q)}" aria-label="Search" autocomplete="off"></label>`;
+  const prow = ([id, p]) => { const l = lastSeen(id); return `<button class="row" data-act="person" data-id="${id}"><span class="av">${initials(p.name)}</span><span class="grow"><b>${esc(p.name)}</b><span class="small">${esc(p.cue || '')}${l ? ` · ${rel(l.day)}` : ''}</span></span><span class="chev">›</span></button>`; };
+  if (q) {
+    const ppl = Object.entries(DB.people).filter(([, p]) => [p.name, p.cue, ...(p.al || []), ...p.facts].join(' ').toLowerCase().includes(q));
+    const ents = DB.entries.filter((e) => (e.text + ' ' + (e.title || '')).toLowerCase().includes(q)).sort(byTime);
+    const ts = DB.tasks.filter((t) => t.text.toLowerCase().includes(q));
+    return `${head}${group('People', ppl.map(prow))}${group('Tasks', ts.map((t) => taskRow(t)))}${ents.length ? `<section class="group"><h2 class="label">Written <span class="n">${ents.length}</span></h2><div class="thread">${ents.map((e) => entryHtml(e, { day: true, quiet: true })).join('')}</div></section>` : ''}${!ppl.length && !ents.length && !ts.length ? '<p class="note-line">Nothing matches.</p>' : ''}`;
+  }
+  const recent = Object.entries(DB.people).filter(([, p]) => p.met && p.met.day >= -30).sort((a, b) => b[1].met.day - a[1].met.day);
+  const rest = Object.entries(DB.people).filter(([id]) => !recent.some(([x]) => x === id)).sort((a, b) => (lastSeen(b[0])?.day ?? -99) - (lastSeen(a[0])?.day ?? -99));
+  return `${head}${group('Met recently', recent.map(prow))}
+    ${group('Projects', Object.entries(DB.projects).map(([id, p]) => `<button class="row" data-act="project" data-id="${id}"><span class="av">${p.name.slice(0, 2)}</span><span class="grow"><b>${p.name}</b><span class="small">${p.kind} · ${DB.entries.filter((e) => e.projects.includes(id)).length} entries</span></span><span class="chev">›</span></button>`))}
+    ${group('People', rest.map(prow))}`;
+}
+const WHEN = [[0, 'Today'], [1, 'Tomorrow'], [2, 'Fri'], [5, 'Next week'], [null, 'No date']];
+function sheetTask(id) {
+  const t = DB.tasks.find((x) => x.id === id), src = DB.entries.find((e) => e.id === t.from);
+  return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-label="Task">
+    <textarea id="ttext" rows="2" aria-label="Task">${esc(t.text)}</textarea>
+    <div class="field"><span>When</span><div class="pills">${WHEN.map(([d, n]) => `<button class="pill" aria-pressed="${t.due === d}" data-act="set-due" data-d="${d}">${n}</button>`).join('')}${t.due != null && !WHEN.some(([d]) => d === t.due) ? `<button class="pill" aria-pressed="true">${fmt(t.due)}</button>` : ''}</div></div>
+    <div class="field"><span>Whose</span><div class="pills">${['me', ...Object.keys(DB.people)].map((o) => `<button class="pill" aria-pressed="${t.owner === o}" data-act="set-owner" data-o="${o}">${o === 'me' ? 'Mine' : firstName(o)}</button>`).join('')}</div></div>
+    ${src ? `<p class="small" style="margin:0">From what you wrote ${rel(src.day)}: “${esc((src.title || src.text).slice(0, 90))}${(src.title || src.text).length > 90 ? '…' : ''}”</p>` : ''}
+    <div class="pills"><button class="btn" data-act="tick" data-id="${t.id}">${t.done ? 'Not done' : 'Mark done'}</button><button class="btn primary" style="flex:1" data-act="close-btn">Done</button></div></div></div>`;
+}
+
+/* ============ actions ============ */
+function toast(m) { S.toast = m; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; render(); }, 2600); }
+const find = (d) => { const e = DB.entries.find((x) => x.id === d.e); return [e.sugg.find((x) => x.id === d.s), e]; };
+const ACT = {
+  tab: (d) => { S.tab = d.tab; S.stack = []; S.day = 0; },
+  back: () => { S.stack.pop(); },
+  day: (d) => { S.day = +d.d; },
+  person: (d) => { S.stack.push({ v: 'person', id: d.id }); S.sheet = null; },
+  project: (d) => { S.stack.push({ v: 'project', id: d.id }); S.sheet = null; },
+  debrief: (d) => { S.stack.push(d.entry ? { v: 'debrief', entry: d.entry } : { v: 'debrief', day: +d.day }); },
+  yes: (d) => { const [s, e] = find(d); accept(s, e); },
+  no: (d) => { find(d)[0].state = 'no'; },
+  pick: (d) => { const [s] = find(d); s.state = 'yes'; s.q = s.q.replace(/\?$/, '') + ': ' + d.o; },
+  'yes-all': () => { const r = route(); (r.entry ? DB.entries.filter((e) => e.id === r.entry) : DB.entries.filter((e) => e.day === r.day && !e.tr)).forEach((e) => openSugg(e).filter((s) => s.kind !== 'confirm').forEach((s) => accept(s, e))); toast('Done. People, tasks and notes are updated.'); },
+  send: () => { const box = document.getElementById('box'), text = box.value.trim(); if (!text) return false;
+    const r = route(), ctx = r.v === 'person' ? { person: r.id } : r.v === 'project' ? { project: r.id } : {};
+    const n = DB.entries.filter((e) => e.day === 0).length;
+    const e = addEntry(text, 0, `14:${String(10 + n * 3).padStart(2, '0')}`, ctx); box.value = ''; box.style.height = '';
+    if (r.v !== 'person' && r.v !== 'project') { S.tab = 'today'; S.stack = []; S.day = 0; setTimeout(() => { const s = document.getElementById('screen'); s.scrollTop = s.scrollHeight; }, 0); }
+    if (!openSugg(e).length && (e.people.length || e.projects.length)) toast('Saved. Linked to ' + [...e.people.map(firstName), ...e.projects.map((p) => DB.projects[p].name)].join(', ') + '.'); },
+  sample: () => { const box = document.getElementById('box'); box.value = 'Coffee with Dev. He will send the poster draft by Friday. Met Jo Reyes, design student, Dev introduced us. Need to book the room for Thursday.'; box.focus(); document.getElementById('guide').classList.remove('open'); return false; },
+  tick: (d) => { const t = DB.tasks.find((x) => x.id === d.id); t.done = !t.done; if (t.done) S.sheet = null; },
+  task: (d) => { S.sheet = { id: d.id }; },
+  close: (d, e) => { if (e.target.classList.contains('scrim')) S.sheet = null; else return false; },
+  'close-btn': () => { S.sheet = null; },
+  'set-due': (d) => { DB.tasks.find((x) => x.id === S.sheet.id).due = d.d === 'null' ? null : +d.d; },
+  'set-owner': (d) => { DB.tasks.find((x) => x.id === S.sheet.id).owner = d.o; },
+  'guide-open': () => { document.getElementById('guide').classList.add('open'); return false; },
+  'guide-close': () => { document.getElementById('guide').classList.remove('open'); return false; },
+  flow: (d) => { S.flow = +d.i; S.sheet = null; FLOWS[S.flow].go(); document.getElementById('guide').classList.remove('open'); },
+  reset: () => { const f = S.flow; seed(); S.flow = f; toast('Sample data reset.'); },
+};
+
+/* ============ guide ============ */
+const home = () => { S.tab = 'today'; S.stack = []; S.day = 0; };
+const FLOWS = [
+  { t: 'Write it once', go: home,
+    n: ['The app is one thread you write or dictate into, like texting yourself. No kinds, no forms, no filing.', 'Names and project words link themselves as you write. Tap a name in the text to open that person.', 'Anything that looks like a new person, a task, a promise or a fact shows as a dashed suggestion under what you wrote. One tap keeps it; ignoring it costs nothing.'],
+    y: ['Read the 13:10 entry about the mixer and tap “+ New person: Sam Park”.', 'Use the button below to drop a sample sentence in the box, then press ↑.', 'Write something of your own that mentions Maya.'], sample: true },
+  { t: 'Debrief the day', go: () => { home(); S.stack = [{ v: 'debrief', day: 0 }]; },
+    n: ['Reviewing a day is one screen: who you saw, and everything the app noticed, grouped.', '“Accept all” files the lot. You never go to a person’s page to update it.'],
+    y: ['Press “Accept all”.', 'Go back: the suggestions under the entry are now ticks.', 'Open Tasks: the booking form is there for tomorrow, and Sam’s promise is under “Waiting on other people”.'] },
+  { t: 'Before you see someone', go: () => { S.tab = 'look'; S.stack = []; S.q = ''; },
+    n: ['A person’s page is built from what you wrote, newest first. The card on top answers “who is this again?”: where you met, last time, what to remember, what is open between you.', '“Met recently” is the party list: each new face with the one line you wrote about them.'],
+    y: ['Accept the mixer suggestions first (walkthrough 2), then open Sam or Alex under “Met recently”.', 'Open Maya: the cat allergy you mentioned in passing is on her card.', 'While on Maya’s page, write in the box. It is linked to her without naming her.'] },
+  { t: 'A project is the same kind of page', go: () => { S.tab = 'look'; S.stack = [{ v: 'project', id: 'css' }]; },
+    n: ['CSS is a page built the same way as a person: where things stand on top, then everything written that touches it.', 'A meeting transcript is just a long entry. The same debrief pulls out decisions, your tasks, other people’s promises and the points it could not hear.'],
+    y: ['Open “Lunar Gala planning sync: 8 things to confirm”.', 'Answer the two “Not sure” questions, then Accept all.', 'Back on CSS: decisions, tasks and people have updated.'] },
+  { t: 'Tasks, yours and theirs', go: () => { S.tab = 'tasks'; S.stack = []; },
+    n: ['Tasks come out of sentences, so the list stays honest without separate upkeep.', 'Other people’s promises sit in their own group and on their page, never among yours.'],
+    y: ['Tap a task: when, whose, and the sentence it came from.', 'Change “Whose” to Maya and close.'] },
+];
+function renderGuide() {
+  const f = FLOWS[S.flow];
+  document.getElementById('gbtext').textContent = `${S.flow + 1}/${FLOWS.length} · ${f.t}`;
+  document.getElementById('guide').innerHTML = `<button class="btn mini gclose" data-act="guide-close">Close</button>
+    <div><h2>Write once</h2><p>Second sketch. You only ever write; people, projects and tasks assemble themselves from it. Sample day: Wed Nov 11. Everything here is made up and nothing is saved.</p></div>
+    <div class="flows">${FLOWS.map((x, i) => `<button aria-pressed="${i === S.flow}" data-act="flow" data-i="${i}"><span class="k">${i + 1}</span><span>${x.t}</span></button>`).join('')}</div>
+    <div class="gcard"><h3 class="n">The idea</h3><ul>${f.n.map((x) => `<li>${x}</li>`).join('')}</ul><h3>Try it</h3><ol>${f.y.map((x) => `<li>${x}</li>`).join('')}</ol>
+      ${f.sample ? '<button class="btn mini" style="align-self:flex-start" data-act="sample">Put a sample sentence in the box</button>' : ''}</div>
+    <div class="gcard"><h3>What needs an AI</h3><ul><li><b>No AI:</b> linking names, nicknames and projects; building every person and project page; search.</li><li><b>AI:</b> spotting new people, tasks, promises and facts in free writing, and reading transcripts. In this sketch that part is a rough keyword guess, so odd phrasing will be missed.</li></ul></div>
+    <button class="btn" style="align-self:flex-start" data-act="reset">Reset sample data</button>`;
+}
+
+/* ============ render ============ */
+const ICON = { today: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', tasks: 'M4 4h16v16H4zM8.5 12.5l2.5 2.5 4.5-5', look: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4' };
+let lastKey = '';
+function render() {
+  const r = route();
+  let title = { today: fmt(S.day), tasks: 'Tasks', look: 'Look up', debrief: 'Debrief' }[r.v], sub = '';
+  if (r.v === 'today') sub = S.day === 0 ? 'Today' : cap(rel(S.day) === fmt(S.day) ? `${-S.day} days ago` : rel(S.day));
+  if (r.v === 'person') { title = DB.people[r.id].name; sub = 'Person'; }
+  if (r.v === 'project') { title = DB.projects[r.id].name; sub = DB.projects[r.id].kind; }
+  if (r.v === 'debrief' && r.entry) sub = 'Transcript';
+  const nav = r.v === 'today' ? `<button class="iconbtn" data-act="day" data-d="${S.day - 1}" aria-label="Previous day" ${S.day <= -2 ? 'disabled' : ''}>‹</button><button class="iconbtn" data-act="day" data-d="${S.day + 1}" aria-label="Next day" ${S.day >= 0 ? 'disabled' : ''}>›</button>` : '';
+  document.getElementById('top').innerHTML = `${S.stack.length ? '<button class="iconbtn" data-act="back" aria-label="Back">‹</button>' : ''}<h1>${sub ? `<span class="sub">${sub}</span>` : ''}${esc(title)}</h1>${nav}`;
+  const scr = document.getElementById('screen'), key = JSON.stringify(r) + S.day, top = scr.scrollTop, hadQ = document.activeElement?.id === 'q';
+  scr.innerHTML = ({ today: vToday, tasks: vTasks, look: vLook, debrief: vDebrief, person: vPerson, project: vProject })[r.v](r);
+  scr.scrollTop = key === lastKey ? top : 0; lastKey = key;
+  if (hadQ) { const q = document.getElementById('q'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  const showBox = (r.v === 'today' && S.day === 0) || r.v === 'person' || r.v === 'project';
+  document.getElementById('composer').hidden = !showBox;
+  document.getElementById('box').placeholder = r.v === 'person' ? `About ${firstName(r.id)}` : r.v === 'project' ? `About ${DB.projects[r.id].name}` : '';
+  document.getElementById('tabs').innerHTML = [['today', 'Today'], ['tasks', 'Tasks'], ['look', 'Look up']].map(([id, n]) => `<button data-act="tab" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[id]}"/></svg>${n}</button>`).join('');
+  const hadT = document.activeElement?.id === 'ttext', sel = document.activeElement?.selectionStart;
+  document.getElementById('overlay').innerHTML = (S.sheet ? sheetTask(S.sheet.id) : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '');
+  if (hadT && S.sheet) { const c = document.getElementById('ttext'); c.focus(); c.setSelectionRange(sel, sel); }
+  renderGuide();
+}
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]'); if (!el || !ACT[el.dataset.act]) return;
+  if (el.classList.contains('scrim') && e.target !== el) return;
+  if (ACT[el.dataset.act](el.dataset, e) === false) return;
+  render();
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'box') { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }
+  else if (e.target.id === 'ttext') DB.tasks.find((x) => x.id === S.sheet.id).text = e.target.value;
+  else if (e.target.id === 'q') { S.q = e.target.value; render(); }
+});
+seed(); render();
+</script>
