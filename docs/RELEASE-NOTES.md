@@ -33,6 +33,8 @@ sideways scrolling. Not tested on a physical phone. Built on `codex/today-switch
 
 ## 0.22.2 — Two flaky browser tests made reliable
 
+Deployed 2026-11-12 as release `9f61b0d` (0.19.0 to 0.22.2 together); `/api/health` reported `0.22.2`, schema v11 to v13. Pre-update backup `hq-manual-20261112-094607.sqlite`, rollback image `gordonite:rollback-before-9f61b0d`.
+
 Version **0.22.2** (tests only; no app code, schema or data change). Two e2e tests failed intermittently or reproducibly for
 another session. Cause and decision, test by test:
 
