@@ -1,5 +1,21 @@
 # Release notes
 
+## 0.19.0 — Suggestions under today's journal entry
+
+Version **0.19.0** (feature, client only). **No schema change and no change to the note document format**: accepting a
+suggestion writes an ordinary task (with an optional due date) or an ordinary People note, through the normal save path
+(phone first, then the server against a revision). Going back to 0.18.0 is the image swap only. This is step 3 of
+"Direction 2: write once" ([REDESIGN-PROPOSAL-2026-11.md](REDESIGN-PROPOSAL-2026-11.md)); details in [SUGGESTIONS.md](SUGGESTIONS.md).
+
+**Added**
+
+- **Suggestions** under the journal entry on Today. Built-in rules (no AI, work offline) offer **Make this a task** for a
+  line that reads like something to do ("need to", "have to", "remind me", "by Friday"), carrying a date written in the line,
+  and **Add *Name* as a person** for a capitalised name that matches nobody in People. Each has **Dismiss**, which stays
+  dismissed for that line on that device. Nothing changes unless tapped. Rules: `shared/suggestions.js`.
+- Tests: `tests/client/suggestions.test.js` (rules), `tests/e2e/suggestions.test.js` (make a task, dismiss, add a person,
+  phone width).
+
 ## 0.18.0 — Three tabs, a journal-first Today, a task sheet, a person card and Look up
 
 Version **0.18.0** (feature, client only). **No schema change, no new stored data, and the note document format is

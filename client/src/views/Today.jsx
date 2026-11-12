@@ -11,6 +11,7 @@ import { EarlierNotes } from './EarlierNotes.jsx';
 import { HabitsWidget } from './Habits.jsx';
 import { useMentions, peopleInText } from '../mentions.js';
 import { plainText } from '../../../shared/doc.js';
+import { Suggestions } from './Suggestions.jsx';
 
 // The Dashboard (route "/") is a stack of independent sections ("widgets"). Each is a component that gets the same
 // context (today's date, config, tags, the chosen daily tag) and draws its own part. To add one, write the
@@ -262,6 +263,7 @@ function TodayNoteWidget({ config, today, dailyTag, phone = false }) {
           focusRequest={editingId === session.id ? focusRequest : null}
         />
       )}
+      {session && !session.discarded && <Suggestions session={session} editor={editingId === session.id ? editor : null} today={today} />}
       <PeopleToday journalText={journalText} others={others} />
       <AlsoToday others={others} />
       {earlier && state.status !== 'error' && (

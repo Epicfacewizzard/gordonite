@@ -1877,3 +1877,10 @@ body:not([data-editing]) .today .toolbar {
 .lookup-more { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 20px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .lookup-more a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-weight: 600; text-decoration: none; }
 .task-details .task-inline-edit > .link-plain { display: none; }
+
+/* Suggestions under the journal entry (views/Suggestions.jsx): the line, one tap to accept, one to dismiss */
+.suggestions ul { list-style: none; margin: 0; padding: 0; }
+.suggestion { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.suggestion-line { min-width: 0; overflow-wrap: anywhere; font-size: 0.92rem; }
+.suggestion-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.suggestion-actions .btn { min-height: 44px; }
