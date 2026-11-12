@@ -55,7 +55,7 @@ test('Linked from lists the linking notes; a rename rewrites their links; "[[" s
     assert.equal(app.docText(linking), 'Read [[Trip plan]] tonight and [[Trip plan]] [[');
   }));
 
-test('a person is "Mentioned in" the notes that link them by name or by an Also called name', () =>
+test('a person is under "Everything written" for the notes that link them by name or by an Also called name', () =>
   withPhone(browser, async ({ app, page }) => {
     const sam = await freeNote(app, 'Samantha Lee', ['05-people'], '2026-10-01', 'VP events');
     await app.api('PUT', `/api/people/${sam}`, { profile: { aliases: ['Sammy'] } });
@@ -66,6 +66,6 @@ test('a person is "Mentioned in" the notes that link them by name or by an Also 
     await page.locator('a[href="#/link/Sammy"]').first().click();
     await page.waitForURL(`**/#/n/${sam}`);
     const section = page.getByTestId('backlinks');
-    await section.getByRole('heading', { name: /Mentioned in/ }).waitFor();
+    await section.getByRole('heading', { name: /Everything written/ }).waitFor();
     assert.deepEqual(await section.locator('.backlink-title').allInnerTexts(), ['Lunch', 'Call']);
   }));

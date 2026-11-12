@@ -1,10 +1,9 @@
 import { useState } from 'preact/hooks';
 import { shownPatch } from '../task-data.js';
 import { findRepeatPhrase, repeatLabel } from '../../../shared/repeat.js';
-import { RepeatMenu } from './TaskRepeat.jsx';
 import { taskCommands } from '../task-commands.js';
 import { useToday, useNowTime, useTaskData } from '../hooks.js';
-import { bucketOf, groupTasks, streamsOf, visibleSections, withinRange, isHiddenNow } from '../task-groups.js';
+import { groupTasks, streamsOf, visibleSections, withinRange } from '../task-groups.js';
 import { addDays, dateInTz, formatDateShort, formatDateLabel, isOverdue } from '../../../shared/dates.js';
 import { findDatePhrases } from '../../../shared/taskdates.js';
 import { PRIORITY_LABEL, dueBar, taskKey as keyOf } from '../../../shared/tasks.js';
@@ -12,7 +11,8 @@ import { TaskDetails } from './TaskSheet.jsx';
 import { getShiftDismiss, getDoneDays } from '../prefs.js';
 import { DateRangePicker } from './DateRangePicker.jsx';
 import { TaskTextEditor } from './TaskTextEditor.jsx';
-import { DateMenu, Glyph, HideMenu, PriorityMenu, PriorityStar } from './TaskMenus.jsx';
+import { PriorityStar } from './TaskMenus.jsx';
+import { Sheet } from './parts.jsx';
 import { useProjects } from '../projects-data.js';
 import { usePeople } from './PersonProfile.jsx';
 import { TaskLinkChips } from './TaskChips.jsx';
@@ -46,7 +46,7 @@ export function completionRows(tasks) {
 
 // `scope` (with `compact`) is how much the dashboard's list shows: 'overdue', 'today' (overdue and due today), 'week'
 // (adds the next seven days) or 'all' (adds a few with no date). The full Tasks page always shows everything.
-export function TasksView({ config, compact = false, overdueOnly = false, scope = null }) {
+export function TasksView({ config, compact = false, overdueOnly = false, scope = null, todo = false }) {
   const level = !compact ? 'all' : overdueOnly ? 'overdue' : scope ?? 'all';
   const today = useToday(config.tz);
   const now = useNowTime(config.tz);
@@ -66,26 +66,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
     return days > 0 ? { from: addDays(today, -(days - 1)), to: today } : { from: '', to: '' };
   });
   const setRange = (from, to) => setRangeState({ from, to });
-  const [expanded, setExpanded] = useState(() => new Set()); // tasks opened out to show their details
-  const toggleExpanded = (t) =>
-    setExpanded((s) => {
-      const next = new Set(s);
-      if (!next.delete(keyOf(t))) next.add(keyOf(t));
-      return next;
-    });
-  const [menu, setMenu] = useState(null); // { key, kind: 'date' | 'hide' | 'priority' }: a round button's menu
-  const [editing, setEditing] = useState(null);
-  // Where the task being edited sat when editing began. A date typed into its words (`due fri`) is understood as it is
-  // typed, which would move the row to another section and take the editor from under the cursor; it moves when done.
-  const [editingBucket, setEditingBucket] = useState(null);
-  const startEditing = (t) => {
-    setEditingBucket(bucketOf(t, { today, now, touched }));
-    setEditing(keyOf(t));
-  };
-  const finishEditing = () => {
-    setEditing(null);
-    setEditingBucket(null);
-  };
+  const [sheetKey, setSheetKey] = useState(null); // the task whose details are open in the bottom sheet
   // Tasks ticked on this page stay listed (struck through) so a slip can be undone.
   const [touched, setTouched] = useState(() => new Set());
 
@@ -121,7 +102,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
   };
   const repeatedRow = repeated && tasks?.find((x) => keyOf(x) === repeated.key);
 
-  const buckets = groupTasks(tasks, { today, now, touched, pinned: editing && editingBucket ? new Map([[editing, editingBucket]]) : null });
+  const buckets = groupTasks(tasks, { today, now, touched });
   const streams = streamsOf(buckets.anytime);
   const { showToday, showUpcoming, showUndated, upcomingShown, undatedShown, undatedMore, openCount, listed } = visibleSections(buckets, { level, compact, today });
   const EMPTY = { overdue: 'Nothing overdue.', today: 'Nothing overdue or due today.', week: 'Nothing overdue or coming up this week.' };
@@ -142,70 +123,31 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
 
   const row = (t) => {
     const overdue = !t.checked && isOverdue(t.due, t.dueTime, today, now);
-    const hiddenNow = isHiddenNow(t, today);
-    const open = (kind) => setMenu({ key: keyOf(t), kind });
-    const isOpen = expanded.has(keyOf(t));
     return (
-      <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}${isOpen ? ' expanded' : ''}`} data-testid="task-row" data-priority={t.priority ?? ''} data-bar={dueBar(t.due, t.checked, today)}>
+      <li key={keyOf(t)} class={`task-row${t.checked ? ' done' : ''}`} data-testid="task-row" data-priority={t.priority ?? ''} data-bar={dueBar(t.due, t.checked, today)}>
         <label class="task-check">
           {t.dismissedAt ? <span class="dismissed-icon" role="img" aria-label="Dismissed task">⊠</span> : <input type="checkbox" checked={t.checked} onChange={() => toggle(t)} onClick={(e) => { if (e.shiftKey && !t.checked && getShiftDismiss()) { e.preventDefault(); apply(t, { dismissedAt: new Date().toISOString() }); } }} title={t.checked ? undefined : 'Shift-click to dismiss'} aria-label={t.checked ? 'Completed task' : 'Task'} />}
         </label>
         <div class="task-body">
-          {editing === keyOf(t) ? <TaskTextEditor task={t} onDone={finishEditing} /> :
-            <button type="button" class="task-text task-text-button" onClick={() => { finishEditing(); startEditing(t); }} aria-label={`Edit task: ${t.text}`} data-testid="task-edit-text">
-              <TaskText text={t.text} date={t.date} />
-            </button>}
+          <button type="button" class="task-text task-text-button" onClick={() => setSheetKey(keyOf(t))} aria-label={`Open task: ${t.text}`} data-testid="task-edit-text">
+            <TaskText text={t.text} date={t.date} />
+          </button>
           <span class="task-meta">
             {t.dismissedAt && <span class="task-chip" data-testid="chip-dismissed">dismissed · {new Date(t.dismissedAt).toLocaleDateString('en-CA', { timeZone: config.tz })}</span>}
             {t.due && <span class={`task-chip${overdue ? ' overdue' : ''}`} data-testid="chip-due">due {formatDateLabel(t.due, today)}{t.dueTime && ` at ${t.dueTime}`}</span>}
+            {t.priority && <span class={`task-chip prio-chip prio-${t.priority}`} data-testid="chip-priority" role="img" aria-label={`Priority: ${PRIORITY_LABEL[t.priority]}`}><PriorityStar value={t.priority} size={13} /></span>}
             {t.repeat && !t.dismissedAt && <span class="task-chip" data-testid="chip-repeat" title={`Repeats ${repeatLabel(t.repeat)}`}>↻ {repeatLabel(t.repeat, { withFrom: false })}</span>}
             {t.start && <span class="task-chip" data-testid="chip-start">starts {formatDateLabel(t.start, today)}{t.startTime && ` at ${t.startTime}`}</span>}
             <TaskLinkChips task={t} today={today} projects={projects} people={people} />
             {t.hidden && <span class="task-chip" data-testid="chip-hidden">hidden</span>}
             {!t.hidden && t.hideUntil && t.hideUntil > today && <span class="task-chip" data-testid="chip-hidden">hidden until {formatDateShort(t.hideUntil)}</span>}
-            <span>
-              {t.tags[0] ?? ''} · {formatDateShort(t.date)}
-            </span>
+            {!todo && (
+              <span>
+                {t.tags[0] ?? ''} · {formatDateShort(t.date)}
+              </span>
+            )}
           </span>
         </div>
-        <div class="task-actions">
-          <button type="button" class={`round-btn${hiddenNow ? ' on' : ' unset'}`} onClick={() => open('hide')} aria-label={hiddenNow ? 'Hidden: change or show again' : 'Hide for a while'} title="Hide" data-testid="task-hide">
-            <Glyph name="eyeOff" />
-          </button>
-          <button type="button" class={`round-btn${!t.due && !(t.start && t.start > today) ? ' unset' : t.due && t.due <= today && !t.checked ? ' due-soon' : ' due-set'}`} onClick={() => open('date')} aria-label="Due date" title="Due date" data-testid="task-date">
-            <Glyph name="calendar" />
-          </button>
-          <button
-            type="button"
-            class={`round-btn prio-${t.priority ?? 'none'}${t.priority ? '' : ' unset'}`}
-            onClick={() => open('priority')}
-            aria-label={`Priority: ${PRIORITY_LABEL[t.priority] ?? 'none'}`}
-            title="Priority"
-            data-testid="task-priority"
-          >
-            <PriorityStar value={t.priority} />
-          </button>
-          <button type="button" class={`round-btn chevron${isOpen ? ' open' : ''}`} onClick={() => toggleExpanded(t)} aria-expanded={isOpen} aria-label={isOpen ? 'Close details' : 'Open details'} title="Details" data-testid="task-expand">
-            <Glyph name="chevron" />
-          </button>
-        </div>
-        {isOpen && (
-          <div class="task-expanded" data-testid="task-details">
-            <TaskDetails
-              uid={keyOf(t)}
-              text={t.text}
-              noteDate={t.date}
-              noteId={t.noteId}
-              where={`${t.tags[0] ?? 'No tag'} · ${formatDateShort(t.date)}`}
-              tags={t.tags}
-              today={today}
-              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt, repeat: t.repeatFrom === 'set' ? t.repeat : null, completions: t.completions, project: t.project, person: t.person, waitingSince: t.waitingSince }}
-              onChange={(patch) => apply(t, patch)}
-              onDelete={() => apply(t, null)}
-              onDone={() => toggleExpanded(t)}
-            />
-          </div>
-        )}
       </li>
     );
   };
@@ -263,6 +205,55 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
         {open[id] && <ul class="task-list">{list.map(row)}</ul>}
       </section>
     );
+
+  const sheetNode = sheetKey && (() => {
+        const t = tasks?.find((x) => keyOf(x) === sheetKey);
+        if (!t) return null;
+        const close = () => setSheetKey(null);
+        return (
+          <Sheet title="Task" onClose={close}>
+            <TaskDetails
+              uid={keyOf(t)}
+              fold
+              lead={<TaskTextEditor task={t} onDone={close} />}
+              text={t.text}
+              noteDate={t.date}
+              noteId={t.noteId}
+              where={`${t.tags[0] ?? 'No tag'} · ${formatDateShort(t.date)}`}
+              tags={t.tags}
+              today={today}
+              picked={{ dueTime: t.dueTimeFrom === 'set' ? t.dueTime : null, startTime: t.startTimeFrom === 'set' ? t.startTime : null, due: t.dueFrom === 'set' ? t.due : null, start: t.startFrom === 'set' ? t.start : null, hidden: t.hidden, hideUntil: t.hideUntil, priority: t.priority, dismissedAt: t.dismissedAt, repeat: t.repeatFrom === 'set' ? t.repeat : null, completions: t.completions, project: t.project, person: t.person, waitingSince: t.waitingSince }}
+              onChange={(patch) => apply(t, patch)}
+              onDelete={() => apply(t, null)}
+              onDone={close}
+            />
+          </Sheet>
+        );
+      })();
+
+  // The Today screen's short list: overdue, due today, and undated tasks written in the last three days; three at most.
+  if (todo) {
+    const recent = addDays(today, -2);
+    const all = [...buckets.overdue, ...buckets.today, ...buckets.anytime.filter((t) => t.date >= recent)].filter((t) => !t.checked || touched.has(keyOf(t)));
+    const shownRows = all.slice(0, 3);
+    const hasTasks = (tasks ?? []).length > 0;
+    return (
+      <div class="tasks todo" data-testid="todo-list">
+        {error && <p class="error" role="alert">{error}</p>}
+        {tasks && shownRows.length === 0 && !error && hasTasks && <p class="muted small" data-testid="nothing-due">Nothing to do right now.</p>}
+        {shownRows.length > 0 && <h2 class="section">To do</h2>}
+        {shownRows.length > 0 && <ul class="task-list">{shownRows.map(row)}</ul>}
+        {all.length > 3 && (
+          <p class="small more-link">
+            <a href="#/tasks" data-testid="all-tasks">
+              {all.length - 3} more
+            </a>
+          </p>
+        )}
+        {sheetNode}
+      </div>
+    );
+  }
 
   return (
     <div class="tasks">
@@ -330,16 +321,7 @@ export function TasksView({ config, compact = false, overdueOnly = false, scope 
       {!compact && folded('hidden', 'Hidden', buckets.hidden)}
       {!compact && archived('done', 'Done', [...buckets.done, ...completionRows(tasks)])}
       {!compact && archived('dismissed', 'Dismissed', buckets.dismissed)}
-      {menu && (() => {
-        const t = tasks?.find((x) => keyOf(x) === menu.key);
-        if (!t) return null;
-        const close = () => setMenu(null);
-        const onPick = (patch) => apply(t, patch);
-        if (menu.kind === 'date') return <DateMenu today={today} due={t.dueFrom === 'set' ? t.due : null} start={t.startFrom === 'set' ? t.start : null} repeat={t.repeat} onPick={onPick} onClose={close} onRepeat={() => setMenu({ key: menu.key, kind: 'repeat' })} />;
-        if (menu.kind === 'repeat') return <RepeatMenu text={t.text} picked={t.repeatFrom === 'set' ? t.repeat : null} due={t.due} today={today} onChange={onPick} onClose={close} />;
-        if (menu.kind === 'hide') return <HideMenu today={today} hidden={t.hidden} hideUntil={t.hideUntil} onPick={onPick} onClose={close} />;
-        return <PriorityMenu value={t.priority} onPick={onPick} onClose={close} />;
-      })()}
+      {sheetNode}
     </div>
   );
 }

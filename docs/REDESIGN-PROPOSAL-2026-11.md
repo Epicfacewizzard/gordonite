@@ -1,8 +1,10 @@
 # Redesign proposal: everyday flows (2026-11-11)
 
-Status: **proposal; step 1 of Direction 2 is built as 0.17.0** (plain names link themselves, Today is one journal,
-People today, Also today, tasks first on the phone; see `docs/RELEASE-NOTES.md`). Everything else here is still design
-only. The first clickable sketch is `design/gordonite-workflows-prototype.html` (open it in a browser;
+Status: **proposal; steps 1 and 2 of Direction 2 are built.** 0.17.0: plain names link themselves, Today is one journal,
+People today, Also today. 0.18.0: the visible screens (three tabs Today / Tasks / Look up, a To do list over the journal,
+the task sheet with one-tap When choices, the person card with Everything written, Look up); see `docs/RELEASE-NOTES.md`.
+Not built yet: suggestions under entries, the Debrief screen, task owners, meetings, project-word linking (all need the
+assistant bridge or new stored data). Everything else here is still design only. The first clickable sketch is `design/gordonite-workflows-prototype.html` (open it in a browser;
 fictional content, saves nothing, sends nothing to Gordonite).
 
 ## Direction 2: write once (added later on 2026-11-11, preferred)

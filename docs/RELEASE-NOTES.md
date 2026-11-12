@@ -1,5 +1,54 @@
 # Release notes
 
+## 0.18.0 — Three tabs, a journal-first Today, a task sheet, a person card and Look up
+
+Version **0.18.0** (feature, client only). **No schema change, no new stored data, and the note document format is
+untouched:** every screen below is drawn from what already exists, so going back to 0.17.0 is the image swap only. This is
+step 2 of "Direction 2: write once" ([REDESIGN-PROPOSAL-2026-11.md](REDESIGN-PROPOSAL-2026-11.md), sketch in
+`design/gordonite-write-once-prototype.html`): the visible screens. Saving, revisions, conflicts, history, the phone's
+offline copies and backups were not touched.
+
+**Changed**
+
+- **Three tabs: Today / Tasks / Look up** (were Dashboard / Tasks / People / Projects / Notes). People, Projects, Notes,
+  Tags, Files, Trash and Settings all still work and keep their addresses; Look up is lit for all of them and links to each
+  (All people, All projects, Notes, Tags, Files, Trash). Settings stays in the header. The first screen is called **Today**
+  (it was "Dashboard"; the opening-page choice in Settings follows).
+- **Today on a phone (under 860px wide)** is one column: the date, a short **To do** list (overdue, due today, and undated
+  tasks written in the last three days; three at most, with "N more" going to Tasks; the heading is hidden when there is
+  nothing), then today's journal as the page (the same editable Tiptap note as before, then People today, Also today and the
+  earlier days), starred tags if any, and one small row at the bottom: **Mood & habits** (opens them in place), **Log skin**,
+  **New note**. The wide screen keeps the side-by-side dashboard and its Settings → Dashboard choices exactly as before.
+- **Task rows are the tick and the task.** The hide, date, priority and arrow buttons are gone from the list. Tapping the task
+  opens its details in the bottom sheet, which starts with the task's words (edited right there, saved the same way as
+  before) and one-tap **When** choices: Today, Tomorrow, Next Friday, Next week (the Monday after tomorrow), No date. Under
+  **More**: project, person, waiting, due and start date and time, hide until, priority, repeat, completions, hide, dismiss,
+  delete (with its confirmation) and, in the editor's own sheet, move. A priority shows on the row as a small star chip.
+  The round buttons on a task inside an open note are unchanged.
+- **A person's page** opens with a card: how and when met, **Last time** (the date and line of the newest note that
+  mentions them, from the backlinks), things to remember, and the open tasks with them. **Everything written** (this was
+  "Mentioned in") sits directly under the card; the details (log a conversation, the other fields) are below it.
+- **Look up** (new): one search box over notes, people and tasks. With the box empty: **Met recently** (people whose note was
+  created in the last 30 days, with their role or first line), **Projects**, then **People** by most recent talk (last
+  talked or the newest Log line; people never talked to last).
+
+**Tests.** Unit suite 404/404 passing. Browser suite 184 of 184 passing (`npm run test:e2e`, one full run). Updated for the new structure, with
+the coverage kept: the task-row tests now open the sheet (`openTaskDetails` in `tests/e2e/harness.js`), the hide / due /
+priority menu tests run on a task inside its note with a mouse, the dashboard tests run on a wide screen
+(`useWideScreen`) and the typed-task test also runs for the phone's To do list. New: `tests/e2e/redesign.test.js` (tabs,
+To do rules, the sheet's When choices and More, the person card, Look up).
+
+**Known limits**
+
+- Not built (still design only): suggestions under entries, the Debrief screen, task owners, meetings, project-word linking,
+  anything that needs an assistant.
+- "Met recently" and the people order use data already kept: the note's creation day, and last talked. A person's most
+  recent plain mention is not used for the order (it would need a request per person).
+- Look up's search needs the server for notes (people and tasks also work from the phone's copy); offline it says it
+  cannot search the notes.
+- On a touch screen the editor still hides a note task's round buttons that are not set (unchanged).
+- Look up and the person card were checked at 390px with the sample data (no sideways scrolling); not yet tried on the S24.
+
 ## 0.17.0 — Plain names link themselves, and Today is one journal page
 
 Version **0.17.0** (feature). **No schema change and no data change:** nothing new is stored (the name matching is

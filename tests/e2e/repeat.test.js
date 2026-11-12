@@ -2,7 +2,7 @@
 // in the note moves the due date on and keeps a history; the Done list shows the completions; Undo takes one back.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { launch, withPhone, waitSaved } from './harness.js';
+import { launch, withPhone, waitSaved, openTaskDetails } from './harness.js';
 import { uuid } from '../../shared/ids.js';
 
 let browser;
@@ -54,15 +54,15 @@ test('a rule typed in the words repeats, and one is picked in the details', () =
   assert.match(await typedRow.getByTestId('chip-repeat').innerText(), /every 3 days/);
   // pick "Every 2 weeks" for the other one from its details
   const plainRow = page.getByTestId('task-row').filter({ hasText: 'Timesheet' });
-  await plainRow.getByTestId('task-expand').click();
-  await plainRow.getByTestId('repeat-preset-every-2-weeks').click();
+  await openTaskDetails(page, plainRow);
+  await page.getByTestId('repeat-preset-every-2-weeks').click();
   await waitSaved(page);
   assert.deepEqual((await saved(app, id))[1].attrs.repeat, { every: 2, unit: 'week', from: 'due' });
-  await plainRow.getByTestId('repeat-from-done').click();
+  await page.getByTestId('repeat-from-done').click();
   await waitSaved(page);
   assert.equal((await saved(app, id))[1].attrs.repeat.from, 'done');
   // skip it
-  await plainRow.getByTestId('task-skip').dispatchEvent('click'); // (a plain click is not delivered while the row scrolls into view)
+  await page.getByTestId('task-skip').dispatchEvent('click'); // (a plain click is not delivered while the row scrolls into view)
   await waitSaved(page);
   for (let i = 0; i < 50 && !(await saved(app, id))[1].attrs.completions; i++) await page.waitForTimeout(100);
   const attrs = (await saved(app, id))[1].attrs;

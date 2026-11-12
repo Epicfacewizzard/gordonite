@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { launch, withPhone } from './harness.js';
+import { launch, withPhone, useWideScreen } from './harness.js';
+useWideScreen();
 
 let browser;
 before(async () => (browser = await launch()));

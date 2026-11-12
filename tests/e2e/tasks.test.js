@@ -2,7 +2,7 @@ import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { uuid } from '../../shared/ids.js';
 import { dateInTz, addDays } from '../../shared/dates.js';
-import { launch, TZ, withPhone, open, editor, waitSaved, tap, structure, caret } from './harness.js';
+import { launch, TZ, withPhone, open, editor, waitSaved, tap, structure, caret, openTaskDetails } from './harness.js';
 
 let browser;
 before(async () => (browser = await launch()));
@@ -330,7 +330,7 @@ describe('task dates: due, start, hidden', () => {
       assert.match((await inSection('hidden')).join('|'), /put away/);
 
       // Pick a due date for the undated task: it moves to Upcoming and is saved in its note.
-      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-expand').tap();
+      await openTaskDetails(page, page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }));
       await page.getByTestId('input-due').fill(addDays(t, 1));
       await waitSaved(page);
       await page.getByTestId('task-sheet-done').tap();
@@ -339,7 +339,7 @@ describe('task dates: due, start, hidden', () => {
       assert.equal(stored()[3].attrs.due, addDays(t, 1), 'saved inside the note');
 
       // Hide it: it leaves Upcoming and appears under Hidden.
-      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-expand').tap();
+      await openTaskDetails(page, page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }));
       await page.getByTestId('input-hidden').check();
       await waitSaved(page);
       await page.getByTestId('task-sheet-done').tap();
@@ -348,7 +348,7 @@ describe('task dates: due, start, hidden', () => {
       assert.equal(stored()[3].attrs.hidden, true);
 
       // Clearing both puts the stored task back exactly as an ordinary task (no empty attributes).
-      await page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }).getByTestId('task-expand').tap();
+      await openTaskDetails(page, page.locator('[data-testid="task-row"]', { hasText: 'no date at all' }));
       await page.getByTestId('input-hidden').uncheck();
       await page.getByTestId('clear-due').tap();
       await waitSaved(page);
@@ -362,7 +362,7 @@ describe('task dates: due, start, hidden', () => {
       assert.equal(await page.getByTestId('input-start-time').inputValue(), '09:00');
       assert.equal(stored()[3].attrs.startTime, '09:00');
       await page.getByTestId('task-sheet-done').tap();
-      await row('coming up').getByTestId('task-expand').tap();
+      await openTaskDetails(page, row('coming up'));
       await page.getByTestId('input-start-time').fill('14:30');
       await waitSaved(page);
       await page.getByTestId('field-start').getByRole('button', { name: 'Tomorrow' }).tap();

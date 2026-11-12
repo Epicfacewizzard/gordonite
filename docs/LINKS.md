@@ -1,7 +1,7 @@
 # Links between notes
 
 Since 0.16.0. A note's page shows **Linked from** (the notes whose text links to it); a person's page shows
-**Mentioned in** (the same, also counting their other names and, since 0.17.0, their plain name written without a link, see [Plain names](#plain-names-since-0170)). Renaming a note keeps the links to it working.
+**Mentioned in** (the same; on a person's page it is titled **Everything written** since 0.18.0 and sits under their card, also counting their other names and, since 0.17.0, their plain name written without a link, see [Plain names](#plain-names-since-0170)). Renaming a note keeps the links to it working.
 
 ## How links are written
 

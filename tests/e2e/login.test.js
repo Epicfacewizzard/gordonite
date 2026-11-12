@@ -38,7 +38,7 @@ test('with a PIN set the app shows only the PIN boxes; a wrong PIN shakes and cl
     await page.keyboard.press('Backspace');
     await page.keyboard.type('4821');
     await page.getByTestId('tabbar').waitFor();
-    assert.equal(await page.getByTestId('title').innerText(), 'Dashboard');
+    assert.equal(await page.getByTestId('title').innerText(), 'Today');
 
     await page.reload();
     await page.getByTestId('tabbar').waitFor();

@@ -2,7 +2,10 @@ import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { uuid } from '../../shared/ids.js';
 import { dateInTz, addDays } from '../../shared/dates.js';
-import { launch, TZ, withPhone, waitSaved, paragraphDoc } from './harness.js';
+import { launch, TZ, withPhone, waitSaved, paragraphDoc, useWideScreen } from './harness.js';
+
+// This file is about the dashboard, the wide layout of Today. The phone's single-column Today is in redesign.test.js.
+useWideScreen();
 
 let browser;
 before(async () => (browser = await launch()));
@@ -43,7 +46,7 @@ describe('the Dashboard (the Today screen)', () => {
 
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('today').waitFor();
-      assert.equal(await page.getByTestId('title').innerText(), 'Dashboard');
+      assert.equal(await page.getByTestId('title').innerText(), 'Today');
       assert.match(await page.getByTestId('today-date').innerText(), /^[A-Z][a-z]+, [A-Z][a-z]+ \d{1,2}$/, 'a long date such as "Monday, October 5"');
 
       const inSection = (id) => page.getByTestId(`section-${id}`).getByTestId('task-row').allInnerTexts();
@@ -67,7 +70,8 @@ describe('the Dashboard (the Today screen)', () => {
       await page.waitForFunction(() => location.hash === '#/tasks');
       await page.goBack();
       await page.getByTestId('today').waitFor();
-      await page.getByTestId('tab-notes').tap();
+      await page.getByTestId('tab-lookup').tap();
+      await page.getByTestId('lookup-notes').tap();
       await page.getByTestId('notes-tags-link').tap();
       await page.getByTestId('tag-list').waitFor();
       await page.getByLabel('Back to Notes').tap();
@@ -144,7 +148,7 @@ const seedNote = async (app, { title = null, text, tags = [], date = today(), ki
 };
 
 describe('one journal page: people today and also today', () => {
-  test('a note that names a person by first name shows them under People today, and under Mentioned in on their page', () =>
+  test('a note that names a person by first name shows them under People today, and under Everything written on their page', () =>
     withPhone(browser, async ({ page, app }) => {
       const marisol = await seedNote(app, { title: 'Marisol Quade', text: 'Neighbour', tags: ['05-people'], date: addDays(today(), -30) });
       await seedNote(app, { title: 'Tobias Ashgrove', text: 'Club treasurer', tags: ['05-people'], date: addDays(today(), -30) });
@@ -174,7 +178,7 @@ describe('one journal page: people today and also today', () => {
 
       await page.goto(`${app.url}/#/people/${marisol}`);
       const section = page.getByTestId('backlinks');
-      await section.getByRole('heading', { name: /Mentioned in/ }).waitFor();
+      await section.getByRole('heading', { name: /Everything written/ }).waitFor();
       await section.getByTestId('backlink').first().waitFor();
       assert.match(await section.innerText(), /Dinner with Marisol/);
       assert.deepEqual(page.errors, []);
@@ -273,9 +277,10 @@ describe('dashboard widgets', () => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('widget-note').waitFor();
       const box = async (id) => (await page.getByTestId(id).boundingBox());
-      // phone width: one column, the tasks first, then today's note, then the rest in the order they were stacked (New note, mood)
-      const [nav, note, mood, tasks] = [await box('today-new-note'), await box('widget-note'), await box('widget-mood'), await box('widget-tasks')];
-      assert.ok(tasks.y < note.y && note.y < nav.y && nav.y < mood.y, 'tasks, today’s note, then the rest on a phone');
+      // phone width: one column: the To do list, today's note, then the small row with mood, skin and New note behind it
+      const [todo, note0, more] = [await box('widget-todo'), await box('widget-note'), await box('today-more')];
+      assert.ok(todo.y <= note0.y && note0.y < more.y, 'To do, today’s note, then the small row on a phone');
+      assert.equal(await page.getByTestId('widget-tasks').count(), 0, 'the side-by-side widgets are for a wide screen');
 
       await page.setViewportSize({ width: 1200, height: 800 });
       await page.waitForFunction(() => getComputedStyle(document.querySelector('.dashboard-grid')).gridTemplateColumns.split(' ').length === 2); // the left column is empty (nothing starred), so it takes no room
@@ -284,7 +289,7 @@ describe('dashboard widgets', () => {
       assert.ok(n.y + n.height <= m.y + 1 && m.y + m.height <= t.y + 1, 'New note, then mood, then tasks, top to bottom');
       assert.ok(n.width < 160 && n.height < 44, 'the New note button is small, not the full column');
       assert.ok(c.width > t.width, 'the note column is the widest');
-    }));
+    }, { viewport: { width: 360, height: 780 } }));
 
   test('the starred tags sit beside the New note button, and the note has the room on the left under the date', () =>
     withPhone(browser, async ({ page, app }) => {
@@ -339,21 +344,22 @@ describe('dashboard widgets', () => {
 describe('the bottom tab bar', () => {
   const current = (page) => page.locator('[data-testid="tabbar"] a[aria-current="page"]').allInnerTexts();
 
-  test('Today, Tasks, People, Projects and Notes are one tap away; tags belong to Notes; the bar steps aside while writing', () =>
+  test('Today, Tasks and Look up are one tap away; Notes and Tags are reached from Look up; the bar steps aside while writing', () =>
     withPhone(browser, async ({ page, app }) => {
       await page.goto(`${app.url}/#/`);
       await page.getByTestId('tabbar').waitFor();
-      assert.deepEqual(await current(page), ['Dashboard']);
+      assert.deepEqual(await current(page), ['Today']);
 
-      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['people', '#/people', 'People'], ['projects', '#/projects', 'Projects'], ['notes', '#/notes', 'Notes'], ['today', '#/', 'Dashboard']]) {
+      for (const [tab, hash, label] of [['tasks', '#/tasks', 'Tasks'], ['lookup', '#/lookup', 'Look up'], ['today', '#/', 'Today']]) {
         await page.getByTestId(`tab-${tab}`).tap();
         await page.waitForFunction((h) => location.hash === h || (h === '#/' && (location.hash === '' || location.hash === '#/')), hash);
         await page.waitForFunction((l) => document.querySelector('[data-testid="tabbar"] a[aria-current="page"]')?.innerText === l, label);
       }
-      await page.getByTestId('tab-notes').tap();
+      await page.getByTestId('tab-lookup').tap();
+      await page.getByTestId('lookup-notes').tap();
       await page.getByTestId('notes-tags-link').tap();
       await page.getByLabel('Tag to create').waitFor();
-      assert.deepEqual(await current(page), ['Notes']);
+      assert.deepEqual(await current(page), ['Look up']);
       assert.equal(await page.getByTestId('tab-tags').count(), 0);
 
       // inside a stream or a note, or while starting one, the bar is not shown (they have their own toolbar)

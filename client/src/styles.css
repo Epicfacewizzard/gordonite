@@ -1824,3 +1824,56 @@ body:not([data-editing]) .today .toolbar {
 .link-suggest li { padding: 8px 12px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link-suggest li[aria-selected='true'] { background: var(--accent); color: var(--accent-contrast); }
 .link-suggest li[aria-selected='true'] .muted { color: inherit; }
+
+/* ---------- 0.18.0: three tabs, a journal-first Today, task sheet, person card, Look up ---------- */
+.tabbar a { min-width: 0; }
+.tabbar svg { display: block; }
+
+/* tasks: a row is the tick and the task; the details open in a sheet */
+.task-text-button { cursor: pointer; display: block; width: 100%; padding: 4px 0; min-height: 28px; overflow-wrap: anywhere; }
+.task-text-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.task-chip.prio-chip { display: inline-flex; align-items: center; padding: 0 6px; }
+.todo .task-list { gap: 4px; }
+.todo .more-link { margin: 6px 4px 0; }
+.todo-widget .section { margin-top: 8px; }
+.sheet .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { padding: 8px 14px; min-height: 40px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: .9rem; cursor: pointer; }
+.pill[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); font-weight: 600; }
+.when-field { margin: 4px 0 8px; }
+.when-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.more-toggle { min-height: 44px; color: var(--accent); font-weight: 600; text-align: left; }
+.task-more { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+.task-details > .task-inline-edit { margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+
+/* Today on a phone: the journal is the page */
+.today-phone .todo-widget { margin-bottom: 4px; }
+.today-more { margin: 16px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.today-more-links { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: .9rem; }
+.today-more-links a, .today-more-links .link-plain { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-weight: 600; text-decoration: none; cursor: pointer; }
+.today-more-body { margin-top: 6px; }
+
+/* a person's page: the "who is this again?" card */
+.person-who { margin: 8px 0 4px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--ok-bg); }
+.person-who-facts { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 6px 10px; margin: 0; }
+.person-who-facts > div { display: contents; }
+.person-who-facts dt { color: var(--muted); font-size: .8rem; padding-top: 2px; }
+.person-who-facts dd { margin: 0; overflow-wrap: anywhere; }
+.person-who .person-tasks { margin-top: 10px; }
+.person-who .person-tasks:first-child { margin-top: 0; }
+
+/* Look up */
+.lookup-search { display: flex; align-items: center; gap: 8px; padding: 0 12px; margin: 4px 0 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.lookup-search input { flex: 1; min-width: 0; min-height: 46px; border: 0; outline: none; background: transparent; color: inherit; font: inherit; font-size: 16px; }
+.lookup-search:focus-within { outline: 2px solid var(--accent); }
+.lookup-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.lookup-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px; color: var(--text); text-decoration: none; }
+.lookup-row + .lookup-row { border-top: 1px solid var(--line); }
+.lookup-grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lookup-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lookup-chev { color: var(--muted); flex: none; }
+.lookup-initials { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--ok-bg); color: var(--accent); font-size: .75rem; font-weight: 700; }
+.lookup-done { text-decoration: line-through; color: var(--muted); }
+.lookup-empty { padding: 10px 12px; margin: 0; }
+.lookup-more { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 20px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.lookup-more a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-weight: 600; text-decoration: none; }
+.task-details .task-inline-edit > .link-plain { display: none; }

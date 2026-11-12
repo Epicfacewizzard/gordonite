@@ -2,12 +2,12 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { uuid } from '../../shared/ids.js';
 import { dateInTz } from '../../shared/dates.js';
-import { launch, withPhone, waitSaved, waitStatus, TZ } from './harness.js';
+import { launch, withPhone, waitSaved, waitStatus, TZ, openTaskDetails } from './harness.js';
 let browser;
 before(async () => { browser = await launch(); });
 after(async () => browser.close());
 
-test('text edits stay in the original task, preserve formatting/children and recover offline; only arrow expands', () => withPhone(browser, async ({ app, page, context }) => {
+test('text edits stay in the original task, preserve formatting/children and recover offline; the text is edited in the task sheet', () => withPhone(browser, async ({ app, page, context }) => {
   const id = uuid(), taskId = uuid(), childId = uuid();
   const task = (id, text) => ({ type: 'taskItem', attrs: { id, checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text, marks: [{ type: 'bold' }] }] }] });
   const parent = task(taskId, 'Write poster');
@@ -20,7 +20,7 @@ test('text edits stay in the original task, preserve formatting/children and rec
   await row.getByTestId('task-edit-text').tap();
   const editor = page.getByTestId('task-text-editor');
   await editor.waitFor();
-  assert.equal(await row.getByTestId('task-details').count(), 0);
+  assert.equal(await page.getByTestId('task-more-body').count(), 0, 'the other options stay folded while the words are edited');
   await context.setOffline(true);
   await editor.press('End'); await page.keyboard.type(' today');
   await waitStatus(page, 'offline');
@@ -28,15 +28,16 @@ test('text edits stay in the original task, preserve formatting/children and rec
   assert.equal(await editor.innerText(), 'Write poster');
   await editor.press('Control+Shift+z');
   assert.match(await editor.innerText(), /Write poster today/);
-  await row.getByTestId('task-text-done').tap();
+  await page.getByTestId('task-sheet-done').tap();
   await context.setOffline(false); await waitSaved(page, 15000);
   const stored = (await app.api('GET', `/api/notes/${id}`)).json.note.doc.content[0].content[0];
   assert.equal(stored.attrs.id, taskId);
   assert.equal(stored.content[1].content[0].attrs.id, childId);
   assert.equal(stored.content[0].content[0].marks[0].type, 'bold');
   assert.ok(!('content' in stored.attrs));
-  await row.getByTestId('task-expand').tap();
-  await row.getByTestId('task-details').waitFor();
+  await openTaskDetails(page, row);
+  await page.getByTestId('task-more-body').waitFor();
+  await page.getByTestId('task-sheet-done').tap();
   await page.goto(`${app.url}/#/n/${id}`);
   await page.getByRole('textbox', { name: 'Note text', exact: true }).waitFor();
   assert.match(await page.getByRole('textbox', { name: 'Note text', exact: true }).innerText(), /Write poster today/);

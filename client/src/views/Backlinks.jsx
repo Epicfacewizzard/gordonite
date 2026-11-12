@@ -2,13 +2,11 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.js';
 import { formatDateLabel } from '../../../shared/dates.js';
 
-/**
- * Under a note on its own page: the notes that link to it with [[its title]] ("Linked from"), or for a person the
- * notes that mention them, also by an "Also called" name ("Mentioned in"). See docs/LINKS.md.
- */
-export function Backlinks({ noteId, title, person, today, revision }) {
-  const [state, setState] = useState(null); // null while loading, then { backlinks } or { error }
+/** The notes that link to a note (for a person: that mention them), re-read after each save. null while loading, then { backlinks } or { error, backlinks }. */
+export function useBacklinks(noteId, revision) {
+  const [state, setState] = useState(null);
   useEffect(() => {
+    if (!noteId) return setState(null);
     let alive = true;
     api
       .backlinks(noteId)
@@ -18,8 +16,18 @@ export function Backlinks({ noteId, title, person, today, revision }) {
       alive = false;
     };
   }, [noteId, revision]); // again after each save: a rename changes which links point here
+  return state;
+}
+
+/**
+ * Under a note on its own page: the notes that link to it with [[its title]] ("Linked from"), or for a person the
+ * notes that mention them, also by an "Also called" name ("Everything written", on a person's card page). See docs/LINKS.md.
+ */
+export function Backlinks({ noteId, title, person, today, revision, state: given = null }) {
+  const own = useBacklinks(given ? null : noteId, revision);
+  const state = given ?? own;
   if (!state) return null;
-  const heading = person ? 'Mentioned in' : 'Linked from';
+  const heading = person ? 'Everything written' : 'Linked from';
   const list = state.backlinks;
   return (
     <section class="backlinks" aria-label={heading} data-testid="backlinks">

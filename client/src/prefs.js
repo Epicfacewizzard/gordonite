@@ -3,7 +3,7 @@
 
 const SPACING_KEY = 'hq-spacing';
 const OPENING_KEY = 'hq-opening-page';
-export const OPENING_PAGES = [['/', 'Dashboard'], ['/notes', 'Notes'], ['/tasks', 'Tasks'], ['/people', 'People']];
+export const OPENING_PAGES = [['/', 'Today'], ['/notes', 'Notes'], ['/tasks', 'Tasks'], ['/people', 'People']];
 
 // The dashboard's widgets: which are shown, in which column, and in what order. Kept on this device like the other
 // display prefs. [id, name, the column it starts in], in the order they first appear. A widget added later appears at

@@ -2,7 +2,7 @@
 // waiting for their reply (Tasks screen, task details, the person's page).
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { launch, withPhone, newId, paragraphDoc } from './harness.js';
+import { launch, withPhone, newId, paragraphDoc, openTaskDetails } from './harness.js';
 
 let browser;
 before(async () => (browser = await launch()));
@@ -46,18 +46,20 @@ describe('projects and waiting on', () => {
       assert.equal(await page.getByTestId('section-anytime').getByText('Buy cups').count(), 1, 'the other task stays where it was');
 
       // details: "Got a reply" ends the waiting but keeps the person
-      await waiting.getByTestId('task-expand').tap();
+      await openTaskDetails(page, waiting);
       await page.getByTestId('task-got-reply').tap();
       await until(async () => (await app.api('GET', '/api/tasks')).json.tasks.find((t) => t.text === 'Book the venue')?.waitingSince === null, 'waiting to be cleared');
       assert.equal((await app.api('GET', '/api/tasks')).json.tasks.find((t) => t.text === 'Book the venue').person, sarah);
       await page.getByTestId('section-waiting').waitFor({ state: 'detached' });
+      await page.getByTestId('task-sheet-done').tap();
 
       // and set again from the details of another task
       const cups = page.getByTestId('task-row').filter({ hasText: 'Buy cups' });
-      await cups.getByTestId('task-expand').tap();
-      await cups.getByTestId('input-person').selectOption(sarah);
-      await cups.getByTestId('input-waiting').check();
+      await openTaskDetails(page, cups);
+      await page.getByTestId('input-person').selectOption(sarah);
+      await page.getByTestId('input-waiting').check();
       await until(async () => (await app.api('GET', '/api/tasks')).json.tasks.find((t) => t.text === 'Buy cups')?.waitingSince, 'waiting to be saved');
+      await page.getByTestId('task-sheet-done').tap();
       await page.getByTestId('section-waiting').getByTestId('task-edit-text').filter({ hasText: 'Buy cups' }).waitFor();
       assert.deepEqual(page.errors ?? [], []);
     }));

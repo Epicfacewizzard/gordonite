@@ -52,6 +52,38 @@ function PinnedWidget({ tags }) {
   );
 }
 
+// The phone's short list at the top of Today: overdue, due today and the undated tasks written in the last three days,
+// three at most, with a link on to Tasks. A tap on a task opens its details in the bottom sheet.
+function TodoWidget({ config }) {
+  return (
+    <section class="widget todo-widget" data-testid="widget-todo">
+      <TasksView config={config} todo />
+    </section>
+  );
+}
+
+// Mood, habits and skin live behind one small row of links so the page stays the journal.
+function MoreRow(context) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section class="today-more" data-testid="today-more">
+      <nav class="today-more-links" aria-label="More for today">
+        <button type="button" class="link-plain" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="today-more-toggle">
+          {open ? '▾' : '▸'} Mood &amp; habits
+        </button>
+        <a href="#/skin" data-testid="today-skin">Log skin</a>
+        <a href="#/new" data-testid="today-new-note">New note</a>
+      </nav>
+      {open && (
+        <div class="today-more-body" data-testid="today-more-body">
+          <MoodWidget {...context} />
+          <HabitsWidget {...context} />
+        </div>
+      )}
+    </section>
+  );
+}
+
 function TasksWidget({ config }) {
   return (
     <section class="widget dash-first" data-testid="widget-tasks">
@@ -140,7 +172,7 @@ function AlsoToday({ others }) {
 // (created on the first keystroke, like in a stream). Under it: the people named today and the other notes dated today.
 // Under those, the last couple of days' entries of that tag (EarlierNotes), greyed until tapped: a tap opens that
 // day for editing right there, and only one note is ever open for editing. A button brings in older days.
-function TodayNoteWidget({ config, today, dailyTag }) {
+function TodayNoteWidget({ config, today, dailyTag, phone = false }) {
   useSession();
   const [state, setState] = useState({ status: 'loading', id: null, error: null });
   const [earlier, setEarlier] = useState(null); // this tag's first page of notes, for the earlier days under today's
@@ -202,7 +234,7 @@ function TodayNoteWidget({ config, today, dailyTag }) {
   return (
     <section class="widget dash-second" data-testid="widget-note">
       <div class="widget-head">
-        <h2 class="section">Today’s note</h2>
+        <h2 class="section">{phone ? 'Today' : 'Today’s note'}</h2>
       </div>
       {state.status === 'error' && (
         <div class="banner error" role="alert" data-testid="load-error">
@@ -282,7 +314,22 @@ function gridFor(shown) {
   return { '--dash-cols': columns, '--dash-areas': rows.join(' ') };
 }
 
+// The side-by-side dashboard needs room; a phone gets the one-column journal page.
+const WIDE = '(min-width: 860px)';
+function useWideScreen() {
+  const [wide, setWide] = useState(() => typeof matchMedia === 'function' && matchMedia(WIDE).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return undefined;
+    const mq = matchMedia(WIDE);
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
+
 export function TodayView({ config }) {
+  const wide = useWideScreen();
   const today = useToday(config.tz);
   const [tags, setTags] = useState([]);
   // The journal tag is one setting kept on the server, changed in Settings. Asked for again each time this opens.
@@ -299,6 +346,19 @@ export function TodayView({ config }) {
   }, []);
 
   const context = { config, today, tags, dailyTag };
+  if (!wide) {
+    return (
+      <div class="today today-phone" data-testid="today">
+        <h2 class="today-date" data-testid="today-date">
+          {longDate(today)}
+        </h2>
+        <TodoWidget config={config} />
+        <TodayNoteWidget key={`note:${dailyTag}`} {...context} phone />
+        <PinnedWidget tags={tags} />
+        <MoreRow {...context} />
+      </div>
+    );
+  }
   // A widget with nothing to show (starred tags, when none are starred) is left out, so it cannot hold a column open.
   const shown = getDashboard().filter((w) => w.shown && !(w.id === 'pinned' && !tags.some((t) => t.favorite)));
   return (

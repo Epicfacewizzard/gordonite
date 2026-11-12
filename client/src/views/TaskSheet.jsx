@@ -72,7 +72,24 @@ function TaskLinks({ values, change, today, tags, uid }) {
  * loses anything. Shown inline when a task is expanded in the list, and in a sheet from the editor.
  * `uid` keeps the field ids unique when several are open at once.
  */
-export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags = null, uid = 'sheet', onChange, onDone, onDelete, onMove }) {
+// The one-tap "When" choices at the top of the task sheet. Next Friday is the first Friday after tomorrow; next week is
+// the first Monday after tomorrow (so neither repeats Today or Tomorrow).
+const dayOfWeek = (date) => new Date(`${date}T00:00:00Z`).getUTCDay();
+function nextWeekday(today, weekday) {
+  let d = addDays(today, 2);
+  while (dayOfWeek(d) !== weekday) d = addDays(d, 1);
+  return d;
+}
+export const whenChoices = (today) => [
+  ['today', 'Today', today],
+  ['tomorrow', 'Tomorrow', addDays(today, 1)],
+  ['friday', 'Next Friday', nextWeekday(today, 5)],
+  ['nextweek', 'Next week', nextWeekday(today, 1)],
+  ['none', 'No date', null],
+];
+
+export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags = null, uid = 'sheet', onChange, onDone, onDelete, onMove, fold = false, lead = null }) {
+  const [more, setMore] = useState(false);
   const [moveMessage, setMoveMessage] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [values, setValues] = useState({ dueTime: picked.dueTime ?? null, startTime: picked.startTime ?? null, due: picked.due ?? null, start: picked.start ?? null, hidden: !!picked.hidden, hideUntil: picked.hideUntil ?? null, priority: picked.priority ?? null, project: picked.project ?? null, person: picked.person ?? null, waitingSince: picked.waitingSince ?? null });
@@ -128,20 +145,9 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags
     );
   };
 
-  return (
-    <div class="task-details">
-      <p class="task-sheet-text">{text}</p>
-      {(where || noteId) && (
-        <p class="small muted">
-          {where}
-          {where && noteId && ' · '}
-          {noteId && (
-            <a href={`#/n/${noteId}`} data-testid="open-task-note">
-              Open this task’s note
-            </a>
-          )}
-        </p>
-      )}
+  const effectiveDue = values.due ?? typed.due ?? null;
+  const rest = (
+    <>
       <TaskLinks values={values} change={change} today={today} tags={tags} uid={uid} />
       {onMove && <div class="row"><button type="button" class="btn" data-testid="task-move-up" onClick={() => setMoveMessage(onMove(-1) ? null : 'Already first at this level.')}>Move up</button><button type="button" class="btn" data-testid="task-move-down" onClick={() => setMoveMessage(onMove(1) ? null : 'Already last at this level.')}>Move down</button></div>}
       {moveMessage && <p class="small muted" role="status">{moveMessage}</p>}
@@ -182,6 +188,44 @@ export function TaskDetails({ text, noteDate, today, picked, noteId, where, tags
         <div class="row"><button type="button" class="btn" data-testid="task-delete-cancel" onClick={() => setConfirmDelete(false)}>Cancel</button>
           <button type="button" class="btn danger" data-testid="task-delete-confirm" onClick={() => { onDelete(); onDone?.(); }}>Delete task</button></div>
       </div>}
+    </>
+  );
+
+  return (
+    <div class="task-details" data-testid="task-details">
+      {fold ? lead : <p class="task-sheet-text">{text}</p>}
+      {fold && (
+        <div class="field when-field" data-testid="field-when">
+          <span class="when-label">When</span>
+          <div class="pills">
+            {whenChoices(today).map(([id, label, date]) => (
+              <button key={id} type="button" class="pill" aria-pressed={effectiveDue === date} onClick={() => change({ due: date })} data-testid={`when-${id}`} title={date ?? undefined}>
+                {label}
+              </button>
+            ))}
+            {effectiveDue && !whenChoices(today).some(([, , d]) => d === effectiveDue) && <button type="button" class="pill" aria-pressed="true" data-testid="when-picked">{formatDateShort(effectiveDue)}</button>}
+          </div>
+        </div>
+      )}
+      {(where || noteId) && (
+        <p class="small muted">
+          {where}
+          {where && noteId && ' · '}
+          {noteId && (
+            <a href={`#/n/${noteId}`} data-testid="open-task-note">
+              Open this task’s note
+            </a>
+          )}
+        </p>
+      )}
+      {fold ? (
+        <>
+          <button type="button" class="link-plain more-toggle" aria-expanded={more} onClick={() => setMore((m) => !m)} data-testid="task-more">
+            {more ? '▾' : '▸'} More
+          </button>
+          {more && <div class="task-more" data-testid="task-more-body">{rest}</div>}
+        </>
+      ) : rest}
       <button type="button" class="btn primary block" onClick={onDone} data-testid="task-sheet-done">
         Done
       </button>

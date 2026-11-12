@@ -6,6 +6,7 @@ import { NoteCard } from './NoteCard.jsx';
 import { EditorBar } from './EditorBar.jsx';
 import { Backlinks } from './Backlinks.jsx';
 import { PersonHeader, PersonProfile } from './PersonProfile.jsx';
+import { PersonCard } from './PersonCard.jsx';
 import { isPersonTags } from '../../../shared/people.js';
 
 /**
@@ -91,9 +92,16 @@ export function NoteView({ id, config }) {
             onChanged={changed}
             onEditor={setEditor}
             aboveTitle={person && <PersonHeader noteId={id} name={session.title || ''} />}
-            belowTags={person && <PersonProfile noteId={id} name={session.title || ''} today={today} session={session} editor={editor} />}
+            belowTags={
+              person && (
+                <>
+                  <PersonCard noteId={id} name={session.title || ''} today={today} revision={session.revision} />
+                  <PersonProfile noteId={id} name={session.title || ''} today={today} session={session} editor={editor} />
+                </>
+              )
+            }
           />
-          {session.revision > 0 && <Backlinks noteId={id} title={session.title || ''} person={person} today={today} revision={session.revision} />}
+          {!person && session.revision > 0 && <Backlinks noteId={id} title={session.title || ''} person={person} today={today} revision={session.revision} />}
           <div class="toolbar-spacer" />
           <EditorBar editor={editor} noteDate={session.date} today={today} />
         </>

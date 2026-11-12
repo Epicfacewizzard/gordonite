@@ -113,10 +113,10 @@ describe('tasks inside a note look and work like on the Tasks page', () => {
     withPhone(browser, async ({ page, app }) => {
       const id = await seed(app, [['review the plan'], ['other thing']]);
       await page.goto(`${app.url}/#/tasks`);
-      await page.locator('[data-testid="task-row"]', { hasText: 'review the plan' }).getByTestId('task-priority').tap();
-      await page.getByTestId('priority-both').tap();
-      await page.locator('[data-testid="task-row"]', { hasText: 'review the plan' }).getByTestId('task-date').tap();
-      await page.getByTestId('pick-today').tap();
+      await page.locator('[data-testid="task-row"]', { hasText: 'review the plan' }).getByTestId('task-edit-text').tap();
+      await page.getByTestId('when-today').tap();
+      await page.getByTestId('task-more').tap();
+      await page.getByTestId('sheet-priority-both').tap();
       await waitSaved(page);
 
       await page.goto(`${app.url}/#/n/${id}`);

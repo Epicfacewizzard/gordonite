@@ -66,13 +66,20 @@ export async function launch() {
   throw new Error('No Chrome or Edge found. Install one, or set CHROME_PATH to a Chromium-based browser.');
 }
 
+// A test file that is about the wide dashboard calls useWideScreen() once at its top: every phone it opens is then a
+// 1100px-wide screen (the phone layout of Today is one column, with mood and habits behind a link).
+let defaultViewport = { width: 360, height: 780 };
+export const useWideScreen = () => {
+  defaultViewport = { width: 1100, height: 800 };
+};
+
 // Samsung Galaxy S24-like context: 360x780 CSS px, 3x, touch, mobile.
 // The service worker is off unless a test asks for it (serviceWorker: true): with it, the page and its files come
 // from its copy, which page.route() cannot see.
-export async function newPhone(browser, app, { clockTime, android = false, serviceWorker = false } = {}) {
+export async function newPhone(browser, app, { clockTime, android = false, serviceWorker = false, viewport = defaultViewport } = {}) {
   const context = await browser.newContext({
     serviceWorkers: serviceWorker ? 'allow' : 'block',
-    viewport: { width: 360, height: 780 },
+    viewport,
     deviceScaleFactor: 3,
     isMobile: true,
     hasTouch: true,
@@ -114,6 +121,15 @@ export async function waitSaved(page, timeout = 10_000) {
     null,
     { timeout },
   );
+}
+
+// The task sheet (Tasks page): tap a row's task, then open the More fold that holds every other option. Returns the sheet.
+export async function openTaskDetails(page, row) {
+  await row.getByTestId('task-edit-text').tap();
+  const sheet = page.getByRole('dialog', { name: 'Task' });
+  await sheet.waitFor();
+  await sheet.getByTestId('task-more').tap();
+  return sheet;
 }
 
 export const tap = (page, testid) => page.getByTestId(testid).tap();

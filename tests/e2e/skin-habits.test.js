@@ -1,7 +1,8 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { dateInTz, addDays } from '../../shared/dates.js';
-import { launch, TZ, withPhone, newId, textOf } from './harness.js';
+import { launch, TZ, withPhone, newId, textOf, useWideScreen } from './harness.js';
+useWideScreen();
 
 let browser;
 before(async () => (browser = await launch()));
