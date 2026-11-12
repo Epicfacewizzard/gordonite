@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 // Schema version is tracked with PRAGMA user_version. Each entry upgrades from
 // the previous version. Never edit a shipped migration; append a new one.
-const MIGRATIONS = [
+export const MIGRATIONS = [
   `
   CREATE TABLE tags (
     id         TEXT PRIMARY KEY,
@@ -191,6 +191,24 @@ const MIGRATIONS = [
     updated_at       TEXT NOT NULL,
     deleted_at       TEXT
   );
+  `,
+  // v12: suggestions filed by an assistant for the Debrief (see docs/DEBRIEF.md). Each is a proposal the owner accepts or
+  // dismisses in the app (kind task | person | remember, details as JSON, shared/suggestions.js cleanProposal).
+  // status is open | accepted | dismissed | withdrawn. Nothing here changes a note: accepting is done by the app,
+  // through the usual save path. note_id is not a foreign key (a proposal outlives a trashed note).
+  `
+  CREATE TABLE suggestions (
+    id          TEXT PRIMARY KEY,
+    day         TEXT NOT NULL,
+    note_id     TEXT,
+    kind        TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'open',
+    created_at  TEXT NOT NULL,
+    resolved_at TEXT
+  );
+  CREATE INDEX suggestions_day ON suggestions (day, status);
   `,
 ];
 

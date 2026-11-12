@@ -178,6 +178,8 @@ export const api = {
   uncheckHabit: (id, date) => request('DELETE', `/api/habits/${enc(id)}/checks/${date}`),
   people: () => request('GET', '/api/people'),
   savePerson: (noteId, profile) => request('PUT', `/api/people/${enc(noteId)}`, { profile }),
+  suggestions: (day) => request('GET', `/api/suggestions?day=${enc(day)}`),
+  resolveSuggestion: (id, status) => request('POST', `/api/suggestions/${enc(id)}/resolve`, { status }),
   projects: () => request('GET', '/api/projects'),
   createProject: (body) => request('POST', '/api/projects', body),
   saveProject: (id, body) => request('PUT', `/api/projects/${enc(id)}`, body),

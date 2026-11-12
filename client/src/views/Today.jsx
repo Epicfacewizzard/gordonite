@@ -74,6 +74,7 @@ function MoreRow(context) {
         </button>
         <a href="#/skin" data-testid="today-skin">Log skin</a>
         <a href="#/new" data-testid="today-new-note">New note</a>
+        <a href="#/debrief" data-testid="today-debrief">Debrief</a>
       </nav>
       {open && (
         <div class="today-more-body" data-testid="today-more-body">
@@ -236,6 +237,7 @@ function TodayNoteWidget({ config, today, dailyTag, phone = false }) {
     <section class="widget dash-second" data-testid="widget-note">
       <div class="widget-head">
         <h2 class="section">{phone ? 'Today' : 'Today’s note'}</h2>
+        {!phone && <a class="link" href="#/debrief" data-testid="today-debrief">Debrief</a>}
       </div>
       {state.status === 'error' && (
         <div class="banner error" role="alert" data-testid="load-error">

@@ -9,6 +9,7 @@ note_tags(note_id, tag_id, note_date, live, slot)  UNIQUE(tag_id, note_date) WHE
 note_versions(id, note_id, revision, doc, doc_format, kind, created_at)
 meta(key, value)
 mood_entries(id, score, note, day, logged_at, created_at, deleted_at)
+suggestions(id, day, note_id, kind, data, source, status, created_at, resolved_at)   -- v12, assistant proposals for the Debrief (docs/DEBRIEF.md)
 attachments(id, sha256, name, mime, size, kind, original_sha256/name/mime/size, note_id, source, created_at, deleted_at)
 ```
 

@@ -106,7 +106,23 @@ Six tools and three new `update_task` fields; the rules are in [PROJECTS.md](PRO
 
 `update_task`: `project` (a project id, null = its note's project), `person` (a People noteId, null takes them off and
 stops waiting), `waiting` (true = since today, or since `waitingSince`; false = they replied). Waiting needs a person.
-The bridge has 55 tools in all.
+The bridge has 61 tools in all (the four Debrief tools below arrived in 0.20.0).
+
+## Debrief (0.20.0)
+
+Four tools for "debrief my day" on the laptop, assistant-neutral (any MCP client). The assistant reads and **proposes**; the
+owner accepts in the app. Details and what is stored: [DEBRIEF.md](DEBRIEF.md).
+
+| Tool | What it does |
+| --- | --- |
+| `get_debrief` | read-only: one day (default today): what was written, people named, tasks made, open and overdue tasks, what the built-in rules would offer, and what is already filed |
+| `file_suggestions` | files up to 50 proposals (`task`, `person`, `remember`) for a day. Changes no note, task or person: the owner accepts or dismisses each in the app's Debrief |
+| `list_suggestions` | read-only: filed suggestions, by day and status |
+| `withdraw_suggestion` | closes one still open |
+
+The draft-then-accept rule: a suggestion is a draft and is filed without asking (it changes nothing); it only becomes a
+change when the owner accepts it in the app. Do not edit notes to carry a suggestion out unless the owner asks. Call
+`get_debrief` first so you do not repeat what is already filed, and only when the owner asks for a debrief or tidy-up.
 
 ## Files (photos, PDFs, documents)
 

@@ -169,13 +169,62 @@ export function taskFromParagraph(paragraph, { due = null, dueTime = null, id = 
  * A copy of the document where the first top-level paragraph reading `line` is a task instead (the line's words kept,
  * the date written in it carried as the task's own date). Null when no such paragraph is there any more.
  */
-export function makeLineATask(doc, line, { noteDate, id } = {}) {
+export function makeLineATask(doc, line, { noteDate, id, due = undefined } = {}) {
   const wanted = normalLine(line);
   const at = (doc?.content ?? []).findIndex((n) => n.type === 'paragraph' && normalLine(inlineText(n)) === wanted);
   if (at < 0) return null;
-  const date = dateWrittenIn(wanted, noteDate);
+  const date = due ? { due, dueTime: null } : dateWrittenIn(wanted, noteDate);
   const task = taskFromParagraph(doc.content[at], { ...(date ?? {}), id });
   const content = [...doc.content];
   content.splice(at, 1, task);
   return { ...doc, content };
+}
+
+// ----- proposals filed by an assistant (docs/DEBRIEF.md) -----
+// The same kinds of choice as the built-in rules, plus "remember" (a fact for a person's page). The assistant files them;
+// the owner accepts or dismisses them in the Debrief. Checking is shared so the server, the bridge and the app agree.
+export const PROPOSAL_KINDS = ['task', 'person', 'remember'];
+const ID = /^[A-Za-z0-9_-]{8,64}$/;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const str = (v, max, field, { required = false } = {}) => {
+  if (v === undefined || v === null || v === '') {
+    if (required) throw new Error(`"${field}" is required`);
+    return undefined;
+  }
+  if (typeof v !== 'string') throw new Error(`"${field}" must be text`);
+  const t = v.trim().replace(/\s+/g, ' ');
+  if (!t && required) throw new Error(`"${field}" is required`);
+  if (t.length > max) throw new Error(`"${field}" must be at most ${max} characters`);
+  return t || undefined;
+};
+
+/** Check one proposal and return it in its stored shape { kind, noteId?, reason?, ...details }. Throws an Error saying what is wrong. */
+export function cleanProposal(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('each suggestion must be an object');
+  if (!PROPOSAL_KINDS.includes(raw.kind)) throw new Error(`"kind" must be one of ${PROPOSAL_KINDS.join(', ')}`);
+  const out = { kind: raw.kind };
+  if (raw.noteId != null) {
+    if (typeof raw.noteId !== 'string' || !ID.test(raw.noteId)) throw new Error('"noteId" must be a note id');
+    out.noteId = raw.noteId;
+  }
+  const reason = str(raw.reason, 200, 'reason');
+  if (reason) out.reason = reason;
+  if (raw.kind === 'task') {
+    out.text = str(raw.text, 300, 'text', { required: true });
+    const line = str(raw.line, 400, 'line');
+    if (line) out.line = line; // the journal line to turn into this task; without it the task is added to the entry
+    if (raw.due != null) {
+      if (typeof raw.due !== 'string' || !DATE.test(raw.due) || Number.isNaN(Date.parse(`${raw.due}T00:00:00Z`))) throw new Error('"due" must be a date like 2026-11-13');
+      out.due = raw.due;
+    }
+  } else if (raw.kind === 'person') {
+    out.name = str(raw.name, 80, 'name', { required: true });
+    const line = str(raw.line, 400, 'line');
+    if (line) out.line = line;
+  } else {
+    if (typeof raw.personId !== 'string' || !ID.test(raw.personId)) throw new Error('"personId" must be a People note id');
+    out.personId = raw.personId;
+    out.text = str(raw.text, 80, 'text', { required: true });
+  }
+  return out;
 }

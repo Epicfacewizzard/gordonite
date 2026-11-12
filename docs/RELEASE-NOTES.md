@@ -1,5 +1,23 @@
 # Release notes
 
+## 0.20.0 — Debrief, and assistant tidy-up suggestions
+
+Version **0.20.0** (feature; **schema v12**). The note document format is untouched. One new table, `suggestions`, holds
+proposals an assistant filed; the migration only adds it and keeps every existing row (tested by building a v11 database and
+migrating it). **Going back to 0.19.0 means restoring the pre-update backup:** an older server refuses to open a database with a newer schema (the deploy script takes that backup first). Step 4
+of "Direction 2: write once"; details in [DEBRIEF.md](DEBRIEF.md).
+
+**Added**
+
+- **Debrief screen** (`#/debrief`, linked from Today): what was written today, the people named, tasks made today, overdue
+  and still-open tasks (tick, or Today / Tomorrow / Next week in one tap) and every waiting suggestion (accept or dismiss).
+  Nothing changes until tapped; changes use the normal save path.
+- **Four assistant-neutral bridge tools** (the bridge now has 61): `get_debrief`, `file_suggestions`,
+  `list_suggestions`, `withdraw_suggestion`. An assistant on the laptop reads the day when asked and files proposals
+  (task, person, remember); they appear in the app's Debrief for the owner to accept. The server makes no AI calls.
+- Server: `server/suggestions.js`, `server/debrief.js`, routes `/api/suggestions` and `/api/assistant/debrief|suggestions`.
+- Tests: `tests/server/debrief.test.js` (migration, tools, routes), `tests/e2e/debrief.test.js`.
+
 ## 0.19.0 — Suggestions under today's journal entry
 
 Version **0.19.0** (feature, client only). **No schema change and no change to the note document format**: accepting a

@@ -6,6 +6,7 @@ import { StreamView } from './views/Stream.jsx';
 import { HomeView } from './views/Home.jsx';
 import { TodayView } from './views/Today.jsx';
 import { TasksView } from './views/Tasks.jsx';
+import { DebriefView } from './views/Debrief.jsx';
 import { LookupView } from './views/Lookup.jsx';
 import { SettingsView } from './views/Settings.jsx';
 import { NoteView } from './views/NotePage.jsx';
@@ -144,7 +145,7 @@ const Icon = ({ d }) => (
 // while typing (the keyboard needs the room).
 const inLookup = (r) => r === '/lookup' || r === '/people' || r.startsWith('/people/') || r === '/projects' || r.startsWith('/projects/') || r === '/notes' || r === '/tags' || r === '/files' || r === '/trash';
 const TABS = [
-  { id: 'today', label: 'Today', href: '#/', match: (r) => r === '/', icon: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
+  { id: 'today', label: 'Today', href: '#/', match: (r) => r === '/' || r === '/debrief', icon: 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
   { id: 'tasks', label: 'Tasks', href: '#/tasks', match: (r) => r === '/tasks', icon: 'M4 4h16v16H4zM8.5 12.5l2.5 2.5 4.5-5' },
   { id: 'lookup', label: 'Look up', href: '#/lookup', match: inLookup, icon: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4' },
 ];
@@ -192,7 +193,7 @@ function goBack(e) {
 
 function Header({ route }) {
   const onHome = route === '/';
-  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/lookup' ? 'Look up' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/people' || route.startsWith('/people/') ? 'People' : route === '/projects' ? 'Projects' : route.startsWith('/projects/') ? 'Project' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/skin' ? 'Skin log' : route === '/habits' || route.startsWith('/habits/') ? 'Habits' : route === '/tags' ? 'Tags' : 'Today';
+  const title = route.startsWith('/t/') ? route.slice(3) : route.startsWith('/n/') ? 'Note' : route === '/lookup' ? 'Look up' : route === '/notes' ? 'Notes' : route.startsWith('/new') ? 'New note' : route === '/tasks' ? 'Tasks' : route === '/debrief' ? 'Debrief' : route === '/people' || route.startsWith('/people/') ? 'People' : route === '/projects' ? 'Projects' : route.startsWith('/projects/') ? 'Project' : route === '/trash' ? 'Trash' : route === '/files' ? 'Files' : route === '/data' ? 'Data & backups' : route === '/settings' ? 'Settings' : route.startsWith('/share') ? 'Shared' : route === '/skin' ? 'Skin log' : route === '/habits' || route.startsWith('/habits/') ? 'Habits' : route === '/tags' ? 'Tags' : 'Today';
   return (
     <header class="topbar">
       {!onHome && (
@@ -320,6 +321,8 @@ export function App() {
   } else if (route.startsWith('/n/')) {
     const id = route.slice(3);
     view = <NoteView key={id} id={id} config={config} />;
+  } else if (route === '/debrief') {
+    view = <DebriefView config={config} />;
   } else if (route === '/tasks') {
     view = <TasksView config={config} />;
   } else if (route === '/files') {

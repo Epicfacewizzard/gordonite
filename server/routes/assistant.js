@@ -8,6 +8,8 @@ import { normalizeTag } from '../../shared/tags.js';
 import { addMood, listMoods, updateMood, deleteMood, restoreMood } from '../moods.js';
 import { AssistantRecords } from '../assistant-records.js';
 import { areaFolders } from '../settings.js';
+import { buildDebrief } from '../debrief.js';
+import { fileProposals, listProposals, resolveProposal } from '../suggestions.js';
 import { addNotesToProject, createProject, listProjects, projectDetails, setProjectRemoved, updateProject, waitingTasks } from '../projects.js';
 
 export function registerAssistantRoutes({ route, assistant, links, db, config, files, store, appVersion }) {
@@ -139,5 +141,10 @@ export function registerAssistantRoutes({ route, assistant, links, db, config, f
     sendJson(res, 200, { project: project ?? projectDetails(db, store, params.id).project });
   });
   route('POST', '/api/assistant/projects/:id/notes', async ({ res, params, body }) => sendJson(res, 200, addNotesToProject(db, store, params.id, body?.noteIds)));
+  // The day's debrief and suggestions filed for the owner (0.20.0, docs/DEBRIEF.md). Filing changes no note: the owner accepts in the app.
+  route('GET', '/api/assistant/debrief', async ({ res, query }) => sendJson(res, 200, buildDebrief({ db, store, links, config }, query.get('day'))));
+  route('GET', '/api/assistant/suggestions', async ({ res, query }) => sendJson(res, 200, { suggestions: listProposals(db, { day: query.get('day'), status: query.get('status') ?? 'open' }) }));
+  route('POST', '/api/assistant/suggestions', async ({ res, body }) => sendJson(res, 200, fileProposals(db, { day: body?.day || dateInTz(new Date(), config.tz), items: body?.items, source: 'assistant' })));
+  route('POST', '/api/assistant/suggestions/:id/withdraw', async ({ res, params }) => sendJson(res, 200, { suggestion: resolveProposal(db, params.id, 'withdrawn') }));
   route('GET', '/api/assistant/waiting', async ({ res, query }) => sendJson(res, 200, { tasks: waitingTasks(db, store, { person: query.get('person'), project: query.get('project') }) }));
 }

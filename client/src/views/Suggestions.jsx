@@ -126,7 +126,7 @@ export function Suggestions({ session, editor, today }) {
           <SuggestionRow key={s.key} s={s} onAccept={accept} />
         ))}
       </ul>
-      {list.length > 4 && <p class="muted small">{list.length - 4} more in the Debrief.</p>}
+      {list.length > 4 && <p class="muted small"><a href="#/debrief">{list.length - 4} more in the Debrief.</a></p>}
       {problem && <p class="error inline" role="alert">{problem}</p>}
     </section>
   );

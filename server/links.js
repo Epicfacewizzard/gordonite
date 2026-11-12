@@ -75,6 +75,12 @@ export class LinkIndex {
       .map((r) => ({ id: r.id, title: r.title, aliases: aliases.get(r.id) ?? [] }));
   }
 
+  /** The people as { id, title, aliases } and a matcher over them (shared/mentions.js): for finding who a text names. */
+  peopleMatcher() {
+    const people = this.#people();
+    return { people, matcher: buildMentionMatcher(people) };
+  }
+
   #tags(ids) {
     const out = new Map(ids.map((id) => [id, []]));
     if (!ids.length) return out;
