@@ -120,3 +120,13 @@ test('making an owner task stores the owner id; a proposal may name an owner', (
   assert.equal(cleanProposal({ kind: 'task', text: 'Send budget', ownerId: 'sam-person-0001' }).ownerId, 'sam-person-0001');
   assert.throws(() => cleanProposal({ kind: 'task', text: 'x', ownerId: 'no' }), /ownerId/);
 });
+
+test('acronyms, ordinary nouns and crossed-off lines offer no person (0.23.1)', () => {
+  const people = (lines) => suggest({ doc: doc(...lines), noteDate: NOTE_DATE, matcher }).filter((s) => s.kind === 'person').map((s) => s.name);
+  assert.deepEqual(people(['Emails sent to TSA', 'Meeting set up with HKSA', 'Invoices sent to the venue', 'Talked to CSS about the room']), []);
+  assert.deepEqual(people(['Priya sent the form', 'Met Dana Whitfield at the fair']), ['Priya', 'Dana Whitfield']);
+  const struck = { type: 'paragraph', content: [{ type: 'text', text: 'Met Priya about the need to book a room', marks: [{ type: 'strike' }] }] };
+  assert.deepEqual(suggest({ doc: doc(struck), noteDate: NOTE_DATE, matcher }), []);
+  const half = { type: 'paragraph', content: [{ type: 'text', text: 'Met Priya ', marks: [{ type: 'strike' }] }, { type: 'text', text: 'and Dana said hello' }] };
+  assert.equal(paragraphsOf(doc(half)).length, 1);
+});

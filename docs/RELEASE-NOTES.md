@@ -1,5 +1,16 @@
 # Release notes
 
+## 0.23.1 — Fewer silly "add as a person" suggestions
+
+The built-in suggestion rules (`shared/suggestions.js`) offered "Add Emails as a person" and "Add HKSA as a person" for
+lines like "Emails sent to TSA" and "Meeting set up with HKSA", and offered things for lines already crossed off.
+
+- Words in all capitals (club, course and office names) are never offered as a person.
+- Ordinary nouns and verbs that often start a line ("Emails", "Invoices", "Sent", "Booked") are not names.
+- A line that is wholly struck through gets no suggestions.
+
+Rules only: no schema, server or saving change. Unit test added in `tests/client/suggestions.test.js`.
+
 ## 0.23.0 — Quick daily-note switching and roomier browsing
 
 Today has a compact switcher for favourite daily tags, with the selected tag highlighted. The last selection is kept on

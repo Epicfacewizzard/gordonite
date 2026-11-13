@@ -27,7 +27,8 @@ const NOT_NAMES = new Set(
    january february march april may june july august september october november december
    he she they we you it his her their our your my this that these those there here what who why how where which
    yes no ok okay thanks thank please hi hello hey dear note notes todo task tasks meeting call email text
-   mr mrs ms dr prof professor met meet told tell asked ask ping pinged called calling texted emailed messaged saw spoke talked talking thanks introduced catch cc lunch coffee dinner`.split(/\s+/),
+   mr mrs ms dr prof professor met meet told tell asked ask ping pinged called calling texted emailed messaged saw spoke talked talking thanks introduced catch cc lunch coffee dinner
+   emails calls texts messages meetings minutes agenda budget invoice invoices form forms slides poster posters draft drafts update updates reminder reminders follow followed sent done booked paid ordered submitted finished confirmed cancelled canceled`.split(/\s+/),
 );
 // Words just before a name that make it read as a person: "met Priya", "with Priya", "told Priya".
 const BEFORE = /(?:\b(?:met|meet|with|told|tell|asked|ask|ping|pinged|call|called|calling|text|texted|email|emailed|message|messaged|saw|spoke to|talk to|talked to|talking to|thanks to|thank|introduced to|catch up with|cc)|@)\s+$/i;
@@ -36,6 +37,8 @@ const AFTER = /^\s+(?:said|says|told|asked|asks|called|calls|texted|emailed|want
 
 const WORD_START = /\p{Lu}/u;
 const NAME_WORD = /^\p{Lu}[\p{L}'’-]*\.?$/u;
+// All capitals ("HKSA", "TSA", "TSAs"): a club, a course or an office, not a person.
+const ACRONYM = /^\p{Lu}{2,}s?\.?$/u;
 
 /** Lowercase, collapse spaces: what a line is compared as. */
 export const normalLine = (text) => String(text ?? '').trim().replace(/\s+/g, ' ');
@@ -59,11 +62,18 @@ const inlineText = (node) => {
   return (node.content ?? []).map(inlineText).join('');
 };
 
-/** The top-level paragraphs of a document as { text, index }: the only lines the rules read. */
+// A paragraph whose every word is struck through: crossed off, so the rules leave it alone.
+const struckThrough = (node) => {
+  const texts = (node.content ?? []).filter((n) => n.type === 'text' && n.text.trim());
+  return texts.length > 0 && texts.every((n) => (n.marks ?? []).some((m) => m.type === 'strike'));
+};
+
+/** The top-level paragraphs of a document as { text, index }: the only lines the rules read (crossed-off lines are skipped). */
 export function paragraphsOf(doc) {
   const out = [];
   (doc?.content ?? []).forEach((node, index) => {
     if (node.type !== 'paragraph') return;
+    if (struckThrough(node)) return;
     const text = normalLine(inlineText(node));
     if (text) out.push({ text, index });
   });
@@ -94,13 +104,13 @@ function nameCandidates(line) {
   for (let i = 0; i < words.length; ) {
     const w = words[i];
     const lower = w.text.toLowerCase().replace(/\.$/, '');
-    if (!NAME_WORD.test(w.text) || !WORD_START.test(w.text) || NOT_NAMES.has(lower) || w.text.length < 2) {
+    if (!NAME_WORD.test(w.text) || !WORD_START.test(w.text) || ACRONYM.test(w.text) || NOT_NAMES.has(lower) || w.text.length < 2) {
       i++;
       continue;
     }
     let j = i + 1;
     // Extend over following capitalised words, but not over a word that ended a sentence or clause.
-    while (j < words.length && j - i < 3 && !/[.,;:!?)”"]$/.test(words[j - 1].raw) && NAME_WORD.test(words[j].text) && !NOT_NAMES.has(words[j].text.toLowerCase().replace(/\.$/, ''))) j++;
+    while (j < words.length && j - i < 3 && !/[.,;:!?)”"]$/.test(words[j - 1].raw) && NAME_WORD.test(words[j].text) && !ACRONYM.test(words[j].text) && !NOT_NAMES.has(words[j].text.toLowerCase().replace(/\.$/, ''))) j++;
     const last = words[j - 1];
     const name = words.slice(i, j).map((x) => x.text).join(' ').replace(/\.$/, '');
     const from = w.from;
